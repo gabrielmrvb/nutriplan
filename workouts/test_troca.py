@@ -146,7 +146,11 @@ class AAplicacaoDaTrocaTests(_ComFicha):
         self.assertIn("1/4", html)
         painel = self.client.get(reverse("workouts:routine"))
         self.assertEqual(painel.context["hoje"].feitos_hoje, 1, "o painel conta o exercício feito no substituto")
-        self.assertContains(painel, "Abrir a ficha de hoje")
+        # O CTA do painel LÊ esse contador (rodada 2, 24/09/2026): com uma
+        # série no substituto ele diz "Continuar treino (1 de N)" e leva à
+        # execução. A asserção antiga era o texto do link da ficha, que não
+        # dependia do que este teste mede.
+        self.assertContains(painel, "Continuar treino")
 
     def test_o_post_da_serie_nao_paga_uma_consulta_a_mais_pela_troca(self):
         """O orçamento do POST é 20; a linha do original responde pelo

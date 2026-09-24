@@ -75,7 +75,8 @@ class TelasAbremSemLoginTests(TestCase):
         html = self.client.get(reverse("accounts:profile")).content.decode()
         self.assertIn('href="%s">Ajuda e reportar um problema</a>' % reverse("ajuda:index"), html)
         html = self.client.get(reverse("areas")).content.decode()
-        self.assertIn('<span class="modulo__nome">Ajuda</span>', html)
+        # Em Mais a Ajuda é uma LINHA da lista de ferramentas (23/09/2026).
+        self.assertIn('<span class="mapa__nome">Ajuda</span>', html)
         self.client.logout()
         with override_settings(LEGAL_PUBLICADO=False):
             html = self.client.get(reverse("accounts:login"), secure=True).content.decode()

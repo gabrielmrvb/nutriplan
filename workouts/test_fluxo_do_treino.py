@@ -206,7 +206,7 @@ class OPainelNaoDespejaAListaTests(BaseDoFluxo):
         )
 
 
-class ComecarTreinoAbreAFichaTests(BaseDoFluxo):
+class ComecarTreinoAbreAExecucaoTests(BaseDoFluxo):
     """O CTA da tela principal, e o que ele NÃO faz."""
 
     def setUp(self):
@@ -214,17 +214,26 @@ class ComecarTreinoAbreAFichaTests(BaseDoFluxo):
         self.client.force_login(self.user)
         self.sessao = sessao_de_hoje(self.user)
 
-    def test_o_cta_aponta_para_a_ficha_e_nao_para_a_execucao(self):
+    def test_o_cta_aponta_para_a_execucao_e_a_ficha_fica_ao_lado(self):
+        """REVERTIDO em 24/09/2026 (decisão do dono, rodada 2).
+
+        Este teste nasceu prendendo o contrário — "o CTA abre a ficha, e não o
+        primeiro exercício" —, e o comentário dizia a razão: o fluxo pulava a
+        etapa em que a pessoa decide. A rodada 2 mediu o outro lado: quem já
+        decidiu pagava dois toques toda vez, e o segundo era numa tela que ela
+        não ia ler. O que o teste guarda continua sendo o mesmo — UM destino
+        por rótulo, e a ficha com porta própria.
+        """
         html = self.client.get(reverse("workouts:routine")).content.decode()
         ficha = reverse("workouts:ficha", args=[self.sessao.pk])
 
+        # A ficha continua na tela, com o rótulo dela.
         self.assertIn('href="%s"' % ficha, html)
-        # A âncora do CTA é a da ficha; a execução não é destino de botão nesta
-        # tela. `agora` continua existindo — quem chega nela vem da ficha.
+        self.assertIn("Ver ficha", html)
         inicio = html.index("data-hoje-cta")
         trecho = html[max(0, inicio - 400):inicio]
-        self.assertIn(ficha, trecho)
-        self.assertNotIn(reverse("workouts:now"), trecho)
+        self.assertIn(reverse("workouts:now"), trecho)
+        self.assertNotIn(ficha, trecho)
 
     def test_abrir_a_ficha_nao_registra_progresso_nem_serie(self):
         """Ver não é fazer.
@@ -701,6 +710,8 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         form = TrainingForm(
             data={
                 "weekdays": ["0", "2", "4"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
@@ -726,6 +737,8 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         form = TrainingForm(
             data={
                 "weekdays": ["0", "2", "4"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",
@@ -755,6 +768,8 @@ class ADuracaoSaiDaTelaMasNaoDoMotorTests(BaseDoFluxo):
         form = TrainingForm(
             data={
                 "weekdays": [str(d) for d in range(7)], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",
                 "sleep_time": "23:00",

@@ -1,143 +1,125 @@
 {% extends "base.html" %}
 
 {% comment %}
-  O título é o NOME DA TELA, e a tela se chama Progresso.
-
-  Ele dizia "Histórico" enquanto a aba e o `<h1>` diziam outra coisa — é o nome
-  da página na aba do navegador e na lista de apps abertos da PWA, e quem
-  procura a tela por lá procura pelo nome que viu nela. O B4 alinhou os três em
-  "Métricas", que era o rótulo que a barra tinha desde o primeiro commit.
-
-  O B6 corrigiu o rótulo em si: o contrato de navegação escreve `Progresso`
-  duas vezes — na barra de hoje e na barra futura, depois da medição do GPS — e
-  não escreve `Métricas` uma única vez. "Métricas" nunca foi decisão registrada;
-  era o nome com que a barra nasceu. Os três continuam iguais entre si, e agora
-  iguais ao contrato.
-
-  A rota continua `/historico/`: endereço publicado não se troca por causa de
-  rótulo.
+  O título é o NOME DA TELA, e a tela se chama Progresso. A rota continua
+  `/historico/`: endereço publicado não se troca por causa de rótulo.
 {% endcomment %}
 {% block title %}Progresso · NutriPlan{% endblock %}
-
-{% comment %}
-  LARGO NO DESKTOP (22/09/2026). Medido a 1280px: 480px de conteúdo e 400 de
-  vazio de cada lado, com a página em 4.511px de altura. Esta tela é a mais
-  longa do app e a que mais ganha com duas colunas — e ela já é `.split`, o
-  que faz a mudança ser UMA palavra em vez de um layout novo.
-{% endcomment %}
 {% block container_class %}largo{% endblock %}
 
 {% block content %}
   <div class="page-head">
     <h1>Progresso</h1>
-    <p class="lead">Peso, treino, alimentação e água — o que você registrou.</p>
+    <p class="lead">Como os seus números estão andando — e desde quando.</p>
   </div>
 
   {% comment %}
-    A ordem é a resposta a "como estou evoluindo?".
+    O CABEÇALHO DE PERÍODO (item 1, 23/09/2026).
 
-    Resumo, depois evolução, depois o detalhe. O dia a dia é a lista mais
-    longa da tela — até catorze linhas — e com ele em cima os cartões de peso,
-    treino e água caíam para além de duas telas de rolagem no celular: medido,
-    o Treino ficava a 1,65 tela com SEIS dias registrados, e a régua real são
-    catorze.
+    Antes: uma faixa de três números que misturava HOJE com HISTÓRICO
+    ("2/3 refeições hoje" ao lado de "1301 kcal/dia" e "1 dias com registro"),
+    e nenhuma forma de escolher o recorte. Agora o recorte é a primeira
+    pergunta da tela, e os quatro tiles respondem PARA ELE.
 
-    Não é ruído: cada um desses blocos responde alguma coisa. Estava na ordem
-    errada, e a correção é mover, não remover.
+    O seletor é um link com `?p=`, e não um botão com JavaScript: funciona sem
+    script, entra no histórico do navegador, dá para guardar nos favoritos, e o
+    servidor já sabe responder — `evolucao.periodo_valido` é lista fechada,
+    como o `DESTINOS` do `next` da água.
+
+    A barra gruda no topo ao rolar (seção 27 do CSS): esta é a tela mais longa
+    do app, e trocar de período no fim dela não pode exigir rolar de volta.
   {% endcomment %}
-  {% comment %}
-    Um container, e não três.
+  <nav class="periodo" aria-label="Período do progresso">
+    {% for p in painel.periodos %}
+      <a class="periodo__item{% if p.atual %} is-active{% endif %}"
+         href="?p={{ p.chave }}"{% if p.atual %} aria-current="true"{% endif %}>{{ p.rotulo }}</a>
+    {% endfor %}
+  </nav>
 
-    `.split` é coluna única em TODA largura — decisão registrada no CSS, com o
-    motivo: um app que se comporta diferente no monitor e no celular faz a
-    pessoa testar um e confiar no outro. Então partir estes cinco cartões em
-    `split__main` / `split__aside` / `split__main` não produzia coluna nenhuma;
-    produzia espaçamento desigual.
+  <div class="tiles tiles--tendencia">
+    {% for tile in painel.tiles %}
+      <div class="tile tile--tendencia tile--{{ tile.chave }}{% if tile.direcao %} tile--{{ tile.direcao }}{% endif %}">
+        <span class="tile__label">{{ tile.titulo }}</span>
+        <strong class="tile__value" data-conta>{{ tile.valor }}{% if tile.unidade %}<span class="tile__unidade">{{ tile.unidade }}</span>{% endif %}</strong>
+        {% if tile.direcao %}
+          {% comment %}
+            A seta é DECORATIVA: a direção já está na frase logo abaixo, e um
+            leitor de tela que anunciasse "seta para baixo" daria a metade
+            visual de uma informação que a outra metade já diz por extenso.
+          {% endcomment %}
+          <span class="tile__seta" aria-hidden="true">{% if tile.direcao == 'caindo' %}↓{% elif tile.direcao == 'subindo' %}↑{% else %}→{% endif %}</span>
+        {% endif %}
+        <span class="tile__meta">{{ tile.frase }}</span>
+      </div>
+    {% endfor %}
+  </div>
 
-    Medido a 375px: os vãos saíam 16, 32, 32, 16 — porque dentro de um mesmo
-    container o `gap` do flex SOMA com a margem de `.stack`, e entre containers
-    só o `gap` do `.split` conta. O resultado invertia o agrupamento: Peso,
-    Treino e Água, que são a mesma gramática, ficavam mais afastados entre si
-    do que da fronteira com os blocos que não são deles.
+  {% if painel.janela.truncada %}
+    {% comment %}
+      A PRÉVIA FANTASMA (item 6), UMA VEZ e não uma por área.
 
-    Um container só, e os cinco cartões ficam com o mesmo vão — o mesmo das
-    outras telas do app.
-  {% endcomment %}
-  {% if totals.days %}
-    <div class="split">
-      <div class="split__main stack stack--duas-colunas">
-        <section class="card">
-          <div class="tiles">
-            {% comment %}
-              A PORCENTAGEM É DOS DIAS FECHADOS; no primeiro dia não há
-              nenhum, e a caixa mostra o progresso de hoje ("1/2 até agora")
-              em vez de "20 %" (item 6 da missão de UX, 22/09/2026).
-            {% endcomment %}
-            <div class="tile">
-              {% if totals.adherence_pct is None %}
-                <strong class="tile__value num">{{ totals.hoje_feitas }}/{{ totals.hoje_previstas }}</strong>
-                <span class="tile__label">Refeições</span>
-                <span class="tile__meta">hoje, até agora</span>
-              {% else %}
-                <strong class="tile__value" data-conta>{{ totals.adherence_pct }}%</strong>
-                <span class="tile__label">Aderência</span>
-                <span class="tile__meta">dias anteriores</span>
-              {% endif %}
-            </div>
-            {% comment %}
-              A MÉDIA É DOS DIAS FECHADOS, como a porcentagem ao lado
-              (24/09/2026). Ela somava TODOS os dias — hoje incluído — e
-              imprimia "meta: N" ao lado, que é a meta de um dia inteiro: a
-              média caía toda manhã e subia durante o dia, e quem abria a
-              tela três vezes via três números sem ter mudado nada. No
-              primeiro dia não há média nenhuma, e a caixa diz o que ela
-              TEM: as kcal de hoje até agora.
-            {% endcomment %}
-            <div class="tile">
-              {% if totals.avg_kcal is None %}
-                <strong class="tile__value num">{{ totals.hoje_kcal }}</strong>
-                <span class="tile__label">kcal</span>
-                <span class="tile__meta">hoje, até agora</span>
-              {% else %}
-                <strong class="tile__value" data-conta>{{ totals.avg_kcal }}</strong>
-                <span class="tile__label">kcal/dia</span>
-                <span class="tile__meta">dias anteriores · meta: {{ plan.target_kcal }}</span>
-              {% endif %}
-            </div>
-            <div class="tile">
-              <strong class="tile__value" data-conta>{{ totals.days }}</strong>
-              <span class="tile__label">dias</span>
-              <span class="tile__meta">com registro</span>
-            </div>
-          </div>
-        </section>
+      A conta é mais nova que o período pedido. A alternativa que existia era
+      pior: completar com semanas anteriores ao cadastro — uma semana de 03/08
+      numa conta de 21/09 não diz "você não treinou", diz que o app não sabe o
+      que perguntar. Repetir o aviso nos quatro cartões (a primeira versão
+      desta tela fazia isso) transformava a explicação em ruído: ela é da
+      TELA, porque o recorte é da tela.
+    {% endcomment %}
+    <p class="previa-fantasma previa-fantasma--tela">
+      Sua conta tem {{ painel.janela.dias }} dia{{ painel.janela.dias|pluralize }} —
+      os gráficos mostram só o que existiu desde então, e crescem com você.
+    </p>
+  {% endif %}
 
-        {% include "plans/_peso.html" %}
-        {% include "plans/_progresso_treino.html" %}
-        {% if tem_corrida %}{% include "plans/_progresso_corrida.html" %}{% endif %}
-        {% include "plans/_progresso_agua.html" %}
-        {% include "plans/_progresso_conquistas.html" %}
+  <div class="split">
+    <div class="split__main stack stack--duas-colunas">
+      {% include "plans/_peso.html" %}
 
+      {% comment %}
+        AS QUATRO ÁREAS, na mesma gramática (itens 3, 4, 5 e 9). Corrida só
+        aparece para quem correu — a mesma régua da Home, e pelo mesmo motivo:
+        um zero inventado afirma que a pessoa não corre quando o app só não
+        sabe.
+
+        A ordem começa por Alimentação porque era a única área que a tela
+        media antes (a faixa do topo era só dela); Corrida fecha porque é a
+        opcional.
+      {% endcomment %}
+      {% for area in painel.areas %}
+        {% if area.chave != 'corrida' or painel.tem_corrida %}
+          {% include "plans/_progresso_area.html" with area=area janela=painel.janela %}
+        {% endif %}
+      {% endfor %}
+
+      {% if convite_de_nivel %}
         {% comment %}
-          "DIA A DIA" NASCE RECOLHIDO (22/09/2026).
-
-          É o registro cru — até catorze linhas, ~1.040px a 390px — e é a
-          única seção desta tela que não responde "como estou evoluindo": ela
-          responde "o que eu comi no dia 12", que é uma consulta pontual.
-          Deixá-la aberta fazia a tela abrir com 4.840px de rolagem, e o preço
-          era pago por toda visita, não só pela que veio conferir um dia.
-
-          `<details>` e não abas: é o padrão do app (`<details>` antes de
-          `<dialog>`, e tela antes dos dois), funciona sem JavaScript, entra
-          na ordem do Tab e anuncia estado — e `pwa.js` anima a abertura,
-          como faz com a refeição futura.
+          O CONVITE, não a inferência (T2.4): meio ano e duas dúzias de treinos
+          depois, quem se declarou iniciante provavelmente não é mais — mas é a
+          pessoa quem diz. A troca passa pelo Perfil, pela porta de sempre.
         {% endcomment %}
+        <div class="card convite-nivel">
+          <p>
+            Você treina há mais de seis meses e continua marcado como iniciante.
+            O teto de séries por semana sobe com o nível — se você já não se
+            considera iniciante, atualize no Perfil.
+          </p>
+          <a class="btn btn--ghost btn--sm" href="{% url 'accounts:profile' %}">Abrir o Perfil</a>
+        </div>
+      {% endif %}
+
+      {% include "plans/_progresso_conquistas.html" %}
+
+      {% comment %}
+        "DIA A DIA" NASCE RECOLHIDO. É o registro cru — até catorze linhas — e
+        é a única seção desta tela que não responde "como estou evoluindo": ela
+        responde "o que eu comi no dia 12", que é consulta pontual.
+      {% endcomment %}
+      {% if rows %}
         <details class="card explicacao">
           <summary class="explicacao__head">
             <h2>Dia a dia</h2>
             <span class="explicacao__dica" aria-hidden="true">abrir</span>
           </summary>
-          {# `data-escalonado`: as linhas entram uma atrás da outra (pwa.js numera, o CSS atrasa). #}
           <div class="history-rows" data-escalonado>
           {% for row in rows %}
             <div class="history-row">
@@ -151,14 +133,13 @@
               <span class="history-row__facts">
                 <span class="history-row__kcal">{{ row.kcal }} kcal</span>
                 {% comment %}
-                  O denominador é o PLANO, e não o que foi marcado.
-
-                  Com `row.marked` aqui, quem fez 3 de 5 refeições e marcou
-                  só essas três lia "3/3 no plano" e 100% de aderência — a
-                  mesma pessoa que a ofensiva contava como 60%. Duas telas,
-                  duas respostas para a mesma pergunta.
+                  "no plano" saiu daqui em 23/09/2026: `config/test_linguagem`
+                  proíbe a palavra no `<main>` desta rota, e ela só não
+                  reprovava porque o fixture daquele teste não tem refeição
+                  marcada — ou seja, o ramo nunca era renderizado. "previstas"
+                  diz a mesma coisa e é a palavra do resto da tela.
                 {% endcomment %}
-                <span class="history-row__meals">{{ row.done }}/{{ row.previstas }}{% if row.parcial %} até agora{% else %} no plano{% endif %}</span>
+                <span class="history-row__meals">{{ row.done }}/{{ row.previstas }}{% if row.parcial %} até agora{% else %} previstas{% endif %}</span>
               </span>
             </div>
           {% endfor %}
@@ -166,52 +147,11 @@
           <p class="hint">
             A barra compara o dia com a meta que valia NAQUELE dia — se você
             recalibrou no meio, cada dia é medido pela régua da época. A coluna
-            da direita é quantas refeições você comeu conforme o plano, de
-            quantas o plano previa para o dia.
+            da direita é quantas refeições você comeu conforme o cardápio, de
+            quantas estavam previstas para o dia.
           </p>
         </details>
-      </div>
+      {% endif %}
     </div>
-  {% else %}
-    {% comment %}
-      O mesmo container do ramo cheio, e pelo mesmo motivo.
-
-      Solto no `.container`, quem espaça os cartões é `.card + .card`, que vale
-      16px; dentro do `.split__main`, o `gap` do flex soma com a margem do
-      `.stack` e vale 32. Medido: a MESMA tela mudava de ritmo conforme a
-      pessoa já tivesse marcado uma refeição ou não. Estado vazio não é outra
-      tela.
-    {% endcomment %}
-    <div class="split">
-      <div class="split__main stack stack--duas-colunas">
-        <section class="card">
-          {% comment %}
-            O botão é `--ghost` como o dos vazios de treino e de água, logo
-            abaixo: a ação primária desta tela é a pesagem ("Salvar", no
-            cartão seguinte), e dois botões cheios acima da dobra disputavam
-            o dedo — medido a 390px em 12/09/2026, com os dois à vista.
-          {% endcomment %}
-          <div class="empty-state">
-            {% comment %}
-              Fala das REFEIÇÕES, e só delas: "Ainda não há nada marcado"
-              lia como "nada" para quem tinha registrado 25 séries na véspera
-              (achado #12 das personas). Treino, corrida, água e peso têm o
-              cartão deles logo abaixo.
-            {% endcomment %}
-            <p>
-              Nenhuma refeição registrada ainda. Assim que você marcar a
-              primeira, a aderência ao cardápio começa aqui.
-            </p>
-            <a class="btn btn--ghost" href="{% url 'plans:today' %}">Ir para o dia de hoje</a>
-          </div>
-        </section>
-
-        {% include "plans/_peso.html" %}
-        {% include "plans/_progresso_treino.html" %}
-        {% if tem_corrida %}{% include "plans/_progresso_corrida.html" %}{% endif %}
-        {% include "plans/_progresso_agua.html" %}
-        {% include "plans/_progresso_conquistas.html" %}
-      </div>
-    </div>
-  {% endif %}
+  </div>
 {% endblock %}

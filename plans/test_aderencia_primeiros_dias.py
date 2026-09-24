@@ -63,8 +63,14 @@ class AderenciaDosPrimeirosDiasTests(TestCase):
         self._marcar(self.hoje, 1)
         totais = tracking.adherence(tracking.history(self.user))
         self.assertEqual(totais["adherence_pct"], 80)
-        html = self.client.get(reverse("plans:history")).content.decode()
-        self.assertIn("80%", html)
+        # O TILE separa número e unidade em dois elementos desde o redesenho
+        # (23/09/2026), então "80%" deixou de existir como string do HTML. A
+        # régua passa a ser o tile, que é onde o número mora — e ela é mais
+        # forte: casa com o valor E com o rótulo, em vez de com dois
+        # caracteres que qualquer outro lugar da página poderia ter.
+        painel = self.client.get(reverse("plans:history")).context["painel"]
+        dieta = [t for t in painel["tiles"] if t.chave == "dieta"][0]
+        self.assertEqual((dieta.valor, dieta.unidade), ("80", "%"))
 
     def test_no_dia_do_cadastro_as_refeicoes_de_antes_dele_nao_entram(self):
         """Quem se cadastrou às 10h não deve o café das 7h30 (achado #7)."""

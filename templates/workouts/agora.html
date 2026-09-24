@@ -103,21 +103,36 @@
           <span class="fim__valor num">{{ estado.series_feitas }}</span>
           <span class="fim__rotulo">{% if estado.series_feitas == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
         </li>
-        {% if estado.minutos_entre_registros %}
+        {% comment %}
+          A DURAÇÃO DO TREINO, e não o intervalo entre anotações
+          (24/09/2026). "min entre o primeiro e o último registro" descrevia
+          o banco: quem fecha a última série às 19h05 e encerra às 19h40
+          passou 35 minutos a mais lá do que a tela dizia. `minutos_do_treino`
+          usa o "Encerrar treino" como fim quando ele existe, e cai no
+          intervalo de sempre quando não existe — o app não inventa um fim
+          que ninguém marcou.
+        {% endcomment %}
+        {% if estado.minutos_do_treino %}
           <li>
-            <span class="fim__valor num">{{ estado.minutos_entre_registros }}</span>
-            <span class="fim__rotulo">min entre o primeiro e o último registro</span>
+            <span class="fim__valor num">{{ estado.minutos_do_treino }}</span>
+            <span class="fim__rotulo">min de treino</span>
           </li>
         {% endif %}
+        {% comment %}
+          QUANTOS DE QUANTOS. A lista de "Sem registro hoje" nomeia o que
+          ficou de fora e não diz o tamanho: 3 nomes podem ser 3 de 4 ou 3
+          de 12, e as duas leituras são treinos diferentes.
+        {% endcomment %}
         <li>
-          {% if estado.placar.delta_pct is not None %}
+          <span class="fim__valor num">{{ estado.exercicios_feitos }}</span>
+          <span class="fim__rotulo">de <span class="num">{{ estado.exercicios_do_dia }}</span> {% if estado.exercicios_do_dia == 1 %}exercício{% else %}exercícios{% endif %} feitos</span>
+        </li>
+        {% if estado.placar.delta_pct is not None %}
+          <li>
             <span class="fim__valor num">{% if estado.placar.delta_pct >= 0 %}+{% endif %}{{ estado.placar.delta_pct }}%</span>
             <span class="fim__rotulo">vs. a última vez</span>
-          {% else %}
-            <span class="fim__valor num">{{ estado.total_exercicios }}</span>
-            <span class="fim__rotulo">{% if estado.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}</span>
-          {% endif %}
-        </li>
+          </li>
+        {% endif %}
       </ul>
       {% comment %}
         O QUE FICOU DE FORA, nomeado (22/09/2026). Um placar que só soma o

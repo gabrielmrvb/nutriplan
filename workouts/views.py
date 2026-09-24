@@ -1054,6 +1054,13 @@ class EncerrarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
         if parcial and request.POST.get("confirmado") != "1":
             return redirect(reverse("workouts:now") + "?encerrar=confirmar")
         services.encerrar_treino(request.user, estado.sessao)
+        # `treino.concluido` também estava na taxonomia sem nunca ser
+        # disparado. A duração é a MEDIDA (`minutos_do_treino`), que desde
+        # hoje vai da primeira série ao encerramento — o mesmo número que o
+        # placar mostra, para a gestão e a tela não discordarem.
+        analytics.evento(
+            request, "treino.concluido", {"duracao": estado.minutos_do_treino}
+        )
         if estado.series_feitas:
             messages.success(
                 request,
@@ -1656,6 +1663,21 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 # de "começou a treinar". A letra fica de fora para não pagar
                 # uma consulta na rota mais quente do app.
                 analytics.evento(request, "treino.iniciado", {})
+            if criada:
+                # `treino.serie_concluida` estava na taxonomia desde o começo
+                # e NUNCA era disparado (24/09/2026) — o último degrau do
+                # funil de entrada não existia, e o "uso por área" enxergava
+                # tudo menos o treino. Só quando a linha NASCE: o reenvio da
+                # fila offline (`criada=False`) é a mesma série chegando duas
+                # vezes, e contá-la de novo inflaria o número que a tela de
+                # gestão usa para decidir.
+                #
+                # `carga` e `reps` são da própria série — número de treino, e
+                # não de corpo; a taxonomia proíbe PII e nenhum dos dois é.
+                analytics.evento(
+                    request, "treino.serie_concluida",
+                    {"exercicio": exercise.pk, "carga": float(peso or 0), "reps": reps or 0},
+                )
             if primeira_do_dia or services.supera_recorde(
                 request.user, exercise, peso, reps=reps, dia=dia
             ):

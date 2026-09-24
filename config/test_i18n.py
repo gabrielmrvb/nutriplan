@@ -21,6 +21,15 @@ CATALOGO = RAIZ / "locale" / "pt_BR" / "LC_MESSAGES" / "django.po"
 #: 21/09/2026: cada um carrega `{% load i18n %}` e marca o texto visível.
 #: `templates/base.html` entra pela FRASE nova (a faixa do staging), não pelo
 #: arquivo inteiro — marcar mil frases antigas de uma vez não é o objetivo.
+#:
+#: A EXCEÇÃO, que existe desde 21/09/2026 e nunca esteve escrita:
+#: `templates/analytics/` — o painel de GESTÃO — fica de fora. Os seis
+#: templates nascidos com o painel, no MESMO dia em que esta régua foi
+#: escrita, não carregam `{% load i18n %}` e nunca entraram na lista; os de
+#: 24/09 (entrada, uso) seguem o precedente. A razão: aquelas telas são a
+#: ferramenta de quem OPERA o produto, não o produto — a segunda língua, no
+#: dia em que existir, é para quem USA o app. Quando isso mudar, entram
+#: todos de uma vez, e não meia dúzia de frases soltas.
 TEMPLATES_NOVOS = {
     "templates/base.html": ["STAGING — não é produção"],
     # A receita (23/09/2026): duas telas NOVAS, e por isso o texto visível
@@ -28,6 +37,11 @@ TEMPLATES_NOVOS = {
     # antiga e continua fora — marcar mil frases velhas de uma vez não é o
     # objetivo desta régua, e a lista diz exatamente o que está coberto.
     "templates/plans/receita.html": ['Voltar ao cardápio'],
+    # O PROGRESSO (23/09/2026): a parcial de área é nova — uma para as quatro
+    # seções —, e por isso nasce com o texto visível marcado. `history.html`
+    # e `_peso.html` são antigos e continuam fora: marcar mil frases velhas
+    # de uma vez não é o objetivo desta régua.
+    "templates/plans/_progresso_area.html": ['O que este gráfico mede', 'treinou', 'descanso combinado', 'combinado, sem série', 'sem registro', 'dia cheio', 'Seus recordes', 'Os recordes aparecem a partir do segundo treino com carga.', 'O que mais você registrou', 'Ritmo da última semana:', 'por km'],
     "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
     # A missão "dado errado" (24/09/2026): duas parciais novas e uma tela
     # nova, e as três nascem marcadas.

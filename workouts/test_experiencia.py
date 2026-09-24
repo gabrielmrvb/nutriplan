@@ -333,6 +333,8 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
                 "weekdays": ["1", "3"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "experiencia": Experiencia.INICIANTE,
@@ -357,6 +359,8 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
                 "weekdays": ["1"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "experiencia": "",
@@ -364,8 +368,12 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
                 "sleep_time": "23:00",
             },
         )
-        # Sem o 302, "não gravou nada" e "gravou vazio" seriam indistinguíveis.
-        self.assertEqual(resposta.status_code, 302, "a etapa 2 recusou o envio")
+        # RECUSA, e não 302 (24/09/2026). Passar batido pelo campo continua
+        # não gravando nível nenhum — o que mudou é que o envio deixou de ser
+        # aceito em silêncio. O princípio ("o app não declara por ninguém") é
+        # o mesmo; a régua ficou mais forte.
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("experiencia", resposta.context["forms"]["rotina"].errors)
 
         user.refresh_from_db()
         self.assertEqual(user.profile.experiencia, "")
@@ -378,19 +386,32 @@ class AExperienciaAtravessaOFormularioTests(TestCase):
             self.client.get(reverse("accounts:profile")), "Avançado"
         )
 
-    def test_o_perfil_diz_que_a_experiencia_nao_foi_informada(self):
-        """Linha pendurada sem valor não é honestidade, é descuido.
+    def test_o_perfil_diz_qual_padrao_esta_valendo(self):
+        """A frase mudou em 24/09/2026, e o princípio é o mesmo.
 
-        E escrever "Intermediário" ali seria pior: a tela afirmaria a resposta
-        que a pessoa não deu.
+        Era "não informada", com a razão escrita: "escrever Intermediário ali
+        seria pior — a tela afirmaria a resposta que a pessoa não deu". O que
+        a rodada 2 mediu é o outro lado: "não informada" é o app admitindo
+        que montou a ficha com um palpite **sem dizer qual**. A tela continua
+        NÃO afirmando que ela respondeu — diz o padrão que o motor usa e que
+        ela ainda não respondeu, que são duas coisas na mesma linha.
+
+        A pergunta virou obrigatória no cadastro; esta linha é para quem já
+        tinha conta antes disso.
         """
         user = create_user(email="perfil-vazio@exemplo.com")
         self.client.force_login(user)
 
-        resposta = self.client.get(reverse("accounts:profile"))
-
-        self.assertContains(resposta, "não informada")
-        self.assertNotContains(resposta, "Intermediário")
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+        # A LINHA DA EXPERIÊNCIA, e não a página: `musculacao` em branco
+        # continua dizendo "não informada" de propósito — ali o vazio é "nunca
+        # vi a pergunta" (conta anterior a 22/09/2026) e o app não tem padrão
+        # a declarar. Inventar um "Sim" seria exatamente o defeito que esta
+        # classe existe para impedir.
+        linha = html.split("Experiência", 1)[1].split("</div>", 1)[0]
+        self.assertNotIn("não informada", linha)
+        self.assertIn("Intermediário", linha)
+        self.assertIn("ainda não respondeu", linha)
 
     def _marcados(self):
         """Os rádios de experiência que abrem já escolhidos.

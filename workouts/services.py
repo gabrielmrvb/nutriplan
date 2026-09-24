@@ -3418,6 +3418,19 @@ class EstadoDoTreino:
     descanso_total: int = 0
     descanso_restante: int = 0
     minutos_entre_registros: int = 0
+    #: A DURAÇÃO DO TREINO (24/09/2026): da primeira série ao "Encerrar
+    #: treino". `minutos_entre_registros` descreve o BANCO — o intervalo
+    #: entre a primeira e a última anotação —, e quem fecha a última série
+    #: às 19h05 e encerra às 19h40 passou 35 minutos a mais na academia do
+    #: que a tela dizia. Com "Encerrar" existe um fim MEDIDO; sem ele o
+    #: número continua sendo o de sempre, porque inventar um fim seria
+    #: exatamente o defeito que `minutos_entre_registros` evita.
+    minutos_do_treino: int = 0
+    #: Quantos exercícios da ficha receberam série hoje, e quantos são. O
+    #: placar nomeava o que ficou de fora e não dizia o tamanho: "Sem
+    #: registro hoje: A · B · C" não responde se foram 3 de 4 ou 3 de 12.
+    exercicios_feitos: int = 0
+    exercicios_do_dia: int = 0
     #: O placar da folha de recompensa; só faz sentido com `concluido`.
     placar: object = None
     #: A opção da letra que está sendo feita hoje: a pinada pela primeira
@@ -4199,6 +4212,11 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # nomeia o que ficou de fora.
     estado.encerrado = escolha is not None and escolha.encerrado_em is not None
     estado.pulados = [item for item in itens if not item.feitas]
+    # Na ORDEM DA FICHA por construção: `itens` é a lista da opção do dia, já
+    # ordenada, e o filtro preserva a ordem. O par abaixo é o que a torna
+    # legível — "2 de 8" diz o tamanho do que a lista nomeia.
+    estado.exercicios_do_dia = len(itens)
+    estado.exercicios_feitos = len(itens) - len(estado.pulados)
     estado.concluido = bool(itens) and (
         estado.encerrado or not any(not item.concluido for item in itens)
     )
@@ -4262,6 +4280,13 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
         # Arredondar para baixo de 1 vira zero, e zero não vai para a tela:
         # "0 min entre o primeiro e o último registro" é ruído, não informação.
         estado.minutos_entre_registros = int(round(minutos))
+        estado.minutos_do_treino = estado.minutos_entre_registros
+    # O FIM MEDIDO ganha do intervalo entre anotações. `encerrado_em` é o
+    # toque em "Encerrar treino" — o único instante em que a pessoa DIZ que
+    # acabou —, e daí até a primeira série é o tempo que ela passou lá.
+    if carimbos and escolha is not None and escolha.encerrado_em is not None:
+        minutos = (escolha.encerrado_em - min(carimbos)).total_seconds() / 60
+        estado.minutos_do_treino = max(int(round(minutos)), 0)
     # O placar da recompensa (CORTE, T3.6): só quando a ficha inteira está
     # coberta — e sem consulta nova, porque `item.load` já tem tudo.
     if estado.concluido:

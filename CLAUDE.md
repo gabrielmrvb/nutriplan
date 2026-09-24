@@ -209,6 +209,36 @@ ele reverte para `/demo/` — que **não** é a tela Hoje, é a capa. O mapa man
 quem estava avaliando o produto para a página de marketing e ainda anunciava
 "você está aqui" ao fazê-lo.
 
+**A TELA "MAIS" (`/areas/`) ABRE COM A PESSOA, E A FORMA SEGUE O DADO
+(23/09/2026).** Ela era seis cartões do mesmo tipo com pesos desiguais sob o
+rótulo "Áreas sem aba" — que descreve a ARQUITETURA, não o que a pessoa tem:
+Corrida e Hidratação com número, Ajuda um cartão largo quase vazio, e o
+Perfil aparecendo como "2.372 kcal por dia". Hoje:
+
+- **a primeira linha é a identidade** (`.identidade`): inicial num círculo,
+  nome — ou o e-mail, quando o cadastro não tem nome —, objetivo e meta do
+  dia, e a linha inteira é a porta do Perfil. Sem plano ativo ela diz só o
+  objetivo, porque inventar a meta seria afirmar um número que não existe;
+- **cartão onde há número, LISTA onde não há.** A doutrina de 12/09 tirou a
+  lista das ÁREAS porque "a tela parecia Configurações", e ela continua
+  valendo para as áreas: Corrida e Hidratação seguem em cartão, com a ação
+  no rodapé. Ferramentas (Conquistas, Lista de compras, Ajuda) e Conta
+  (Perfil, Sair) são linhas de navegação — ícone, rótulo, detalhe, seta —,
+  que é a forma certa para o que não tem número e é o "Mais" de qualquer
+  app. Cartão vazio era o defeito que o dono viu em produção;
+- **"Sair da conta" é POST e é o único `<form>` do `<main>`** (há teste), em
+  `--danger` porque é a única ação da tela que encerra alguma coisa. No
+  celular a barra de cima não tem Sair, e esta é a linha dele;
+- **desktop em duas colunas** (≥ 60rem): áreas à esquerda, listas à direita.
+  Numa coluna só, a 1280, os dois cartões de área viravam faixas com o
+  número num canto e vazio no resto;
+- **mesmas 8 consultas** (`OCustoDaTelaDeAreasEstaMedidoTests`): a identidade
+  sai de `request.user` e do fato do plano que o Perfil já calculava. Lista
+  de compras e Lembretes ficaram SEM contagem de propósito — cada número ali
+  seria uma consulta nova;
+- os ícones das linhas são **inline**, e não do sprite de 13 símbolos: ele é
+  fechado e nenhum símbolo dele dizia "conquista" ou "sair".
+
 **A Home organiza pela área principal, e o AGORA continua sendo o primeiro
 bloco.** A prioridade declarada move UMA seção para o alto da tela de Hoje,
 logo abaixo do resumo do dia — e nunca acima do cartão AGORA. Urgência vence
@@ -510,9 +540,13 @@ POR PRIORIDADE (22/09/2026).**
   `workouts.tests.create_user` nascem em 2020 — os testes escrevem
   histórico em agosto; quem quer "nasceu hoje" sobrescreve.
   `plans/test_ofensiva_comeca_na_conta.py`.
-- **A ofensiva em zero diz o que faltou ONTEM** (`Ofensiva.falta_ontem`,
-  só quando ontem já era da conta): "Ontem faltou dieta ou água. Hoje
-  recomeça" em vez de "Comece hoje" para quem já vinha usando (achado #11).
+- **A ofensiva em zero distingue quem já vinha usando** (`Ofensiva.
+  falta_ontem`, só quando ontem já era da conta; achado #11). Ela DIZIA o
+  que faltou ("Ontem faltou dieta ou água. Hoje recomeça"); desde a rodada
+  2 de 24/09/2026 a frase não nomeia mais a falta, e o que sobrou de
+  `falta_ontem` na tela é o VERBO — "Recomeça hoje" para quem tinha conta
+  ontem, "Comece hoje" para quem chegou hoje. Ver "A OFENSIVA EM ZERO
+  CONVIDA", na rodada 2.
 - **Aderência: hoje só cobra o que já passou, e o consolidado é dos dias
   fechados** (item 6). `tracking.history` recorta o denominador de HOJE
   pelo relógio (`previstas_ate_agora`; o feito entra no piso, então marcar
@@ -531,7 +565,9 @@ POR PRIORIDADE (22/09/2026).**
   dono — "a prioridade não muda a tela"): Treino → "Começar treino" para a
   sessão de hoje (nome, exercícios, séries feitas), ou "Ver a ficha" se
   concluído; Corrida → "Registrar corrida"; Progresso → "Registrar peso"
-  (`#pesar` quando a faixa está na Home, senão o Progresso). Quando o AGORA
+  (`#pesar` quando a faixa está na Home, senão o Progresso — e desde
+  24/09/2026 esse é o ÚNICO atalho de peso da Home: o rodapé do cartão do
+  painel voltou a "Ver progresso"). Quando o AGORA
   já é o treino, o cartão vira consulta (sem repetir o botão — dois
   "COMEÇAR TREINO" na mesma dobra, medido). `OCartaoDaAreaTemAAcaoDoDiaTests`.
 
@@ -779,6 +815,38 @@ Brasil — nunca só o banco.
 números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`
 compara com o que o motor calcula hoje e descarta o que não bate.
+
+**O RETRATO DO PLANO INCLUI O QUE ESCOLHE A COMIDA (24/09/2026).**
+`NutritionPlan` fotografava peso, altura, idade, sexo, atividade, objetivo e
+dias de treino — tudo que calcula a META — e nada do que escolhe a RECEITA.
+Consequência medida: marcar "sem peixe" no Perfil devolvia "Alterações
+salvas." e o cardápio seguia oferecendo sardinha, **e continuava seguindo**
+em toda visita, porque `plan_is_current` comparava só aqueles sete campos.
+Hoje o retrato tem `restricoes` (os slugs ORDENADOS, separados por vírgula)
+e `meal_style`, os dois em `_INPUT_FIELDS`. Ordenados porque a ordem do
+`values_list` de um M2M não é estável, e uma ordem diferente seria lida como
+restrição diferente — o cardápio remontaria em toda abertura da Home.
+**Texto e não JSON** pela mesma razão que o resto do retrato é escalar: a
+comparação é `==` contra o que `build_inputs` monta, e lista contra tupla
+nunca é igual.
+
+O VAZIO é assimétrico, e a assimetria é a decisão (`_VAZIO_E_DESCONHECIDO`):
+`meal_style` vazio no retrato é "nasci antes do campo" e NÃO invalida — o
+perfil sempre tem estilo, então trocar o cardápio de todo mundo num deploy
+seria cobrar de quem não pediu nada; `restricoes` vazio compara normalmente,
+porque quem TEM restrição no perfil e um retrato vazio é exatamente quem
+está vendo sardinha. Sem backfill, pelos dois motivos.
+
+E a etapa 3 em EDIÇÃO remonta AGORA (`EtapaCompostaView.acertar_cardapio`,
+`PASSO_COMIDA`), como a etapa 2 já remontava a ficha: a mensagem vira
+"Alterações salvas — o cardápio foi remontado com elas". O cache do perfil
+sai antes de o motor ler, pelo mesmo motivo escrito em `acertar_ficha` —
+`salvar()` grava por `self.profile` e `build_inputs` lê `user.profile`; as
+restrições escapariam (o M2M consulta toda vez), o estilo não. **Preço
+medido: +1 consulta na Home (17 → 18) e na Alimentação (18 → 19)**, constante
+e não por linha; devolver o número exigiria denormalizar os slugs numa coluna
+do perfil, que é uma segunda cópia da verdade.
+`plans/test_restricao_invalida_o_cardapio.py`.
 
 **Ficha ajustada não é remontada.** `TrainingPlan.customized_at` desliga o
 gerador. Sem isso, mudar o horário de terça apaga a troca de ontem.
@@ -1360,6 +1428,68 @@ medidos: leitura 9 → 11 (trocas + alternativas; o perfil vem do
 `dispatch` e as linhas vêm sem o exercício), ficha 15 → 17 (trocas +
 contagem), Home 43 (no teto), painel 20.
 
+**RODADA 2 DE EXPERIÊNCIA — OS SETE ATRITOS (24/09/2026).** Todos medidos
+no navegador antes de tocados, e cada um com a régua que impede a volta:
+
+- **UM CLIQUE PARA TREINAR.** O CTA do painel apontou para `workouts:now`
+  até 22/09, foi movido para a FICHA ("o fluxo pulava a etapa em que a
+  pessoa decide") e VOLTA agora para a execução, por decisão do dono. As
+  duas leituras são verdadeiras e medem gente diferente: quem ainda não
+  decidiu precisa da lista, e quem já decidiu pagava dois toques toda vez.
+  "Ver ficha do Treino X · N exercícios" continua logo abaixo — o que mudou
+  foi qual dos dois é o principal. O rótulo diz o estado: "Começar treino"
+  sem série hoje, "Continuar treino (3 de 8)" com o treino em andamento.
+
+  E o **cartão AGORA da Home acompanha**, no mesmo commit: ele usa o MESMO
+  rótulo, e um rótulo com dois destinos é o defeito que a rodada 1 nomeou.
+  Isso desfaz o requisito de 13/09/2026 ("'Começar treino' abre a FICHA,
+  nunca o primeiro exercício com o vídeo tocando") — a premissa dele não
+  existe mais: nenhum `autoplay` é escrito no HTML e o vídeo do exercício
+  nasce no toque. `workouts/test_ux_rodada2.py`, `plans.tests.AcaoAgoraTests`.
+- **O PLACAR DIZ O TREINO, NÃO OS REGISTROS.** `minutos_entre_registros`
+  descreve o BANCO; `EstadoDoTreino.minutos_do_treino` é da primeira série
+  ao "Encerrar treino" (`EscolhaDeTreino.encerrado_em`) — quem anota a
+  última série às 19h05 e encerra às 19h40 passou 35 minutos a mais lá.
+  **Sem "Encerrar" o número continua sendo o intervalo de sempre**: inventar
+  um fim que ninguém marcou seria o defeito que a frase antiga evitava. E
+  `exercicios_feitos`/`exercicios_do_dia` dão o tamanho que a lista "Sem
+  registro hoje" não dava — 3 nomes podem ser 3 de 4 ou 3 de 12.
+- **A OFENSIVA EM ZERO CONVIDA.** "Recomeça hoje: … Ontem faltou dieta ou
+  água" saiu inteiro: um contador em zero só tem uma leitura, e
+  acrescentar "faltou" cobra duas vezes pela mesma coisa. A frase virou a
+  porta mais barata do dia — "registre uma refeição ou um copo d'água" —, e
+  o TREINO fica de fora de propósito, porque tem dia marcado. O VERBO ainda
+  lê `falta_ontem`, e é a única coisa que ele decide: `None` é exatamente
+  "ontem não era da conta", e ali "recomeça" seria falso — quem chegou hoje
+  lê **"Comece hoje"**. `falta_ontem` continua sendo calculada por inteiro
+  (o número é verdadeiro e é lido em outro lugar); o que saiu foi a frase. As de risco, de 1 dia, de
+  menos de 7 e de 30 não mudaram. `plans/test_ux_rodada2.py`.
+- **`/hoje/` responde 301 para a Home.** Era a rota do cardápio até 22/09 e
+  virou 404 para a primeira tela do app. `RedirectView` com
+  `pattern_name="plans:today"` e não uma barra escrita: sob
+  `set_script_prefix("/demo/")` ele reverte para dentro do demo.
+  `config/test_rotas_antigas.py`.
+- **NÍVEL E EQUIPAMENTO SÃO OBRIGATÓRIOS PARA QUEM FAZ MUSCULAÇÃO.** Os dois
+  nasceram opcionais com a razão escrita ("a tela não inventa a frase"), e a
+  régua continua valendo — o app não declara nível por ninguém. O outro lado
+  dela era o Perfil dizendo **"não informada"**, que é admitir que a ficha
+  foi montada com um palpite. A saída não é inventar: é PERGUNTAR, e só a
+  quem a pergunta-porta já mostrou o bloco. O erro vai no CAMPO
+  (`add_error`), que é o que faz o `aria-invalid` nascer e o "FOCO NO ERRO"
+  do `pwa.js` rolar até ele. E o Perfil de quem já tinha conta sem resposta
+  diz o que o motor USA, marcado como padrão.
+  `accounts/test_onboarding_obrigatorio.py`.
+- **A lista de corridas usa a largura do desktop** (`container_class largo`):
+  abria em 480 px num monitor de 1280 enquanto Hoje, Progresso e Alimentação
+  já usavam 1024 — o "celular no meio da tela" que o redesenho de 22/09
+  tirou das outras e esqueceu nesta.
+- **UM SÓ "REGISTRAR PESO" NA HOME.** MEDIDO com Progresso declarado: TRÊS
+  caminhos para o mesmo campo na mesma dobra — o cartão AGORA, o rodapé do
+  cartão do painel e a faixa `#pesar`. Os dois primeiros eram âncoras para o
+  terceiro. O rodapé do cartão voltou a responder o que o cartão é (a porta
+  da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
+  e a faixa, que é onde o campo mora.
+
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
     painel   (`/treino/`)              -> "como é a minha semana"
@@ -1367,7 +1497,9 @@ contagem), Home 43 (no teto), painel 20.
     execução (`/treino/agora/`)        -> "estou fazendo, e agora"
 
 O painel mostra o treino de hoje e um cartão por sessão, e cada cartão é um
-link. Ele NÃO lista exercício: "Começar treino" abre a ficha. A ficha é uma
+link. Ele NÃO lista exercício: "Começar treino" abre a EXECUÇÃO desde
+24/09/2026 (era a ficha; ver "UM CLIQUE PARA TREINAR"), e "Ver ficha do
+Treino X · N exercícios" fica logo abaixo. A ficha é uma
 lista numerada — nome, séries × repetições, músculo e o marcador do movimento
 principal —, e cada linha é uma porta para a execução. O selo "Principal" é o
 PRIMEIRO composto de cada grupo anunciado da opção
@@ -2046,7 +2178,10 @@ Django mostra o msgid, que já é o texto certo; não rode `compilemessages`),
 e **template NOVO carrega `{% load i18n %}` e marca texto visível com
 `{% translate %}`** — a régua é `TEMPLATES_NOVOS` em `config/test_i18n.py`,
 que cresce com cada template criado a partir de hoje e cobra a frase no
-catálogo. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
+catálogo — **com uma exceção, o painel de gestão** (`templates/analytics/`),
+escrita no próprio arquivo em 24/09/2026 depois de ter existido calada
+desde o primeiro dia: aquelas telas são a ferramenta de quem OPERA o
+produto, e a segunda língua é para quem USA o app. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
 novas custa nada agora e evita a varredura no dia da segunda língua. A
 primeira frase marcada é a faixa do staging em `base.html`.
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**
@@ -2068,6 +2203,53 @@ Desde a ajuda (21/09, tarde) são NOVE: `/ajuda/` e `/ajuda/o-que-mudou/`
 entraram na lista com bloco `seo` próprio — a FAQ é o texto que diz o que
 o produto faz, e é por onde alguém o ACHA; `/ajuda/reportar/` e a
 confirmação continuam `noindex` (formulário não é conteúdo).
+
+## As três perguntas de produto do analytics (24/09/2026)
+
+O app já tinha evento bruto com taxonomia fechada, alias no login e poda de
+90 dias (`docs/analytics.md`). O painel tinha as FERRAMENTAS — explorar um
+evento, montar um funil qualquer, ver a coorte semanal — e faltavam as
+PERGUNTAS. Três telas novas sob `/gestao/analytics/`, na mesma régua de
+sempre (abaixo de 15 consultas, custo que não cresce com o volume):
+
+- **`entrada/` — onde a pessoa desiste.** `consultas.funil_de_entrada` sobre
+  `PASSOS_DE_ENTRADA` (landing → cadastro → etapas 1, 2 e 3 → 1ª refeição →
+  1ª série), por coorte de dia ou de semana, com a taxa DO PASSO ANTERIOR em
+  destaque — a do topo só diz que o funil é um funil. **A coorte é do
+  PRIMEIRO passo da pessoa**, e não do dia do evento: quem abriu a landing na
+  segunda e treinou na quarta pertence à segunda, senão a taxa de um dia
+  depende do movimento do anterior. Quem entrou direto pelo cadastro não some
+  do funil — entra pelo passo em que apareceu, com os de cima zerados. UMA
+  consulta por passo, sete, fixas.
+- **`retencao/` — a pessoa volta?** `retencao_por_coorte` põe **D1/D7/D30**
+  acima da matriz semanal que já existia. "Voltou" é ter REGISTRADO alguma
+  coisa (`EVENTOS_DE_REGISTRO`), não ter aberto o app; janela que ainda não
+  fechou vem VAZIA e não zero — zero afirmaria que ninguém voltou de um prazo
+  que não chegou.
+- **`uso/` — o que a base usa de fato.** `uso_por_area`: registros **e**
+  pessoas por pilar, semana a semana. Os dois juntos de propósito: 400
+  registros podem ser quarenta pessoas ou uma obsessiva. Área zerada aparece
+  na tabela — sumir faria ninguém reparar que a corrida não é usada.
+
+`EVENTOS_DA_AREA` é a fonte única do que conta como uso, e
+`EVENTOS_DE_REGISTRO` é ela achatada: a retenção tira dali o "voltou", e duas
+definições de "usou o app" é como duas telas passam a discordar (há teste).
+
+**Três eventos entraram.** `site.landing_vista` nasceu (disparado pela
+`LandingView`, no SERVIDOR: um degrau de funil preso ao texto de uma rota
+quebra em silêncio no dia em que a rota muda de nome); `treino.serie_concluida`
+e `treino.concluido` estavam na taxonomia **desde o começo e nunca eram
+disparados** — o funil não tinha fim e o uso por área enxergava tudo menos o
+treino. A série só conta quando a linha NASCE (`criada=True`): o reenvio da
+fila offline é a mesma série chegando de novo, e contá-la inflaria o número
+que decide investimento.
+
+E duas classes que existiam no template da Retenção **sem regra nenhuma no
+CSS** ganharam a seção 54 (`.tabela-rolagem`, `.coorte`): a tabela só não
+vazava a 390 px porque as colunas cabiam, e as telas novas, com cabeçalho de
+palavra de verdade, mediram 621 px numa janela de 390. A rolagem é do BLOCO
+(com `tabindex` e `role="region"`), nunca da página. O dead-class ruler não
+pega isso: ele mede classes com `__`, as de ELEMENTO.
 
 ## Ajuda (21/09/2026)
 

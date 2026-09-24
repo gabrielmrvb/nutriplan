@@ -2521,7 +2521,10 @@ class TreinoDeHojeTests(TestCase):
         a execução resolve de `ExerciseLog` qual é o exercício da vez.
         """
         itens = self._itens()
-        alvo = 'href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk])
+        # Fixo na EXECUÇÃO desde 24/09/2026: o destino continua não andando
+        # com as séries — quem anda é a tela de destino, que resolve de
+        # `ExerciseLog` qual é o exercício da vez.
+        alvo = 'href="%s"' % reverse("workouts:now")
 
         antes = self._cta(self._pagina())
         self._anotar(itens[0], series=itens[0].sets)
@@ -2546,22 +2549,28 @@ class TreinoDeHojeTests(TestCase):
         cta = self._cta(self._pagina())
 
         self.assertNotIn("hidden", cta)
-        self.assertIn(
-            'href="%s"' % reverse("workouts:ficha", args=[self.sessao.pk]), cta
-        )
+        # O destino virou a EXECUÇÃO em 24/09/2026 (decisão do dono, rodada 2);
+        # o que este teste guarda é o botão CONTINUAR EXISTINDO com séries
+        # pela frente, e isso não mudou.
+        self.assertIn('href="%s"' % reverse("workouts:now"), cta)
 
     def test_the_verb_changes_once_something_was_recorded(self):
-        """O destino do painel é a ficha, e o verbo diz isso quando já há série.
+        """O destino do painel é fixo, e o VERBO diz em que mundo a pessoa está.
 
-        "Continuar de onde parou" é o verbo da EXECUÇÃO (cartão AGORA da
-        Home); aqui, com destino fixo na ficha, ele prometia continuar e
-        abria uma lista — o mesmo rótulo com dois destinos (UX P1-11).
+        Era "Começar treino" → "Abrir a ficha de hoje", porque o destino era a
+        ficha. Com o destino na EXECUÇÃO (24/09/2026), o segundo verbo virou
+        "Continuar treino (n de N)" — e o número é o que responde "de onde eu
+        parei?" sem abrir nada. "Continuar de onde parou" continua fora daqui:
+        é o verbo do cartão AGORA da Home, e dois rótulos para o mesmo destino
+        é o achado UX P1-11 ao contrário.
         """
         self.assertIn("Começar treino", self._pagina())
 
         self._anotar(self._itens()[0])
-        self.assertIn("Abrir a ficha de hoje", self._pagina())
-        self.assertNotIn("Continuar de onde parou", self._pagina())
+        pagina = self._pagina()
+        self.assertIn("Continuar treino", pagina)
+        self.assertNotIn("Começar treino", self._cta(pagina))
+        self.assertNotIn("Continuar de onde parou", pagina)
 
     def test_the_progress_counts_exercises_that_have_a_set_today(self):
         """O número é derivado do `ExerciseLog` de hoje, e a frase diz isso."""
@@ -2664,8 +2673,10 @@ class TreinoDeHojeTests(TestCase):
         self._anotar(item, series=item.sets)
 
         depois = cartao(self._pagina())
-        self.assertIn("Abrir a ficha de hoje", depois)
-        self.assertNotIn("Começar treino", depois)
+        # O verbo mudou de nome em 24/09/2026 junto com o destino; o que este
+        # teste prova é que ele é RECALCULADO pelo servidor a cada visita.
+        self.assertIn("Continuar treino", depois)
+        self.assertNotIn("Começar treino", self._cta(self._pagina()))
 
     def test_a_serie_anotada_marca_a_linha_onde_quer_que_ela_esteja(self):
         """Anotar carga de um exercício que também está na ficha de OUTRO dia.
@@ -3471,7 +3482,13 @@ class IntervaloDoTreinoTests(TestCase):
         # A estimativa da ficha é grande; o intervalo real é 2 minutos.
         self.assertGreater(minutos_estimados, 10)
         self.assertEqual(resposta.context["estado"].minutos_entre_registros, 2)
-        self.assertIn("min entre o primeiro e o último registro", html)
+        # O RÓTULO virou "min de treino" em 24/09/2026, e o número passou a
+        # ser `minutos_do_treino` — igual a este enquanto ninguém tocou em
+        # "Encerrar treino", que é o caso deste fixture. O que o teste guarda
+        # é o mesmo: a tela mostra o intervalo REAL, e não a estimativa da
+        # ficha.
+        self.assertEqual(resposta.context["estado"].minutos_do_treino, 2)
+        self.assertIn("min de treino", html)
         bloco = html.split('class="fim__numeros"', 1)[1].split("</ul>", 1)[0]
         self.assertIn(">2<", bloco.replace(" ", "").replace("\n", ""))
         self.assertNotIn(str(minutos_estimados), bloco)
@@ -4099,6 +4116,8 @@ class TreinoEmExecucaoSobreviveAoAjusteTests(TestCase):
                 "goal": perfil.goal,
                 "activity_level": perfil.activity_level,
                 "weekdays": [str(d) for d in weekdays], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "experiencia": "intermediario", "equipamento": "completa",
                 "wake_time": perfil.wake_time.strftime("%H:%M"),
                 "sleep_time": perfil.sleep_time.strftime("%H:%M"),
                 "split_preference": perfil.split_preference,
@@ -4561,6 +4580,8 @@ class PreferenciaNaoConfirmadaTests(TestCase):
             "goal": perfil.goal,
             "activity_level": perfil.activity_level,
             "weekdays": [str(d) for d in weekdays], "musculacao": "sim",
+            # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+            "experiencia": "intermediario", "equipamento": "completa",
             "wake_time": perfil.wake_time.strftime("%H:%M"),
             "sleep_time": perfil.sleep_time.strftime("%H:%M"),
         }

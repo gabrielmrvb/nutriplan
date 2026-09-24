@@ -1,16 +1,24 @@
-"""Um verbo, um destino: "Começar treino" abre a FICHA; "Continuar de onde parou" abre a EXECUÇÃO.
+"""Um verbo, um destino — e o destino de "Começar treino" MUDOU em 24/09/2026.
 
-Requisito fechado do dono (13/09/2026): "Começar treino" leva à ficha, nunca
-abre o primeiro vídeo. A auditoria de UX (P1-11, 14/09) achou o mesmo rótulo
-com dois destinos — o cartão AGORA da Home mandava para a execução e o painel
-para a ficha — e "Continuar de onde parou" no painel apontando para a ficha,
-que não é continuar nada. Quem lê o botão não tem como saber para onde vai.
+A regra que este arquivo guarda nunca foi "o botão vai para a ficha": é **um
+rótulo, um destino, em toda tela**. A auditoria de UX (P1-11, 14/09) achou o
+mesmo rótulo com dois destinos — o cartão AGORA da Home mandava para a
+execução e o painel para a ficha —, e "Continuar de onde parou" no painel
+apontando para a ficha, que não é continuar nada. Quem lê o botão não tem como
+saber para onde vai. Isso continua proibido.
+
+O DESTINO de "Começar treino" era a ficha por requisito do dono de 13/09/2026
+("leva à ficha, nunca abre o primeiro vídeo"), e o mesmo dono o reverteu em
+24/09 depois da rodada 2 de experiência: quem já decidiu pagava dois toques
+toda vez, e o segundo era numa tela que ela não ia ler. A ficha continua a um
+toque, em "Ver ficha do Treino X · N exercícios", logo abaixo.
 
 A regra é por VERBO, e vale em toda tela:
 
-    "Começar treino"            -> workouts:ficha   (preparação, escolher)
-    "Continuar de onde parou"   -> workouts:now     (execução, o próximo pendente)
-    "Abrir a ficha de hoje"     -> workouts:ficha   (painel com série já anotada)
+    "Começar treino"            -> workouts:now     (execução, o próximo pendente)
+    "Continuar treino (n de N)" -> workouts:now     (o mesmo lugar, e o número diz onde parou)
+    "Continuar de onde parou"   -> workouts:now     (execução, na ficha)
+    "Ver ficha"                 -> workouts:ficha   (preparação, escolher)
 
 O painel continua com destino FIXO (`test_the_destination_stays_put_because_the_target_screen_walks`,
 em `workouts/tests.py`): o que muda ali é só o verbo. E a linha do resumo do
@@ -76,12 +84,17 @@ class VerbosDoTreinoTests(BaseDoFluxo):
     def _painel(self):
         return self.client.get(reverse("workouts:routine")).content.decode()
 
-    def test_comecar_treino_abre_a_ficha_em_toda_porta(self):
+    def test_comecar_treino_tem_UM_destino_em_toda_porta(self):
+        """A régua é UM RÓTULO, UM DESTINO — e desde 24/09/2026 o destino é a
+        EXECUÇÃO. A Home continua com o verbo curto ("Começar") na célula do
+        painel do dia; o que o teste cobra é que, onde o rótulo inteiro
+        aparece, ele vá sempre para o mesmo lugar."""
+        destinos = set()
         for nome, html in (("home", self._home()), ("painel", self._painel())):
             comecar = [href for href, texto in _links(html) if texto == "Começar treino"]
-            with self.subTest(tela=nome):
-                self.assertTrue(comecar, "a tela tem de oferecer 'Começar treino' hoje")
-                self.assertEqual(set(comecar), {self.ficha})
+            destinos.update(comecar)
+        self.assertTrue(destinos, "alguma tela tem de oferecer 'Começar treino' hoje")
+        self.assertEqual(destinos, {self.execucao})
 
     def test_na_home_continuar_de_onde_parou_abre_a_execucao(self):
         self._anotar_uma_serie()
@@ -91,9 +104,17 @@ class VerbosDoTreinoTests(BaseDoFluxo):
         self.assertNotIn("Começar treino", [texto for _, texto in links])
 
     def test_no_painel_com_serie_anotada_o_verbo_muda_e_o_destino_fica(self):
+        """O DESTINO FIXO continua sendo a regra: o que muda com a série
+        anotada é só o verbo. Ele era "Abrir a ficha de hoje" → ficha, e
+        virou "Continuar treino (n de N)" → execução em 24/09/2026 — o número
+        é o que responde "de onde eu parei?" sem abrir nada."""
         self._anotar_uma_serie()
         links = _links(self._painel())
-        self.assertIn((self.ficha, "Abrir a ficha de hoje"), links)
+        continuar = [
+            (href, texto) for href, texto in links if texto.startswith("Continuar treino")
+        ]
+        self.assertTrue(continuar, [t for _, t in links])
+        self.assertEqual({href for href, _ in continuar}, {self.execucao})
         textos = [texto for _, texto in links]
         self.assertNotIn("Continuar de onde parou", textos)
         self.assertNotIn("Começar treino", textos)
@@ -160,7 +181,10 @@ class UmVerboUmDestinoNosTemplatesTests(TestCase):
     #: rótulo não pode aparecer em NENHUM outro arquivo, nem apontar para
     #: um terceiro destino.
     DESTINO_DE_COMECAR = {
-        "workouts/routine.html": "workouts:ficha",
+        # O painel passou de `ficha` para `now` em 24/09/2026 (decisão do
+        # dono, rodada 2): um clique para treinar. A ficha continua logo
+        # abaixo, com o próprio rótulo.
+        "workouts/routine.html": "workouts:now",
         "workouts/ficha.html": "workouts:now",
     }
     #: A HOME SAIU DESTE MAPA EM 22/09/2026, e não por descuido.

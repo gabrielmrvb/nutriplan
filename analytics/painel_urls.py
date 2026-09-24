@@ -11,6 +11,10 @@ urlpatterns = [
     path("", painel.VisaoGeralView.as_view(), name="geral"),
     path("explorar/", painel.ExplorarView.as_view(), name="explorar"),
     path("funil/", painel.FunilView.as_view(), name="funil"),
+    # As duas perguntas de PRODUTO, ao lado das ferramentas genéricas:
+    # "onde a pessoa desiste" e "o que a base usa de fato".
+    path("entrada/", painel.EntradaView.as_view(), name="entrada"),
+    path("uso/", painel.UsoPorAreaView.as_view(), name="uso"),
     path("retencao/", painel.RetencaoView.as_view(), name="retencao"),
     path("usuario/", painel.UsuarioView.as_view(), name="usuario"),
 ]

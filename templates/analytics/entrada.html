@@ -1,0 +1,87 @@
+{% extends "analytics/base.html" %}
+{% block title %}Entrada · Analytics{% endblock %}
+
+{% block content %}
+  {% comment %}
+    ONDE A PESSOA DESISTE (24/09/2026).
+
+    O funil de entrada com os passos nomeados, por coorte de dia ou de semana.
+    A coorte é do PRIMEIRO passo que a pessoa alcançou — quem abriu a landing
+    na segunda e treinou na quarta pertence à segunda, e contar a série de
+    quarta como conversão de quarta faria a taxa de um dia depender do
+    movimento do dia anterior.
+
+    O número em destaque é a taxa DO PASSO ANTERIOR, e não a do topo: "de quem
+    chegou na etapa 2, quantos terminaram?" é o que aponta o degrau quebrado.
+  {% endcomment %}
+  <div class="page-head">
+    <h1>Entrada</h1>
+    <p class="lead">Da landing à primeira série. Coorte pelo primeiro passo de cada pessoa.</p>
+    <nav class="chip-row chip-row--conteudo" aria-label="Recorte">
+      {% for g in granularidades %}
+        <a class="chip {% if g == por %}chip--brand{% endif %}" href="?por={{ g }}&amp;dias={{ dias }}">por {{ g }}</a>
+      {% endfor %}
+      {% for d in periodos %}
+        <a class="chip {% if d == dias %}chip--brand{% endif %}" href="?por={{ por }}&amp;dias={{ d }}">{{ d }} dias</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <section class="card">
+    <div class="card__head"><h2>No período inteiro</h2></div>
+    {% comment %}
+      OS SETE PASSOS APARECEM SEMPRE, zerados inclusive. Eles são a DEFINIÇÃO
+      do funil — quem abre a tela num dia parado precisa saber o que está
+      sendo medido, e "Ninguém entrou" sozinho não diz por onde a entrada
+      passa. A frase do vazio fica embaixo, ao lado dos zeros.
+    {% endcomment %}
+    <dl class="data-list">
+      {% for e in total.etapas %}
+        <div>
+          <dt>{{ forloop.counter }}. {{ e.rotulo }}</dt>
+          <dd class="num">
+            {{ e.pessoas }}
+            <span class="hint">· {{ e.pct_do_anterior }}% do passo anterior · {{ e.pct_do_topo }}% do topo</span>
+          </dd>
+        </div>
+      {% endfor %}
+    </dl>
+    {% if not total.base %}
+      <p class="hint">Ninguém chegou ao topo do funil nos últimos {{ dias }} dias.</p>
+    {% endif %}
+  </section>
+
+  {% if coortes %}
+    <section class="card">
+      <div class="card__head"><h2>Coorte por {{ por }}</h2></div>
+      {% comment %}
+        `.tabela-rolagem` + `.coorte` são o idioma que a Retenção já usa: a
+        tabela rola na horizontal DENTRO do próprio bloco, e a régua "nada
+        rola na horizontal" é da PÁGINA. Componente novo aqui seria a quarta
+        versão da mesma tabela.
+      {% endcomment %}
+      <div class="tabela-rolagem" tabindex="0" role="region" aria-label="Funil por coorte">
+        <table class="coorte">
+          <thead>
+            <tr>
+              <th>{{ por|capfirst }}</th>
+              {% for p in passos %}<th>{{ p }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for linha in coortes %}
+              <tr>
+                <td class="num">{{ linha.quando|date:"d/m" }}</td>
+                {% for e in linha.etapas %}
+                  <td class="num">
+                    {{ e.pessoas }}{% if not forloop.first %}<span class="hint"> · {{ e.pct_do_anterior }}%</span>{% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

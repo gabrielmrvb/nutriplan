@@ -33,6 +33,12 @@ _INPUT_FIELDS = (
     "activity_level",
     "goal",
     "training_days_per_week",
+    # O QUE ESCOLHE A COMIDA (24/09/2026). Os sete de cima movem a META; estes
+    # dois escolhem as RECEITAS, e estavam fora da comparação — marcar "sem
+    # peixe" no Perfil não invalidava o cardápio, nem naquele POST nem na
+    # visita seguinte à Home.
+    "restricoes",
+    "meal_style",
 )
 #: Quanto o peso pode variar sem que o plano seja considerado desatualizado.
 #:
@@ -78,6 +84,8 @@ def build_inputs(user, *, peso_kg=None) -> PlanInputs:
     # `.all()` devolve a lista em memória e `values_list` abriria outra
     # consulta — a mesma tabela lida duas vezes na mesma tela.
     return PlanInputs(
+        restricoes=restricoes_de(profile),
+        meal_style=profile.meal_style,
         sex=profile.sex,
         weight_kg=weight,
         height_cm=profile.height_cm,
@@ -86,6 +94,52 @@ def build_inputs(user, *, peso_kg=None) -> PlanInputs:
         goal=profile.goal,
         session_minutes=tuple(dia.duration_min for dia in user.training_days.all()),
         kcal_adjustment=profile.kcal_adjustment,
+    )
+
+
+#: Entradas cujo VAZIO no retrato quer dizer "desconhecido", e desconhecido
+#: não invalida nada — a mesma doutrina que `TrainingPlan.catalogo`,
+#: `nivel` e `duracao` já seguem ("Em branco é desconhecido").
+#:
+#: Só `meal_style` entra aqui, e a assimetria é a decisão. O perfil SEMPRE
+#: tem estilo (o campo nasce com "varied"), então um retrato vazio só pode
+#: ser de antes do campo existir — e trocar o cardápio de todo mundo num
+#: deploy seria cobrar de quem não pediu nada. `restricoes` vazio é
+#: ambíguo — "não marquei nenhuma" e "nasci antes do campo" escrevem a
+#: mesma string —, e ali o desempate é o oposto: quem TEM restrição no
+#: perfil e um retrato vazio é exatamente quem está vendo sardinha, e
+#: precisa do cardápio refeito na primeira visita.
+_VAZIO_E_DESCONHECIDO = ("meal_style",)
+
+
+def _entrada_bate(plan, inputs, field) -> bool:
+    gravado = getattr(plan, field)
+    if field in _VAZIO_E_DESCONHECIDO and not gravado:
+        return True
+    return gravado == getattr(inputs, field)
+
+
+def restricoes_de(profile) -> str:
+    """As restrições do perfil como o RETRATO as guarda: slugs ordenados,
+    separados por vírgula.
+
+    Ordenados é a decisão, e ela não é cosmética: a ordem do `values_list` de
+    um ManyToMany não é estável, e duas leituras da MESMA pessoa podem sair
+    em ordens diferentes. Sem ordenar, `plan_is_current` leria "restrição
+    diferente" e o cardápio seria remontado em toda abertura da Home — uma
+    receita nova a cada visita, sem ninguém ter pedido.
+
+    Só `RESTRICTION`: `DietaryTag` também guarda preferência, que pesa mas
+    não elimina, e não é o que o cardápio filtra (`meal_planner`).
+    """
+    from catalog.models import TagKind
+
+    return ",".join(
+        sorted(
+            profile.dietary_tags.filter(kind=TagKind.RESTRICTION).values_list(
+                "slug", flat=True
+            )
+        )
     )
 
 
@@ -131,6 +185,8 @@ def create_plan(user, inputs=None) -> NutritionPlan:
         activity_level=inputs.activity_level,
         goal=inputs.goal,
         training_days_per_week=inputs.training_days_per_week,
+        restricoes=inputs.restricoes,
+        meal_style=inputs.meal_style,
         formula=result.formula,
         bmr_kcal=result.bmr_kcal,
         tdee_kcal=result.tdee_kcal,
@@ -269,7 +325,7 @@ def plan_is_current(plan, inputs, slots=None) -> bool:
         return False
 
     outras_entradas_batem = all(
-        getattr(plan, field) == getattr(inputs, field)
+        _entrada_bate(plan, inputs, field)
         for field in _INPUT_FIELDS
         if field != "weight_kg"
     )
@@ -285,9 +341,7 @@ def plan_is_current(plan, inputs, slots=None) -> bool:
             )
 
     result = calculate(inputs)
-    same_inputs = all(
-        getattr(plan, field) == getattr(inputs, field) for field in _INPUT_FIELDS
-    )
+    same_inputs = all(_entrada_bate(plan, inputs, field) for field in _INPUT_FIELDS)
     same_outputs = all(
         getattr(plan, field) == getattr(result, field) for field in _OUTPUT_FIELDS
     )

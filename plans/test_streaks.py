@@ -240,7 +240,24 @@ class StreakRuleTests(TestCase):
         ofensiva = self._calcular()
 
         self.assertEqual(ofensiva.falta_hoje, ["dieta ou água"])
-        self.assertIn("dieta ou água", ofensiva.mensagem)
+
+        # A FRASE só repete a pendência quando há sequência VIVA a proteger:
+        # aí ela é informação ("falta isto hoje"). Em zero ela convida
+        # (rodada 2, 24/09/2026) — um contador em zero já diz sozinho que
+        # nada foi feito, e nomear a falta é cobrar duas vezes.
+        self.assertIn(
+            "dieta ou água",
+            streaks.Ofensiva(
+                dias=3, recorde=3, hoje_completo=False,
+                falta_hoje=["dieta ou água"],
+            ).mensagem,
+        )
+        # "RECOMEÇA": a conta deste fixture existia ontem. Quem chegou hoje
+        # lê "Comece hoje" — `plans/test_ofensiva_comeca_na_conta.py`.
+        self.assertEqual(
+            ofensiva.mensagem,
+            "Recomeça hoje: registre uma refeição ou um copo d'água.",
+        )
 
     def test_the_audited_week_closes_five_days(self):
         """A semana da auditoria de 20/09/2026, dia a dia: seg 2/5 + 1 L +

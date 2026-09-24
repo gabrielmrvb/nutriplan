@@ -183,25 +183,30 @@ class Ofensiva:
         para dar vontade de voltar, não para cobrar.
         """
         if self.dias == 0:
-            if self.falta_ontem:
-                # A ORDEM É A DECISÃO (22/09/2026): o convite primeiro, o que
-                # faltou depois. A frase era "Ontem faltou X. Hoje recomeça:
-                # …", e a auditoria de UX a encontrou como o PRIMEIRO lugar em
-                # que o treino aparecia com destaque na Home — como bronca,
-                # num cartão de zero dias. A informação fica (ela é honesta e
-                # útil), mas quem abre o app de manhã lê primeiro o que fazer
-                # hoje, e não o que não fez ontem.
-                # "Ontem: <o que foi, com número>" e não "Ontem faltou
-                # <rótulo>" (24/09/2026): quem registrou 3 de 5 refeições e
-                # 1,5 de 3 L lia "faltou dieta ou água" e entendia que o app
-                # não tinha visto o que ela registrou. A ordem — convite
-                # primeiro, ontem depois — é a decisão de 22/09 e não muda.
-                faltou = "; ".join(self.falta_ontem)
-                return (
-                    "Recomeça hoje: treino no dia de treino, mais dieta ou "
-                    f"água. Ontem: {faltou}."
-                )
-            return "Comece hoje: treino no dia de treino, mais dieta ou água, e a contagem começa."
+            # ZERO CONVIDA, E NÃO COBRA (decisão do dono, 24/09/2026).
+            #
+            # A frase já não ABRIA com o que faltou desde 22/09 — mas
+            # continuava terminando nele ("… Ontem faltou dieta ou água"), e
+            # a instrução repetia a RÉGUA do contador em vez de dizer o que
+            # fazer agora. Um contador em zero só tem uma leitura possível;
+            # acrescentar a palavra "faltou" é cobrar duas vezes pela mesma
+            # coisa, e quem está em zero precisa do primeiro toque, não do
+            # regulamento.
+            #
+            # As duas portas nomeadas são as mais baratas do app: uma
+            # refeição é um toque na Alimentação, um copo é um toque aqui do
+            # lado. O treino fica de fora de propósito — ele tem dia marcado,
+            # e oferecê-lo num dia de descanso seria a frase errando de novo.
+            #
+            # `falta_ontem` CONTINUA sendo calculada: ela é lida em outro
+            # lugar e o número dela é verdadeiro. O que saiu foi a frase.
+            #
+            # E o VERBO respeita a idade da conta. `falta_ontem is None` é
+            # exatamente "ontem não era da conta" — primeiro dia de uso —, e
+            # ali "recomeça" seria falso: não há o que recomeçar. Quem já
+            # tinha conta ontem recomeça; quem chegou hoje começa.
+            verbo = "Comece hoje" if self.falta_ontem is None else "Recomeça hoje"
+            return f"{verbo}: registre uma refeição ou um copo d'água."
         if self.em_risco:
             falta = ", ".join(self.falta_hoje)
             return f"Falta {falta} para manter a sequência hoje."

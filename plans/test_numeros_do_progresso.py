@@ -10,8 +10,8 @@ que não corresponde ao que o app guarda.
    "kcal/dia" caía a cada manhã, subia durante o dia e era comparada com a
    meta de um dia inteiro ao lado. Quem lia a tela três vezes no mesmo dia
    via três médias, sem ter mudado nada de propósito. Agora as duas leem o
-   mesmo recorte, e no primeiro dia — quando não há dia fechado — a caixa
-   mostra o de HOJE em vez de uma média que não existe.
+   mesmo recorte, e no primeiro dia — quando não há dia fechado — a tela
+   não inventa média nenhuma.
 
 2. **A ofensiva tem de ser a mesma nas três telas.** Ela já foi diferente:
    as Conquistas chamavam `streaks.calcular` sem a meta de água, a água
@@ -21,13 +21,29 @@ que não corresponde ao que o app guarda.
    lembrar. `streaks.para_a_tela` é a porta única: ela deriva a meta do
    plano ativo, e nenhuma tela escolhe a sua.
 
-3. **A frase de ontem diz o NÚMERO.** "Ontem faltou dieta ou água" era dita
-   a quem registrou 3 refeições de 5 e bebeu 1,5 L de 3 — a pessoa
+3. **O que faltou ONTEM é dito com NÚMERO.** "Ontem faltou dieta ou água"
+   era dito a quem registrou 3 refeições de 5 e bebeu 1,5 L de 3 — a pessoa
    registrou as duas coisas; o que faltou foi CHEGAR na meta. Medido no
    navegador em 24/09/2026.
+
+DUAS MUDANÇAS DO MESMO DIA SE ENCONTRARAM AQUI, e este arquivo é onde elas
+foram reconciliadas:
+
+- o Progresso foi REDESENHADO (#137): as caixas de "aderência" e "média de
+  kcal" que o item 1 media não existem mais. A régua sobreviveu no tile de
+  Cardápio (`evolucao.tile_de_dieta` recorta pelos dias fechados, com a
+  mesma frase de `tracking.adherence`), e é ele que os testes de tela leem
+  agora. A correção de DADO continua inteira em `plans/tracking.py`, e os
+  dois primeiros testes desta classe a medem direto, sem passar por tela;
+- a MENSAGEM da ofensiva em zero deixou de citar ontem ("A sequência em
+  zero convida em vez de cobrar", 24/09). O NÚMERO do item 3 continua
+  calculado e continua sendo lido — em `Ofensiva.falta_ontem` —, e é lá que
+  ele é medido. As duas decisões não se contradizem: uma diz que a frase
+  não cobra, a outra diz que, quando o app for dizer o que faltou, diga com
+  número em vez de rótulo.
 """
 import re
-from datetime import time, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
@@ -36,21 +52,73 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import TrainingDay, WeightEntry
+from accounts.models import TrainingDay
 from plans import services, streaks, tracking
 from plans.models import HydrationLog, MealLog, MealStatus
 from plans.tests import create_complete_user
 from workouts import services as treino_services
 
+TILE = re.compile(
+    r'class="tile tile--tendencia tile--(?P<chave>[a-z]+)[^"]*"[^>]*>'
+    r"(?P<corpo>.*?)</div>",
+    re.S,
+)
+VALOR = re.compile(r'class="tile__value"[^>]*>(?P<texto>.*?)</strong>', re.S)
+FRASE = re.compile(r'class="tile__meta"[^>]*>(?P<texto>.*?)</span>', re.S)
 
-def _numeros(html):
-    """Os números que a caixa do consolidado imprime, na ordem."""
+
+def _texto(html):
+    """O texto visível de um trecho — sem as tags e sem espaço dobrado."""
+    return " ".join(re.sub(r"<[^>]+>", " ", html).split())
+
+
+def _caixa(html):
+    """A caixa do consolidado do Progresso: por tile, o número e a frase.
+
+    Ancorada em `tile--<chave>` DENTRO do `<main>`, e não num recorte por
+    `class="tiles"`: o Progresso de 23/09 trocou aquela classe por
+    `tiles tiles--tendencia` num `<div>`, e o recorte antigo estourava. Um
+    helper que se cala quando a tela muda seria pior que o erro — cinco
+    leituras vazias são cinco leituras iguais —, e é por isso que quem
+    chama confere o conjunto de tiles com `_conferir`.
+    """
     corpo = html.split("<main", 1)[1].split("</main>", 1)[0]
-    caixa = corpo.split('class="tiles"', 1)[1].split("</section>", 1)[0]
-    return re.findall(r'class="tile__value[^"]*"[^>]*>([^<]+)<', caixa)
+    caixa = {}
+    for tile in TILE.finditer(corpo):
+        dentro = tile.group("corpo")
+        valor = VALOR.search(dentro)
+        frase = FRASE.search(dentro)
+        caixa[tile.group("chave")] = {
+            "valor": _texto(valor.group("texto")) if valor else None,
+            "frase": _texto(frase.group("texto")) if frase else "",
+        }
+    return caixa
 
 
-class ACaixaDoConsolidadoLeUmRecorteSoTests(TestCase):
+class LeAsTelasMixin:
+    #: peso, treino, cardápio e água — `evolucao.reunir` monta sempre os quatro.
+    TILES = {"peso", "treino", "dieta", "agua"}
+
+    def _conferir(self, caixa):
+        self.assertEqual(set(caixa), self.TILES, caixa)
+        return caixa
+
+    def _numeros(self, resposta=None, sem=()):
+        """Os números da caixa, prontos para comparar entre duas leituras.
+
+        `sem` deixa de fora o tile que a ação sob teste PODE mover — é o
+        caso do peso quando o que se mede é o efeito de registrar um peso.
+        """
+        resposta = resposta or self.client.get(reverse("plans:history"))
+        self.assertEqual(resposta.status_code, 200)
+        caixa = self._conferir(_caixa(resposta.content.decode()))
+        return tuple(sorted(
+            (chave, dados["valor"]) for chave, dados in caixa.items()
+            if chave not in sem
+        ))
+
+
+class ACaixaDoConsolidadoLeUmRecorteSoTests(LeAsTelasMixin, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = create_complete_user(email="tiles@exemplo.com")
@@ -98,37 +166,64 @@ class ACaixaDoConsolidadoLeUmRecorteSoTests(TestCase):
                 medidos.add((consolidado["avg_kcal"], consolidado["adherence_pct"]))
         self.assertEqual(len(medidos), 1, medidos)
 
+    def test_o_tile_do_cardapio_conta_so_os_dias_fechados(self):
+        """A régua do item 1 na tela de hoje: as 4 refeições marcadas são as
+        dos DOIS dias fechados. O café de hoje não entra — nem no numerador
+        nem no denominador —, que é o que impede o número de cair de manhã e
+        subir à noite."""
+        caixa = self._conferir(_caixa(
+            self.client.get(reverse("plans:history")).content.decode()
+        ))
+        self.assertIn("nos dias fechados", caixa["dieta"]["frase"])
+        feitas, previstas = re.search(
+            r"(\d+) de (\d+) refeições", caixa["dieta"]["frase"]
+        ).groups()
+        self.assertEqual(int(feitas), 4)
+        self.assertEqual(
+            caixa["dieta"]["valor"],
+            "%d %%" % round(int(feitas) * 100 / int(previstas)),
+        )
+
     def test_cinco_leituras_seguidas_da_tela_dao_os_mesmos_numeros(self):
-        vistos = {tuple(_numeros(self.client.get(reverse("plans:history")).content.decode()))
-                  for _ in range(5)}
+        vistos = {self._numeros() for _ in range(5)}
         self.assertEqual(len(vistos), 1, vistos)
 
     def test_a_leitura_depois_do_post_do_peso_da_os_mesmos_numeros(self):
         """O caminho do relato: registrar o peso e cair no Progresso pelo
-        redirect. O peso não muda refeição nenhuma, então a caixa também não
-        pode mudar."""
-        antes = _numeros(self.client.get(reverse("plans:history")).content.decode())
+        redirect. O peso não muda refeição nenhuma, então cardápio, treino e
+        água também não podem mudar — o tile do PESO muda, e é por isso que
+        ele fica de fora da comparação."""
+        antes = self._numeros(sem=("peso",))
         resposta = self.client.post(
             reverse("accounts:log_weight"), {"weight_kg": "83,5", "origem": "metricas"}
         )
         self.assertEqual(resposta.status_code, 302)
-        depois = _numeros(self.client.get(resposta["Location"]).content.decode())
+        depois = self._numeros(self.client.get(resposta["Location"]), sem=("peso",))
         self.assertEqual(antes, depois)
 
     def test_sabotagem_uma_refeicao_a_mais_num_dia_fechado_move_a_media(self):
         """Controle positivo: a caixa continua LENDO o banco — ela só parou
         de ler o dia em andamento."""
-        antes = _numeros(self.client.get(reverse("plans:history")).content.decode())
+        antes = self._numeros()
         MealLog.objects.update_or_create(
             user=self.user, slot=self.horarios[2],
             date=timezone.localdate() - timedelta(days=1),
             defaults={"status": MealStatus.DONE, "kcal": Decimal("1000")},
         )
-        depois = _numeros(self.client.get(reverse("plans:history")).content.decode())
-        self.assertNotEqual(antes, depois)
+        self.assertNotEqual(antes, self._numeros())
+
+    def test_sabotagem_uma_refeicao_a_mais_hoje_nao_move_a_media(self):
+        """O outro lado do mesmo controle, e o defeito original: marcar uma
+        refeição HOJE não pode mexer no número dos dias fechados."""
+        antes = self._numeros()
+        MealLog.objects.update_or_create(
+            user=self.user, slot=self.horarios[1], date=timezone.localdate(),
+            defaults={"status": MealStatus.DONE, "kcal": Decimal("900")},
+        )
+        self.assertEqual(antes, self._numeros())
 
 
-class OPrimeiroDiaNaoTemMediaTests(TestCase):
+class OPrimeiroDiaNaoTemMediaTests(LeAsTelasMixin, TestCase):
     """Conta nascida hoje: nenhum dia fechado, e nenhuma média a mostrar."""
 
     @classmethod
@@ -152,13 +247,15 @@ class OPrimeiroDiaNaoTemMediaTests(TestCase):
         self.assertIsNone(consolidado["adherence_pct"])
         self.assertIsNone(consolidado["avg_kcal"])
 
-    def test_a_tela_diz_que_e_o_primeiro_dia_em_vez_de_inventar_uma_media(self):
-        html = self.client.get(reverse("plans:history")).content.decode()
-        corpo = html.split("<main", 1)[1].split("</main>", 1)[0]
-        caixa = corpo.split('class="tiles"', 1)[1].split("</section>", 1)[0]
-        self.assertIn("hoje, até agora", caixa)
-        self.assertNotIn("%", caixa)
-        self.assertIn("400", caixa, "o que ela comeu HOJE continua na tela")
+    def test_a_tela_nao_inventa_uma_porcentagem_no_primeiro_dia(self):
+        """Sem dia fechado não há nota: o tile diz "—" e convida. Um "0 %"
+        ali seria uma reprovação inventada no primeiro dia de uso, e uma
+        média que muda de hora em hora é o defeito que esta missão fechou."""
+        caixa = self._conferir(_caixa(
+            self.client.get(reverse("plans:history")).content.decode()
+        ))
+        self.assertEqual(caixa["dieta"]["valor"], "—")
+        self.assertIn("Marque uma refeição", caixa["dieta"]["frase"])
 
 
 class AOfensivaEUmaContaSoNasTresTelasTests(TestCase):
@@ -209,12 +306,16 @@ class AOfensivaEUmaContaSoNasTresTelasTests(TestCase):
                 self.assertTrue(meta, "%s contou sem meta de água" % rota)
 
 
-class AFraseDeOntemDizONumeroTests(TestCase):
+class OQueFaltouOntemDizONumeroTests(TestCase):
     """"Ontem faltou dieta ou água" para quem registrou as duas coisas.
 
     Medido no navegador em 24/09/2026: 3 refeições de 5 e 1 500 ml de uma
-    meta de 3 000. A pessoa registrou; o que faltou foi CHEGAR na meta, e a
-    frase não dizia isso.
+    meta de 3 000. A pessoa registrou; o que faltou foi CHEGAR na meta.
+
+    A medição é em `Ofensiva.falta_ontem`, e não na frase: a MENSAGEM da
+    ofensiva em zero deixou de citar ontem no mesmo dia ("Zero convida, e
+    não cobra"). As duas decisões se completam — uma tira a cobrança da
+    frase, a outra garante que o número, onde ele for dito, seja número.
     """
 
     @classmethod
@@ -242,18 +343,24 @@ class AFraseDeOntemDizONumeroTests(TestCase):
     def _ontem(self):
         return streaks.para_a_tela(self.user, hoje=self.hoje)
 
-    def test_a_frase_traz_os_dois_numeros_da_dieta_e_da_agua(self):
+    def _falta_ontem(self):
+        return " · ".join(self._ontem().falta_ontem)
+
+    def test_o_numero_de_ontem_traz_a_dieta_e_a_agua(self):
         ofensiva = self._ontem()
         self.assertEqual(ofensiva.dias, 0)
-        frase = ofensiva.mensagem
-        self.assertIn("3 de 5 refeições", frase)
-        self.assertIn("1,5", frase)
-        self.assertIn("3 L", frase)
+        medido = " · ".join(ofensiva.falta_ontem)
+        self.assertIn("3 de 5 refeições", medido)
+        self.assertIn("1,5", medido)
+        self.assertIn("3 L", medido)
 
-    def test_a_frase_nao_diz_o_rotulo_solto_de_antes(self):
-        self.assertNotIn("faltou dieta ou água.", self._ontem().mensagem)
+    def test_ontem_nao_e_dito_com_o_rotulo_solto_de_antes(self):
+        """Nem no número, nem na frase: `falta_ontem` traz a medida, e a
+        mensagem da ofensiva em zero não cobra ontem nenhuma."""
+        self.assertNotIn("dieta ou água", self._falta_ontem())
+        self.assertNotIn("faltou", self._ontem().mensagem)
 
-    def test_sem_serie_num_dia_de_treino_a_frase_diz_isso(self):
+    def test_sem_serie_num_dia_de_treino_o_numero_diz_isso(self):
         """Os dias previstos saem da FICHA (`plan.sessions`), e não de
         `TrainingDay` — criar só a linha do dia deixaria `previstos` vazio e
         o teste passaria verde medindo outra coisa."""
@@ -262,17 +369,15 @@ class AFraseDeOntemDizONumeroTests(TestCase):
             user=self.user, weekday=self.ontem.weekday(), duration_min=60
         )
         treino_services.create_routine(self.user)
-        frase = self._ontem().mensagem
-        self.assertIn("nenhuma série", frase)
+        self.assertIn("nenhuma série", self._falta_ontem())
 
-    def test_sabotagem_mudar_a_agua_de_ontem_muda_a_frase(self):
-        antes = self._ontem().mensagem
+    def test_sabotagem_mudar_a_agua_de_ontem_muda_o_numero(self):
+        antes = self._falta_ontem()
         HydrationLog.objects.filter(user=self.user, date=self.ontem).update(ml=800)
-        self.assertNotEqual(antes, self._ontem().mensagem)
-        self.assertIn("0,8", self._ontem().mensagem)
+        self.assertNotEqual(antes, self._falta_ontem())
+        self.assertIn("0,8", self._falta_ontem())
 
-    def test_a_frase_de_hoje_continua_com_o_rotulo_curto(self):
+    def test_o_que_falta_hoje_continua_com_o_rotulo_curto(self):
         """O que FECHA o dia, sem número: é a decisão de 22/09/2026 e ela
-        não muda aqui — a frase medida era a de ONTEM."""
-        ofensiva = streaks.para_a_tela(self.user, hoje=self.hoje)
-        self.assertEqual(ofensiva.falta_hoje, ["dieta ou água"])
+        não muda aqui — o que ganhou número foi ONTEM, que já fechou."""
+        self.assertEqual(self._ontem().falta_hoje, ["dieta ou água"])

@@ -100,7 +100,13 @@ class OfensivaComecaNaContaTests(TestCase):
         plano = services.create_plan(nova)
         meta = weight_trend.hidratacao_ml(plano.weight_kg)
         hoje = timezone.localdate()
-        self.assertIn("Comece hoje", streaks.calcular(nova, hoje=hoje, meta_agua_ml=meta).mensagem)
+        # "COMECE", e não "recomeça": no primeiro dia não há o que recomeçar
+        # (`falta_ontem is None` é exatamente "ontem não era da conta"). E a
+        # frase diz O QUE FAZER, não o que faltou — rodada 2, 24/09/2026.
+        self.assertEqual(
+            streaks.calcular(nova, hoje=hoje, meta_agua_ml=meta).mensagem,
+            "Comece hoje: registre uma refeição ou um copo d'água.",
+        )
 
         antiga = create_complete_user(email="ontem@exemplo.com")
         antiga.date_joined = timezone.now() - timedelta(days=5)
@@ -111,22 +117,29 @@ class OfensivaComecaNaContaTests(TestCase):
         HydrationLog.objects.create(user=antiga, date=hoje - timedelta(days=1), ml=meta // 2)
         ofensiva = streaks.calcular(antiga, hoje=hoje, meta_agua_ml=meta)
         self.assertEqual(ofensiva.dias, 0)
-        # COM O NÚMERO desde 24/09/2026: "faltou dieta ou água" era dito a
-        # quem tinha registrado as duas coisas e só não chegado na meta.
-        # `falta_hoje` continua com o rótulo curto — ver
-        # `plans/test_numeros_do_progresso.py`.
+        # O NÚMERO de ontem continua verdadeiro e calculado — quem o lê são
+        # outras telas. O que saiu da FRASE foi a palavra "faltou": desde
+        # 22/09/2026 ela já não ABRIA por aí ("Ontem faltou X. Hoje
+        # recomeça: …"), e na rodada 2 de experiência (24/09) ela deixou de
+        # terminar nela também. Zero convida; cobrar duas vezes pela mesma
+        # coisa era o que fazia a primeira aparição do treino na Home ser
+        # uma bronca num cartão de zero dias.
+        # O NÚMERO, e não o rótulo: "faltou dieta ou água" era dito a quem
+        # tinha registrado as duas coisas e só não chegado na meta. Esta
+        # linha é o que sobrou provando a `pendencias_medidas` depois que a
+        # FRASE deixou de citar ontem — as duas mudanças são de 24/09 e se
+        # completam.
+        #
         # LITERAL, e não o formatador da produção: um teste que calcula a
         # expectativa com o código sob teste concorda com ele por
         # construção. `meta` é conferida logo acima para a literal valer.
         self.assertEqual(meta, 3000)
         self.assertEqual(ofensiva.falta_ontem, ["água 1,5 de 3 L"])
-        self.assertIn("Ontem: água", ofensiva.mensagem)
-        # E ela NÃO abre por aí: a frase começa com o convite de hoje. Era
-        # "Ontem faltou X. Hoje recomeça: …", e a auditoria de UX de
-        # 22/09/2026 mediu o efeito — a primeira aparição do treino na Home
-        # era uma bronca num cartão de zero dias.
-        self.assertTrue(
-            ofensiva.mensagem.startswith("Recomeça hoje"), ofensiva.mensagem
+        self.assertNotIn("faltou", ofensiva.mensagem)
+        # E aqui o verbo é RECOMEÇA: a conta existia ontem.
+        self.assertEqual(
+            ofensiva.mensagem,
+            "Recomeça hoje: registre uma refeição ou um copo d'água.",
         )
 
     def test_o_dia_da_entrada_conta_e_o_anterior_nao(self):

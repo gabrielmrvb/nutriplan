@@ -6,13 +6,30 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
+- **Um clique para treinar.** O botão do painel de Treino — e o cartão do treino na Home — leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
+- **O placar diz quanto tempo você treinou.** Era "1 min entre o primeiro e o último registro"; agora é o tempo da primeira série até você tocar em "Encerrar treino". E ele conta: "5 de 8 exercícios feitos", com os que ficaram de fora na ordem da ficha.
+- **A sequência em zero convida em vez de cobrar.** "Recomeça hoje: treino no dia de treino, mais dieta ou água. Ontem faltou dieta ou água." virou "Recomeça hoje: registre uma refeição ou um copo d'água." — e "Comece hoje", com as mesmas palavras, para quem criou a conta hoje.
+- **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
+- **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
+- **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
+- **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 - **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
 - **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
-- **O Progresso diz o mesmo número toda vez.** A média de "kcal/dia" incluía o dia de hoje, que ainda está acontecendo: ela caía de manhã e subia à noite, ao lado da meta de um dia inteiro. Agora ela é dos dias fechados, como a aderência ao lado — e no primeiro dia, quando não há nenhum, a caixa mostra o que você comeu hoje em vez de inventar uma média.
-- **"Ontem faltou dieta ou água" virou o número do que faltou.** A frase era dita a quem tinha registrado as duas coisas e só não chegado na meta. Agora ela diz "Ontem: 3 de 5 refeições e água 1,5 de 3 L".
+
+*(gerência, não aparece para quem usa)*
+
+- **O painel de gestão passou a responder três perguntas de produto**: onde a pessoa desiste (o funil da landing à primeira série, por dia e por semana), se ela volta (D1, D7 e D30 por semana de cadastro) e o que a base usa de fato (registros e pessoas por área, semana a semana).
 
 ## 2026-09-23
 
+- **A aba "Mais" deixou de ser o que sobrou.** Ela abre com você: a inicial, o seu nome, o seu objetivo e a meta do dia — e essa primeira linha é a porta do Perfil. Antes o título era "Áreas sem aba" e o seu perfil aparecia como um cartão escrito "2.372 kcal por dia".
+- **Corrida e Hidratação continuam em cartão, com a ação no rodapé.** São as duas áreas com número vivo, e agora cada uma tem "Ver corrida ›" e "Ver hidratação ›".
+- **Conquistas, Lista de compras e Ajuda viraram uma lista de linhas**, com ícone, o que é e uma seta — em vez de cartões do mesmo tamanho, um deles quase vazio. Conta ganhou a mesma forma, com Perfil e "Sair da conta" (em vermelho, porque é a única ação que encerra alguma coisa).
+- **No computador a tela usa as duas colunas**: as suas áreas à esquerda, as listas à direita.
+- **O Progresso virou uma tela de evolução.** Escolha o período (semana, mês ou 3 meses) no topo e veja quatro números com a direção de cada um; o peso virou um gráfico de verdade, com um ponto por pesagem; e alimentação, treino, água e corrida ganharam um calendário do mês e as barras de cada semana, todos no mesmo desenho.
+- **Nada mais de semanas vazias de antes de você entrar.** A tela mostrava oito semanas sempre — quem tinha três dias de uso via sete linhas zeradas de antes de ter conta. Agora os gráficos começam no dia em que você chegou e crescem com você.
+- **O treino mostra os seus recordes.** A carga máxima de cada exercício, com a data, e quantos dias seguidos você vem treinando.
 - **Uma refeição agora parece uma refeição.** Cada horário mostra as DUAS opções do dia, sempre, como dois cartões de receita: desenho do prato, nome, calorias, os três macros (proteína, carboidrato e gordura), o tempo de preparo e os ingredientes com a quantidade numa linha — "2 unidades de pão francês · 3 ovos médios · 3 fatias de queijo". Antes era o nome, a caloria e um "Ver opções" que abria duas linhas de texto.
 - **O botão diz "Comi esta", e não "Registrar A".** A letra era um nome interno. O verde fica só na sugestão do dia; a outra opção tem o mesmo botão em contorno.
 - **"Pulei" e "Comi outra coisa" saíram da frente.** Eram dois botões do tamanho do registrar, cinco vezes por dia; agora são uma linha discreta no rodapé do cartão. As duas continuam fazendo exatamente o que faziam.

@@ -163,7 +163,9 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # em 0 faz o teste imprimir o número), já com a invalidação por
         # `items_changed_at` dentro da mesma consulta de `template__is_active`
         # em `plan_is_current` (zero a mais).
-        "plans:today": 17,  # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`)
+        # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`);
+        # 17 → 18 em 24/09 pela consulta das restrições — a razão está lá.
+        "plans:today": 18,
         # A ALIMENTAÇÃO ENTRA NA TABELA em 23/09/2026, com 18.
         #
         # Ela nasceu da separação de 22/09 e ficou sem orçamento próprio: o
@@ -180,7 +182,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # E os cards de receita não custam nada: os ingredientes e a medida
         # caseira saem do `prefetch_related` que a tela já fazia.
-        "plans:alimentacao": 18,
+        "plans:alimentacao": 19,  # 18 → 19 em 24/09: a mesma consulta das restrições
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
@@ -210,7 +212,18 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # agregada por semana (`progresso.km_corridos`), constante, e não
         # por linha. Achado #9 das personas: a tela não sabia que a pessoa
         # corria.
-        "plans:history": 29,
+        #
+        # 29 -> 31 (23/09/2026, o redesenho): a tela passou a desenhar o MAPA
+        # DO DIA das quatro áreas e os recordes de treino. O que entrou foi
+        # +1 do mapa de água, +1 do mapa de corrida, +1 dos recordes e +1 das
+        # receitas mais registradas; o que saiu foi a curva de peso semanal e
+        # a progressão de carga. Duas consultas líquidas.
+        #
+        # E o que NÃO mudou é o que importa: o custo é do NÚMERO DE ÁREAS e
+        # não do tamanho do período — as barras da semana são somadas em
+        # Python sobre o mapa do dia. `plans.test_evolucao` mede isso
+        # diretamente, comparando "semana" com "3 meses".
+        "plans:history": 31,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

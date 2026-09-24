@@ -35,7 +35,7 @@ STEP1 = {
 }
 STEP2 = {"goal": "cut", "activity_level": "light"}
 STEP3_QUATRO_DIAS = {
-    "weekdays": ["0", "1", "3", "5"], "musculacao": "sim",
+    "weekdays": ["0", "1", "3", "5"], "musculacao": "sim", "experiencia": "intermediario", "equipamento": "completa",
     "wake_time": "07:00",
     "sleep_time": "23:30",
 }

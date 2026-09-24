@@ -11,6 +11,12 @@
     <a class="gestao-abas__item {% if sub == 'explorar' %}is-active{% endif %}"
        href="{% url 'analytics_painel:explorar' %}"
        {% if sub == 'explorar' %}aria-current="page"{% endif %}>Explorar</a>
+    <a class="gestao-abas__item {% if sub == 'entrada' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:entrada' %}"
+       {% if sub == 'entrada' %}aria-current="page"{% endif %}>Entrada</a>
+    <a class="gestao-abas__item {% if sub == 'uso' %}is-active{% endif %}"
+       href="{% url 'analytics_painel:uso' %}"
+       {% if sub == 'uso' %}aria-current="page"{% endif %}>Uso por área</a>
     <a class="gestao-abas__item {% if sub == 'funil' %}is-active{% endif %}"
        href="{% url 'analytics_painel:funil' %}"
        {% if sub == 'funil' %}aria-current="page"{% endif %}>Funil</a>

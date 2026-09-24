@@ -123,6 +123,12 @@ logger = logging.getLogger(__name__)
 
 PASSO_TREINOS = 2
 
+#: A etapa da COMIDA. Salvar restrição ou estilo de cardápio aqui remonta o
+#: cardápio no mesmo POST, pela mesma razão que salvar os dias remonta a
+#: ficha: a pessoa acabou de dizer o que come, e "Alterações salvas." com a
+#: sardinha ainda na tela é a tela contradizendo o que ela escolheu.
+PASSO_COMIDA = 3
+
 #: As TRÊS etapas, sempre as três (15/09/2026, decisão C-ONB). O wizard
 #: antigo tinha seis passos e um caminho condicional — o passo da divisão só
 #: existia quando os dias de treino pediam (quatro; três desde 10/09/2026). A divisão continua condicional,
@@ -647,6 +653,39 @@ class OnboardingStepMixin(LoginRequiredMixin):
             return "Alterações salvas — a ficha foi remontada com elas."
         return "Alterações salvas."
 
+    def acertar_cardapio(self):
+        """Remonta o cardápio depois de salvar restrições e estilo — AGORA.
+
+        Antes disto, mudar "sem peixe" no Perfil devolvia "Alterações
+        salvas." e o cardápio continuava oferecendo sardinha: a etapa 3 em
+        edição não chamava motor nenhum, e a visita seguinte à Home também
+        não trocava nada, porque `plan_is_current` não comparava restrição.
+        As duas pontas foram corrigidas; esta é a que a pessoa VÊ no mesmo
+        toque.
+
+        O cache do perfil sai ANTES de o motor ler, pela mesma razão que
+        `acertar_ficha` documenta: `salvar()` gravou por `self.profile`, e
+        `build_inputs` lê `user.profile` — a instância que o mixin pôs em
+        cache no começo do pedido, com o estilo de cardápio VELHO. As
+        restrições escapariam (o M2M consulta toda vez), o estilo não.
+        """
+        reversa = Profile._meta.get_field("user").remote_field
+        if reversa.is_cached(self.request.user):
+            reversa.delete_cached_value(self.request.user)
+        from plans import services as plans_services
+
+        try:
+            _, mudou = plans_services.sync_active_plan(self.request.user)
+        except plans_services.IncompleteProfile as erro:
+            # Quem ainda não registrou peso não tem cardápio a remontar. A
+            # Home sabe devolver essa pessoa ao onboarding; aqui só não se
+            # promete o que não aconteceu.
+            logger.warning("cardápio não remontado ao salvar a comida: %s", erro)
+            return "Alterações salvas."
+        if mudou:
+            return "Alterações salvas — o cardápio foi remontado com elas."
+        return "Alterações salvas."
+
     def montar_cardapio(self):
         """O cardápio nasce em "Calcular minha estimativa", e não na primeira Home.
 
@@ -673,7 +712,9 @@ class OnboardingStepMixin(LoginRequiredMixin):
         profile.advance_onboarding(self.step, proximo=proximo)
         if was_complete:
             mensagem = "Alterações salvas."
-            if self.step == PASSO_TREINOS:
+            if self.step == PASSO_COMIDA:
+                mensagem = self.acertar_cardapio()
+            elif self.step == PASSO_TREINOS:
                 # Os dias ou a divisão mudaram, e a ficha muda com eles AGORA
                 # — não na próxima visita ao Treino. A Home lê o plano ativo
                 # sem montar nada, e é para a Home que "Salvar" pode voltar.
@@ -1249,7 +1290,34 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
             area["progresso"] = fatos.get(area["valor"] + ":pct")
             area["convite"] = fatos.get(area["valor"] + ":convite")
         contexto["ferramentas"] = self._fatos_das_ferramentas()
+        contexto["identidade"] = self._identidade(contexto["ferramentas"].get("perfil"))
         return contexto
+
+    def _identidade(self, perfil):
+        """Quem a pessoa é aqui dentro — a primeira linha da tela (23/09/2026).
+
+        Inicial, nome (ou o e-mail, quando o cadastro não tem nome — o de
+        e-mail e senha não pede; o do Google traz), e a linha do objetivo com
+        a meta que `_fatos_das_ferramentas` já calculou para o Perfil. Custo
+        zero: tudo sai de `request.user`, que o pedido já tem em memória.
+
+        A inicial é a primeira letra do nome ou do e-mail, maiúscula — o
+        avatar mais barato que existe, e o único que não precisa de upload.
+        """
+        user = self.request.user
+        nome = (user.get_short_name() or "").strip()
+        mostra_email = not nome
+        rotulo = nome or user.email
+        inicial = (rotulo[:1] or "?").upper()
+        linha = ""
+        if perfil:
+            # "manter o peso · 2.372 kcal por dia" ou, sem plano, só o objetivo
+            if "kcal" in perfil["rotulo"]:
+                objetivo = perfil["rotulo"].split("·", 1)[1].strip()
+                linha = f"{objetivo} · {perfil['valor']} kcal por dia"
+            else:
+                linha = f"{perfil['valor']} {perfil['rotulo']}"
+        return {"inicial": inicial, "nome": rotulo, "mostra_email": mostra_email, "linha": linha}
 
     def _fatos_das_ferramentas(self):
         """O que cada ferramenta responde ANTES do toque — a custo fixo.

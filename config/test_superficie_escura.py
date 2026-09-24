@@ -78,7 +78,12 @@ class TrilhaDeProgressoAparecemTests(SimpleTestCase):
         self.assertNotIn("var(--surface-2) 0)", corpo)
 
     def test_as_barras_de_semana_e_de_historico_usam_a_borda(self):
-        for seletor in (".semana__barra", ".history-row__bar"):
+        # A VÍRGULA IMPORTA: sem ela `(".history-row__bar")` é uma STRING, e
+        # o laço passa a iterar CARACTERES — `_regra(".")` devolve None e o
+        # teste reprova dizendo "." em vez do seletor. Foi o que aconteceu ao
+        # tirar `.semana__barra` da lista em 23/09/2026 (a barra semanal saiu
+        # com o redesenho do Progresso).
+        for seletor in (".history-row__bar",):
             corpo = _regra(self.css, seletor)
             self.assertIsNotNone(corpo, seletor)
             self.assertIn("background: var(--fio)", corpo, seletor)

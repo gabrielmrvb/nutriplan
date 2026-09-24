@@ -506,19 +506,33 @@ class OCartaoDaAreaTemAAcaoDoDiaTests(BaseDaHome):
         self.assertIn('href="%s"' % reverse("workouts:corridas"), cartao)
         self.assertIn("Registrar corrida", cartao)
 
-    def test_progresso_leva_a_faixa_de_pesagem_quando_ela_esta_pedindo(self):
-        """E leva à curva quando não está: oferecer "registrar peso" a quem
-        acabou de se pesar é pedir um número que o app já tem."""
+    def test_o_cartao_de_progresso_leva_a_curva_e_nao_repete_o_registro_de_peso(self):
+        """UM SÓ REGISTRO DE PESO NA HOME (rodada 2, 24/09/2026).
+
+        O rodapé deste cartão apontava para `#pesar` — a faixa que já está
+        NESTA tela, com o campo. MEDIDO no navegador com Progresso declarado
+        e a semana sem pesagem: TRÊS caminhos para a mesma ação na mesma
+        dobra (este cartão, o cartão AGORA e a própria faixa), sendo dois
+        deles âncoras para o terceiro.
+
+        O cartão volta a responder o que ele é — a porta da ÁREA —, e a ação
+        continua anunciada UMA vez, pelo cartão AGORA, que é o orquestrador
+        do dia. A régua vale com e sem convite pendente."""
         user = self.pessoa("acao-progresso@exemplo.com", ("progresso",), "progresso")
 
-        cartao = self._cartao(self.home(), "Progresso")
         # a etapa 1 do wizard grava o peso de hoje — não há convite
+        cartao = self._cartao(self.home(), "Progresso")
         self.assertIn('href="%s"' % reverse("plans:history"), cartao)
         self.assertIn("Ver progresso", cartao)
 
         WeightEntry.objects.filter(user=user).update(
             date=timezone.localdate() - timedelta(days=10)
         )
-        cartao = self._cartao(self.home(), "Progresso")
-        self.assertIn('href="#pesar"', cartao)
-        self.assertIn("Registrar peso", cartao)
+        home = self.home()
+        cartao = self._cartao(home, "Progresso")
+        self.assertIn('href="%s"' % reverse("plans:history"), cartao)
+        self.assertNotIn('href="#pesar"', cartao)
+        self.assertNotIn("Registrar peso", cartao)
+        # e a faixa continua na tela, com o campo: tirar o atalho não tira
+        # a ação — ela mora onde o campo está.
+        self.assertIn('id="pesar"', home)

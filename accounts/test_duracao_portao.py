@@ -153,7 +153,7 @@ class ODefaultNasceEmPadraoTests(TestCase):
         # aqui (duração, horário) é perguntado.
         passo(2, {
             "activity_level": ActivityLevel.LIGHT, "goal": Goal.BULK,
-            "weekdays": ["0", "2", "4"], "musculacao": "sim",
+            "weekdays": ["0", "2", "4"], "musculacao": "sim", "experiencia": "intermediario", "equipamento": "completa",
             "experiencia": "intermediario",
             "wake_time": "07:00",
             "sleep_time": "23:00",
@@ -179,7 +179,7 @@ class ODefaultNasceEmPadraoTests(TestCase):
         self.client.post(
             reverse("accounts:onboarding_step", kwargs={"step": 2}),
             {"activity_level": ActivityLevel.LIGHT, "goal": Goal.BULK,
-             "weekdays": ["0", "2"], "musculacao": "sim", "experiencia": "intermediario",
+             "weekdays": ["0", "2"], "musculacao": "sim", "experiencia": "intermediario", "equipamento": "completa",
              "wake_time": "07:00", "sleep_time": "23:00"},
         )
 
@@ -206,7 +206,7 @@ class QuemJaEscolheuNaoEReescritoTests(TestCase):
         corpo = {
             "activity_level": ActivityLevel.LIGHT,
             "goal": Goal.BULK,
-            "weekdays": ["1", "3"], "musculacao": "sim",
+            "weekdays": ["1", "3"], "musculacao": "sim", "experiencia": "intermediario", "equipamento": "completa",
             "experiencia": "intermediario",
             "wake_time": "07:00",
             "sleep_time": "23:00",
