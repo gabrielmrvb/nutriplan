@@ -323,6 +323,49 @@ E as promessas, lidas no DOM a 1280 `[OBSERVADA]`:
 O item 6 foi conferido no servidor: `GET /hoje/` → **301** para `/`
 `[EXECUTADA]`.
 
+### Em PRODUÇÃO — `3a6094b` `[EXECUTADA]`
+
+PR #142 mergeado pela fila (`3a6094b`), staging provado, smoke 5/5, **E2E de
+gente 13 de 13** com conta de robô criada e apagada no staging, e promoção no
+lote. **`/saude/` de produção responde `{"commit": "3a6094b", "ambiente":
+""}`.**
+
+O que ficou provado em produção, e como:
+
+| item | prova em produção |
+|---|---|
+| 6 | `GET /hoje/` → **301** para `/`; `/demo/hoje/` continua 200 (a rota nova está na raiz e não sombreia o demo) `[EXECUTADA]` |
+| 8 | `/demo/treino/corridas/` com `.container` de **1024 px** `[OBSERVADA]` |
+| — | smoke 9 rotas públicas, todas 200 `[EXECUTADA]` |
+| — | 16 combinações (4 telas × 390/1280 × escuro/claro): **zero rolagem horizontal, zero texto abaixo de 11 px** `[OBSERVADA]`; capturas em `achados/capturas/rodada-2-producao/` |
+
+`[LIMITAÇÃO]` **Os itens 3, 4, 5, 7 e 9 não puderam ser vistos LOGADO em
+produção**, por dois motivos somados, e os dois estão previstos no
+`CLAUDE.md`:
+
+1. **o ambiente desta sessão proíbe criar conta e digitar senha**, então a
+   conta descartável pelo signup público — o caminho que o dono autorizou em
+   18/09/2026 — não está disponível aqui. O `CLAUDE.md` diz exatamente o que
+   fazer nesse caso: dizer isso no relatório e provar o que der pelo `/demo/`;
+2. **o `/demo/` não alcança esses cinco hoje**: a persona Carlos está em DIA
+   DE DESCANSO em 24/09 `[OBSERVADA]` — o painel diz "Dia de descanso" e o
+   bloco do treino de hoje, com o CTA dentro, não é renderizado —, e a Home
+   do demo não traz a faixa de pesagem nem o cartão do painel de Progresso.
+
+O que os cobre no lugar disso: a **suíte inteira** sobre o commit promovido
+(o check "suíte rápida" verde sobre `a8a4661`, e 4.486 locais), o **E2E de
+gente 13/13 no staging sobre `3a6094b`** — que percorre cadastro, as três
+etapas, água, refeição e uma série concluída — e o **browser QA local a 390 e
+1280 nos dois temas**, onde os cinco foram lidos no DOM. O que NÃO ficou
+provado é a renderização logada com o HTML servido por produção; está dito
+aqui em vez de contornado.
+
+E uma consequência disso virou sugestão de tarefa: **o E2E noturno ainda
+chega à execução pela FICHA**, não pelo CTA novo — então o caminho que esta
+missão tornou principal nunca é exercido por um navegador de verdade antes
+de cada promoção. É uma linha no `serie()` de `scripts/qa/e2e_staging.py`, e
+ficou fora daqui porque é hardening do roteiro, não da missão.
+
 - `manage.py check`, `makemigrations --check`, `git diff --check`: limpos
   `[EXECUTADA]`.
 - Uma migration, `plans.0012_retrato_do_cardapio` (dois campos, `default=""`,
@@ -391,7 +434,17 @@ O item 6 foi conferido no servidor: `GET /hoje/` → **301** para `/`
    mexer nela sem o desenho ao lado é exatamente o que o dono pediu para não
    fazer. A guarda de largura que nasceu aqui torna a correção barata quando
    for decidida.
-4. **O PR #140 (missão "dado errado") continua aberto e agora está `behind`**
+4. **`suite.yml` roda em TODO PR, contra o que ela própria documenta**
+   `[LIDA NO CÓDIGO]`. O cabeçalho do arquivo diz "Não é mais o gate de PR
+   — quem barra o merge é 'suíte rápida'" e lista os gatilhos como "DEPOIS
+   do merge (`push: main`)" e "à mão"; o bloco `on:` tem `pull_request:
+   branches: [main]`. Medido neste PR: as duas rodaram no mesmo push. Não
+   quebra nada — a fila espera só a rápida, e o repositório é público, então
+   minuto de Actions é ilimitado —, mas é ~31 min de runner por PR que a
+   documentação diz não existir. **Não mexi**: pode ser deliberado desde que
+   o repositório virou público, e mudar gatilho de CI no PR de outra missão
+   é exatamente o conserto oportunista que o protocolo proíbe.
+5. **O PR #140 (missão "dado errado") continua aberto e agora está `behind`**
    duas vezes: `main` andou com o #137 e andará com este. Ele conflita com o
    item 5 em `plans/streaks.py`.
 
