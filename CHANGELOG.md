@@ -14,6 +14,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
+- **A dica da Alimentação parou de falar em "A e B".** O rótulo das opções saiu da tela em 23/09; a frase abaixo do cardápio, a pergunta da Ajuda e o e-mail de boas-vindas ainda citavam as letras. Agora dizem "as duas opções", sem mudar o sentido.
 
 *(gerência, não aparece para quem usa)*
 
