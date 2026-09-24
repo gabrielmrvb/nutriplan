@@ -247,3 +247,258 @@ def serie_de_agregado(nome, dias):
         .values("day", "count", "users")
         .order_by("day")
     )
+
+
+# ---------------------------------------------------------- funil de entrada
+#
+# A PERGUNTA É "ONDE A PESSOA DESISTE", e ela só tem resposta com os passos
+# NOMEADOS e na ordem do produto. `funil()` acima é genérico — recebe nomes de
+# evento e devolve o total da janela; aqui a lista é fechada, três passos são
+# o MESMO evento com propriedade diferente (as etapas do cadastro), e o
+# resultado vem por COORTE de dia ou de semana. Coorte, e não "eventos do
+# dia": quem abriu a landing na segunda e treinou na quarta desistiu — ou não
+# — daquela segunda, e contar a série de quarta como conversão de quarta faz
+# a taxa de um dia depender do movimento do dia anterior.
+#
+#: Cada passo é `(chave, rótulo, nome do evento, filtro de propriedade)`.
+PASSOS_DE_ENTRADA = (
+    ("landing", "Abriu a landing", "site.landing_vista", {}),
+    ("cadastro", "Começou o cadastro", "onboarding.iniciado", {}),
+    ("etapa1", "Etapa 1 · sobre você", "onboarding.etapa_concluida", {"props__etapa": 1}),
+    ("etapa2", "Etapa 2 · objetivo e rotina", "onboarding.etapa_concluida", {"props__etapa": 2}),
+    ("etapa3", "Etapa 3 · personalização", "onboarding.etapa_concluida", {"props__etapa": 3}),
+    ("refeicao", "1ª refeição registrada", "dieta.refeicao_registrada", {}),
+    ("serie", "1ª série registrada", "treino.serie_concluida", {}),
+)
+
+GRANULARIDADES = {"dia": TruncDate, "semana": TruncWeek}
+
+
+def funil_de_entrada(dias=30, por="dia"):
+    """O funil de entrada por coorte de dia ou de semana.
+
+    UMA consulta por passo (sete, fixas — não crescem com o volume nem com o
+    número de coortes), e a matriz é montada em Python sobre `pessoas ×
+    passos`. Cada pessoa entra na coorte do seu PRIMEIRO passo alcançado, e só
+    conta num passo se o tempo dele veio DEPOIS do anterior — a mesma régua de
+    ordem que `funil()` já aplica.
+
+    Devolve `(coortes, total)`: cada coorte é `{quando, base, etapas}` e cada
+    etapa traz `pessoas`, `pct_do_topo` e `pct_do_anterior`. A segunda é a que
+    responde a pergunta — "de quem chegou aqui, quantos passaram?" —, e é ela
+    que a tela destaca.
+    """
+    inicio = _inicio(dias)
+    # {chave do passo: {pessoa: primeiro_ts}}
+    quando = {}
+    for chave, _rotulo, nome, filtro in PASSOS_DE_ENTRADA:
+        linhas = (
+            Event.objects.filter(name=nome, ts__gte=inicio, **filtro)
+            .annotate(pessoa=PESSOA)
+            .values("pessoa")
+            .annotate(t=Min("ts"))
+        )
+        quando[chave] = {linha["pessoa"]: linha["t"] for linha in linhas}
+
+    chaves = [p[0] for p in PASSOS_DE_ENTRADA]
+    todas = set()
+    for mapa in quando.values():
+        todas |= set(mapa)
+    # A COORTE é o PRIMEIRO passo que a pessoa alcançou, e a data dele. Quem
+    # entrou direto pelo cadastro (link compartilhado, sem passar pela
+    # landing) não fica de fora do funil: ela entra pela etapa em que
+    # apareceu, e as etapas acima dela ficam zeradas naquela coorte — que é a
+    # verdade, e não um buraco.
+    coorte_de = {}
+    for pessoa in todas:
+        primeiro = next((c for c in chaves if pessoa in quando[c]), None)
+        if primeiro is not None:
+            coorte_de[pessoa] = quando[primeiro][pessoa]
+
+    baldes = {}
+    for pessoa, instante in coorte_de.items():
+        baldes.setdefault(_balde(instante, por), set()).add(pessoa)
+
+    coortes = [
+        _linha_do_funil(rotulo, pessoas, quando, chaves)
+        for rotulo, pessoas in sorted(baldes.items())
+    ]
+    total = _linha_do_funil(None, set(coorte_de), quando, chaves)
+    return coortes, total
+
+
+def _balde(instante, por):
+    """A chave da coorte: a data (dia) ou a segunda-feira daquela semana."""
+    data = timezone.localtime(instante).date()
+    if por == "semana":
+        return data - timedelta(days=data.weekday())
+    return data
+
+
+def _linha_do_funil(quando_rotulo, pessoas, quando, chaves):
+    etapas = []
+    chegaram_antes = None
+    base = 0
+    for i, chave in enumerate(chaves):
+        if i == 0:
+            chegaram = {p for p in pessoas if p in quando[chave]}
+            base = len(chegaram)
+        else:
+            chegaram = {
+                p for p in chegaram_antes
+                if p in quando[chave] and quando[chave][p] >= quando[chaves[i - 1]][p]
+            }
+        anterior = len(chegaram_antes) if chegaram_antes is not None else len(chegaram)
+        etapas.append(
+            {
+                "chave": chave,
+                "pessoas": len(chegaram),
+                "pct_do_topo": round(100 * len(chegaram) / base) if base else 0,
+                "pct_do_anterior": round(100 * len(chegaram) / anterior) if anterior else 0,
+            }
+        )
+        chegaram_antes = chegaram
+    return {"quando": quando_rotulo, "base": base, "etapas": etapas}
+
+
+# ---------------------------------------------------------- uso por área
+#
+#: Que evento conta como REGISTRO em cada pilar. É a lista que responde "o que
+#: a base usa de fato" — e ela é de REGISTRO, não de visita: abrir a tela de
+#: água não é beber água.
+EVENTOS_DA_AREA = {
+    "alimentacao": ("dieta.refeicao_registrada", "dieta.pulou", "dieta.comeu_outra_coisa"),
+    "treino": ("treino.serie_concluida",),
+    "hidratacao": ("agua.registrada",),
+    "progresso": ("progresso.peso_registrado",),
+    "corrida": ("corrida.registrada",),
+}
+
+#: Todo evento de registro, achatado — a régua de "voltou" da retenção e o
+#: denominador do uso por área saem da MESMA lista, de propósito: duas
+#: definições de "usou o app" é como duas telas passam a discordar.
+EVENTOS_DE_REGISTRO = tuple(
+    nome for nomes in EVENTOS_DA_AREA.values() for nome in nomes
+)
+
+
+# ------------------------------------------------------- retenção D1/D7/D30
+#
+#: Os degraus que a pergunta "a pessoa volta?" usa. Dia, e não semana: a
+#: `retencao()` acima responde por SEMANA de retorno, que é a curva de longo
+#: prazo; D1/D7/D30 é a régua de produto — voltou no dia seguinte, na semana,
+#: no mês.
+DEGRAUS_DE_RETENCAO = (1, 7, 30)
+
+
+def retencao_por_coorte(semanas=8, degraus=DEGRAUS_DE_RETENCAO):
+    """Coortes por SEMANA DE CADASTRO × D1 / D7 / D30.
+
+    "Voltou" é ter REGISTRADO alguma coisa — uma refeição, uma série, um copo
+    d'água — no dia D depois do cadastro, e não "abriu o app": abrir sem
+    registrar é curiosidade, não retenção. Por isso a atividade sai de
+    `EVENTOS_DE_REGISTRO`, a mesma lista que o uso por área usa.
+
+    Duas consultas, matriz em Python. Coorte cuja janela ainda não fechou (o
+    D30 de quem se cadastrou ontem) vem com `None` em vez de 0 — zero seria a
+    tela afirmando que ninguém voltou de um prazo que ainda não chegou.
+    """
+    limite = timezone.now() - timedelta(weeks=semanas)
+    cadastros = (
+        Event.objects.filter(name="conta.criada", ts__gte=limite)
+        .annotate(pessoa=PESSOA)
+        .values("pessoa")
+        .annotate(t=Min("ts"))
+    )
+    nasceu = {
+        linha["pessoa"]: timezone.localtime(linha["t"]).date() for linha in cadastros
+    }
+    if not nasceu:
+        return []
+
+    atividade = (
+        Event.objects.filter(name__in=EVENTOS_DE_REGISTRO, ts__gte=limite)
+        .annotate(pessoa=PESSOA, dia=TruncDate("ts"))
+        .values("pessoa", "dia")
+        .distinct()
+    )
+    dias_de = {}
+    for linha in atividade:
+        dias_de.setdefault(linha["pessoa"], set()).add(linha["dia"])
+
+    hoje = timezone.localdate()
+    por_semana = {}
+    for pessoa, dia in nasceu.items():
+        por_semana.setdefault(dia - timedelta(days=dia.weekday()), []).append(pessoa)
+
+    linhas = []
+    for semana in sorted(por_semana):
+        pessoas = por_semana[semana]
+        celulas = []
+        for d in degraus:
+            # A janela fechou? O D7 de uma coorte de segunda só fecha no
+            # domingo seguinte; enquanto não fechar, a célula é `None`.
+            fechou = all(nasceu[p] + timedelta(days=d) <= hoje for p in pessoas)
+            voltaram = sum(
+                1 for p in pessoas
+                if (nasceu[p] + timedelta(days=d)) in dias_de.get(p, ())
+            )
+            celulas.append(
+                {
+                    "d": d,
+                    "n": voltaram if fechou else None,
+                    "pct": (
+                        round(100 * voltaram / len(pessoas))
+                        if fechou and pessoas else None
+                    ),
+                }
+            )
+        linhas.append({"semana": semana, "base": len(pessoas), "celulas": celulas})
+    return linhas
+
+
+def uso_por_area(semanas=8):
+    """Registros e pessoas por área, semana a semana.
+
+    UMA consulta: `(semana, evento, pessoa) -> contagem`. O mapa de evento
+    para área é aplicado em Python — são cinco áreas e sete eventos, e um
+    `CASE WHEN` no SQL seria a mesma tabela escrita duas vezes.
+
+    A pessoa vem na consulta de propósito: somar as pessoas distintas de dois
+    eventos da MESMA área contaria duas vezes quem fez os dois, então a área
+    junta os conjuntos antes de medir o tamanho.
+    """
+    limite = timezone.now() - timedelta(weeks=semanas)
+    linhas = (
+        Event.objects.filter(name__in=EVENTOS_DE_REGISTRO, ts__gte=limite)
+        .annotate(pessoa=PESSOA, semana=TruncWeek("ts"))
+        .values("semana", "name", "pessoa")
+        .annotate(n=Count("pk"))
+    )
+    area_de = {
+        nome: area for area, nomes in EVENTOS_DA_AREA.items() for nome in nomes
+    }
+    acumulado = {}
+    for linha in linhas:
+        semana = linha["semana"]
+        semana = timezone.localtime(semana).date() if timezone.is_aware(semana) else semana
+        balde = acumulado.setdefault(
+            (semana, area_de[linha["name"]]), {"registros": 0, "pessoas": set()}
+        )
+        balde["registros"] += linha["n"]
+        balde["pessoas"].add(linha["pessoa"])
+
+    return [
+        {
+            "semana": semana,
+            "areas": [
+                {
+                    "area": area,
+                    "registros": acumulado.get((semana, area), {}).get("registros", 0),
+                    "pessoas": len(acumulado.get((semana, area), {}).get("pessoas", ())),
+                }
+                for area in EVENTOS_DA_AREA
+            ],
+        }
+        for semana in sorted({chave[0] for chave in acumulado})
+    ]

@@ -165,6 +165,71 @@ class FunilView(PainelDeGestaoMixin, TemplateView):
         return ctx
 
 
+class EntradaView(PainelDeGestaoMixin, TemplateView):
+    """ONDE A PESSOA DESISTE — o funil de entrada por coorte.
+
+    A tela "Funil" ao lado é a ferramenta genérica (qualquer sequência de
+    eventos, total da janela). Esta é a PERGUNTA de produto, com os passos
+    nomeados na ordem em que a pessoa os vive e o resultado por coorte de dia
+    ou de semana. As duas convivem porque respondem coisas diferentes: uma é
+    "como converte esta sequência?", a outra é "como a entrada foi na
+    terça?".
+
+    O número que a tela destaca é a taxa DO PASSO ANTERIOR, e não a do topo:
+    "de quem chegou na etapa 2, quantos terminaram?" é a pergunta que aponta
+    o degrau quebrado; a do topo só diz que o funil é um funil.
+    """
+
+    template_name = "analytics/entrada.html"
+    GRANULARIDADES = ("dia", "semana")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        dias = _periodo(self.request)
+        por = self.request.GET.get("por")
+        por = por if por in self.GRANULARIDADES else "dia"
+        coortes, total = consultas.funil_de_entrada(dias, por=por)
+        rotulos = {chave: rotulo for chave, rotulo, _n, _f in consultas.PASSOS_DE_ENTRADA}
+        for etapa in total["etapas"]:
+            etapa["rotulo"] = rotulos[etapa["chave"]]
+        ctx.update(
+            {
+                "aba": "analytics", "sub": "entrada", "sem_tabbar": True,
+                "dias": dias, "periodos": PERIODOS,
+                "por": por, "granularidades": self.GRANULARIDADES,
+                # Da coorte mais RECENTE para a mais antiga: a tela abre no
+                # que acabou de acontecer, que é o que se olha todo dia.
+                "coortes": list(reversed(coortes)),
+                "total": total,
+                "passos": [rotulos[c] for c in rotulos],
+            }
+        )
+        return ctx
+
+
+class UsoPorAreaView(PainelDeGestaoMixin, TemplateView):
+    """O QUE A BASE USA DE FATO — registros e pessoas por área, por semana.
+
+    REGISTRO, e não visita: abrir a tela de água não é beber água, e um painel
+    que conta aberturas mede curiosidade. A lista de eventos por área é
+    `consultas.EVENTOS_DA_AREA`, a mesma de onde a retenção tira o "voltou".
+    """
+
+    template_name = "analytics/uso.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        semanas = consultas.uso_por_area(semanas=8)
+        ctx.update(
+            {
+                "aba": "analytics", "sub": "uso", "sem_tabbar": True,
+                "areas": list(consultas.EVENTOS_DA_AREA),
+                "semanas": list(reversed(semanas)),
+            }
+        )
+        return ctx
+
+
 class RetencaoView(PainelDeGestaoMixin, TemplateView):
     template_name = "analytics/retencao.html"
 
@@ -175,6 +240,12 @@ class RetencaoView(PainelDeGestaoMixin, TemplateView):
                 "aba": "analytics", "sub": "retencao", "sem_tabbar": True,
                 "linhas": consultas.retencao(semanas=8),
                 "semanas": range(8),
+                # D1 / D7 / D30 por coorte de cadastro (24/09/2026): a matriz
+                # acima é a curva de longo prazo (semana a semana de
+                # retorno); esta é a régua de produto, e "voltou" é ter
+                # REGISTRADO alguma coisa, não ter aberto o app.
+                "degraus": consultas.DEGRAUS_DE_RETENCAO,
+                "coortes": list(reversed(consultas.retencao_por_coorte(semanas=8))),
             }
         )
         return ctx

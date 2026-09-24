@@ -1,0 +1,52 @@
+{% extends "analytics/base.html" %}
+{% block title %}Uso por área · Analytics{% endblock %}
+
+{% block content %}
+  {% comment %}
+    O QUE A BASE USA DE FATO (24/09/2026).
+
+    Registros e PESSOAS por área, semana a semana. Os dois números juntos de
+    propósito: 400 registros podem ser quarenta pessoas ou uma obsessiva, e a
+    decisão de onde investir muda com a resposta.
+
+    REGISTRO, e não visita — abrir a tela de água não é beber água. A lista de
+    eventos por área é `consultas.EVENTOS_DA_AREA`, a mesma de onde a retenção
+    tira o "voltou": duas definições de "usou o app" é como duas telas passam
+    a discordar.
+  {% endcomment %}
+  <div class="page-head">
+    <h1>Uso por área</h1>
+    <p class="lead">Registros e pessoas por pilar, nas últimas 8 semanas.</p>
+  </div>
+
+  <section class="card">
+    <div class="card__head"><h2>Semana a semana</h2></div>
+    {% if semanas %}
+      <div class="tabela-rolagem" tabindex="0" role="region" aria-label="Uso por área, semana a semana">
+        <table class="coorte">
+          <thead>
+            <tr>
+              <th>Semana</th>
+              {% for a in areas %}<th>{{ a|capfirst }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for linha in semanas %}
+              <tr>
+                <td>{{ linha.semana|date:"d/m" }}</td>
+                {% for a in linha.areas %}
+                  <td class="num">
+                    {% if a.registros %}{{ a.registros }}<span class="hint"> · {{ a.pessoas }} {% if a.pessoas == 1 %}pessoa{% else %}pessoas{% endif %}</span>{% else %}—{% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">O número grande é quantos registros; o pequeno, quantas pessoas distintas fizeram algum deles naquela semana.</p>
+    {% else %}
+      <p class="empty-state">Nenhum registro nas últimas 8 semanas.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -10101,3 +10101,63 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    (só a refeição da vez nasce aberta) vale para ela também: o que a vencida
    ganha é o convite, e não o card inteiro aberto. */
 .meal__linha-aberta { margin-left: auto; color: var(--brand); flex: none; }
+
+
+/* ==========================================================================
+   53. AS TABELAS DO PAINEL DE GESTÃO (24/09/2026)
+   ==========================================================================
+
+   `.tabela-rolagem` e `.coorte` EXISTIAM no template da Retenção e não tinham
+   regra nenhuma — a tabela era um `<table>` nu, e só não vazava a 390px
+   porque as colunas de "12%" cabiam. As duas telas de produto que entraram
+   hoje (Entrada e Uso por área) têm cabeçalho com palavra de verdade
+   ("Etapa 2 · objetivo e rotina"), e a página passou a rolar na horizontal —
+   medido: 621px de tabela numa janela de 390.
+
+   A régua "nada rola na horizontal" é da PÁGINA. Uma tabela de dados com
+   rolagem PRÓPRIA é o caminho acessível: o bloco recebe `tabindex="0"` no
+   template, então quem navega pelo teclado alcança a rolagem, e o
+   `overscroll-behavior-x: contain` impede que o gesto vaze para a navegação
+   do navegador.
+
+   `min-width: 100%` e não `width`: com poucas colunas a tabela ocupa a
+   largura do cartão (sem ela, uma tabela de três colunas ficaria encolhida
+   à esquerda); com muitas, ela cresce e o bloco rola.
+
+   O dead-class ruler de `config/tests.py` não pegou as duas porque ele só
+   mede classes com `__` — as de ELEMENTO. Fica dito aqui: classe de bloco
+   escrita no template sem regra no CSS não tem guarda automática. */
+.tabela-rolagem {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-inline: calc(var(--espaco-4) * -1);
+  padding-inline: var(--espaco-4);
+}
+.tabela-rolagem:focus-visible { outline: var(--traco) solid var(--brand); outline-offset: 2px; }
+
+.coorte {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: var(--texto-sm);
+}
+.coorte th,
+.coorte td {
+  padding: var(--espaco-2) var(--espaco-3);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--fio);
+}
+/* A primeira coluna é o RÓTULO da linha (a data da coorte): alinhada à
+   esquerda, como toda coluna de texto. */
+.coorte th:first-child,
+.coorte td:first-child { text-align: left; }
+.coorte thead th {
+  color: var(--text-mute);
+  font-weight: 600;
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.coorte tbody tr:last-child th,
+.coorte tbody tr:last-child td { border-bottom: 0; }
+.coorte .hint { font-size: var(--texto-xs); }

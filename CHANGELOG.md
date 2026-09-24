@@ -4,6 +4,20 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-24
+
+- **Um clique para treinar.** O botão do painel de Treino leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
+- **O placar diz quanto tempo você treinou.** Era "1 min entre o primeiro e o último registro"; agora é o tempo da primeira série até você tocar em "Encerrar treino". E ele conta: "5 de 8 exercícios feitos", com os que ficaram de fora na ordem da ficha.
+- **A sequência em zero convida em vez de cobrar.** "Recomeça hoje: treino no dia de treino, mais dieta ou água. Ontem faltou dieta ou água." virou "Recomeça hoje: registre uma refeição ou um copo d'água."
+- **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
+- **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
+- **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
+- **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
+
+*(gerência, não aparece para quem usa)*
+
+- **O painel de gestão passou a responder três perguntas de produto**: onde a pessoa desiste (o funil da landing à primeira série, por dia e por semana), se ela volta (D1, D7 e D30 por semana de cadastro) e o que a base usa de fato (registros e pessoas por área, semana a semana).
+
 ## 2026-09-23
 
 - **A aba "Mais" deixou de ser o que sobrou.** Ela abre com você: a inicial, o seu nome, o seu objetivo e a meta do dia — e essa primeira linha é a porta do Perfil. Antes o título era "Áreas sem aba" e o seu perfil aparecia como um cartão escrito "2.372 kcal por dia".
