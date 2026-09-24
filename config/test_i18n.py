@@ -32,6 +32,7 @@ TEMPLATES_NOVOS = {
     # A missão "dado errado" (24/09/2026): duas parciais novas e uma tela
     # nova, e as três nascem marcadas.
     "templates/workouts/_series_do_dia.html": ['kg no total'],
+    "templates/workouts/exercicios_feitos.html": ['Exercícios que já fiz', 'Treino', 'Tudo em que você registrou série, esteja na ficha de hoje ou não.', 'Ver a semana'],
 }
 
 

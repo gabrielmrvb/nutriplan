@@ -66,3 +66,23 @@ msgstr ""
 #: templates/workouts/_series_do_dia.html
 msgid "kg no total"
 msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Exercícios que já fiz"
+msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Treino"
+msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Tudo em que você registrou série, esteja na ficha de hoje ou não."
+msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Ver a semana"
+msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Nenhuma série registrada ainda. A primeira aparece aqui assim que você concluir uma na execução."
+msgstr ""

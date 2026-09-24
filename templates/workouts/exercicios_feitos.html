@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Exercícios que já fiz" %} · NutriPlan{% endblock %}
+
+{% block content %}
+  {% comment %}
+    A PORTA PARA O QUE SAIU DA FICHA (24/09/2026).
+
+    A leitura de um exercício passou a abrir para qualquer um em que a
+    pessoa registrou série — antes, trocar o equipamento no Perfil remontava
+    a ficha e o exercício da véspera virava 404, com as séries intactas no
+    banco. Abrir a porta sem uma maçaneta não resolveria nada: o exercício
+    que saiu da ficha não aparece em tela nenhuma, e só quem tivesse
+    guardado o endereço chegaria lá.
+
+    A lista é do HISTÓRICO, não do catálogo: ela mostra o que esta pessoa
+    fez, com quantas séries e quando foi a última. Quem nunca registrou nada
+    vê o convite, e não uma tabela vazia.
+  {% endcomment %}
+  <div class="page-head">
+    <a class="btn-link" href="{% url 'workouts:routine' %}">← {% translate "Treino" %}</a>
+    <h1>{% translate "Exercícios que já fiz" %}</h1>
+    <p class="lead">{% translate "Tudo em que você registrou série, esteja na ficha de hoje ou não." %}</p>
+  </div>
+
+  <section class="card">
+    {% if feitos %}
+      <ul class="data-list">
+        {% for exercicio in feitos %}
+          <li class="data-list__item">
+            <a class="data-list__nome" href="{% url 'workouts:exercicio' exercicio.pk %}">{{ exercicio.name }}</a>
+            <span class="data-list__valor num">
+              {% blocktranslate count series=exercicio.series %}{{ series }} série{% plural %}{{ series }} séries{% endblocktranslate %}<span class="data-list__meta"> · {{ exercicio.ultima|date:"d/m" }}</span>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty-state">
+        <p>{% translate "Nenhuma série registrada ainda. A primeira aparece aqui assim que você concluir uma na execução." %}</p>
+        <a class="btn btn--ghost" href="{% url 'workouts:routine' %}">{% translate "Ver a semana" %}</a>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
