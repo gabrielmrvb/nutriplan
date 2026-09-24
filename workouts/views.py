@@ -299,7 +299,14 @@ def preparar_dia(user, sessao, linhas=None) -> None:
     ficam, removidos = motor_de_opcoes.versao_rapida(
         [(item, item.sets, grau) for item, grau in zip(itens, graus)], sessao.main_groups
     )
+    # Os números do cartão de HOJE são os da opção do dia, não os da
+    # referência da semana (`total_sets`/`estimated_minutes`, a opção 1). Eles
+    # discordavam por construção num dia de variação 2: medido no `abc2` do
+    # intermediário de cinco dias, a letra B fecha em 57 min na opção 1 e 60
+    # na 2 — o painel prometia 57 e a ficha do mesmo dia dizia 60
+    # (`workouts/test_minutos_do_dia.py`).
     sessao.minutos = sessao.minutos_da_opcao(sessao.opcao_do_dia)
+    sessao.series_do_dia = sessao.series_da_opcao(sessao.opcao_do_dia)
     sessao.rapida_muda = bool(removidos) or sum(s for _, s in ficam) != sum(i.sets for i in itens)
     sessao.rapida_minutos = round(
         services.segundos_da_sessao([(s, i.rest_seconds, i.exercise.is_compound) for i, s in ficam]) / 60
