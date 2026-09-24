@@ -496,6 +496,15 @@ class AreasEUmHubENaoUmMenuTests(BaseDeAreas):
             self.assertIn('href="%s"' % rota, ferramentas)
         self.assertIn('href="%s"' % reverse("accounts:profile"), conta)
         self.assertIn('action="%s"' % reverse("accounts:logout"), conta)
+        # E O SAIR É POST. A asserção de `action` sozinha não pega isto: um
+        # `<form>` sem `method` vale GET, e a linha de Sair vira um link que
+        # o `LogoutView` recusa com 405 — botão morto na única ação
+        # destrutiva da tela. Achado pela sabotagem ao publicar (24/09/2026):
+        # tirar `method="post"` do template deixava a suíte verde.
+        dentro = html[html.index("<main"):html.index("</main>")]
+        formularios = re.findall(r"<form[^>]*>", dentro)
+        self.assertEqual(len(formularios), 1, "o Sair é o único formulário do <main>")
+        self.assertIn('method="post"', formularios[0])
 
     def test_o_rotulo_da_secao_fala_com_a_pessoa_e_nao_com_o_dev(self):
         """"Áreas sem aba" descrevia a arquitetura; "Suas áreas" descreve o
