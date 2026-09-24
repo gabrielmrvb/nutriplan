@@ -191,11 +191,9 @@
             botão; a Home nova responde por área dentro da grade, e Progresso
             é uma área como as outras.
 
-            O rodapé MUDA com o estado, e isso é o contrário de decorar: com
-            pesagem pendente ele leva à faixa de pesagem desta mesma tela
-            (`#pesar`, logo abaixo), e com a semana já pesada leva à curva.
-            Oferecer "registrar peso" a quem acabou de se pesar seria pedir um
-            número que o app já tem.
+            O rodapé leva SEMPRE à curva — a porta da área. Ele já mudou
+            com o estado (com pesagem pendente ia para `#pesar`, a faixa
+            desta mesma tela), e o bloco logo abaixo diz por que deixou.
           {% endcomment %}
           <section class="painel__cartao{% if cartao.largo %} painel__cartao--largo{% endif %}{% if area_promovida == 'progresso' %} is-prioritario{% endif %}">
             {% if area_promovida == 'progresso' %}<p class="painel__selo"><span class="pill pill--brand">sua área</span></p>{% endif %}

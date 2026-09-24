@@ -223,7 +223,12 @@ class UsoPorAreaView(PainelDeGestaoMixin, TemplateView):
         ctx.update(
             {
                 "aba": "analytics", "sub": "uso", "sem_tabbar": True,
-                "areas": list(consultas.EVENTOS_DA_AREA),
+                # (valor, nome): a tela não deriva o nome do slug — ele
+                # vem de `Pilar.label`, o único lugar onde é escrito.
+                "areas": [
+                    {"valor": valor, "nome": consultas.nome_da_area(valor)}
+                    for valor in consultas.EVENTOS_DA_AREA
+                ],
                 "semanas": list(reversed(semanas)),
             }
         )

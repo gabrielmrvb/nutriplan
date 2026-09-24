@@ -157,18 +157,22 @@ class ALinhaDeHojeSubstituiOCartaoTests(TestCase):
         self.assertIn("exerc", bloco)
         self.assertIn("1", bloco)
 
-    def test_o_botao_do_hero_leva_para_a_ficha(self):
-        """A lista não executa, então tem de haver uma porta — e é uma só.
+    def test_o_hero_tem_as_DUAS_portas_e_cada_uma_com_o_seu_nome(self):
+        """A lista não executa, então tem de haver porta — e cada porta diz
+        para onde vai.
 
-        A PORTA MUDOU DE DESTINO. Ela apontava para `/treino/agora/`, que
-        escolhia sozinha o primeiro pendente; hoje abre a ficha do dia, e é
-        dela que se escolhe o exercício. O painel deixou de ter qualquer link
-        direto para a execução: quem chega ali ainda não decidiu o que fazer.
+        O DESTINO DO BOTÃO PRINCIPAL foi e voltou. Ele apontava para
+        `/treino/agora/`, virou a ficha em 22/09/2026 ("quem chega aqui ainda
+        não decidiu") e voltou para a execução em 24/09 (decisão do dono,
+        rodada 2: quem já decidiu pagava dois toques). O que não muda é a
+        régua — as duas telas são alcançáveis daqui, com rótulos diferentes:
+        o CTA leva à execução, "Ver ficha do Treino X" leva à ficha.
         """
         html = self._html()
 
         self.assertIn(reverse("workouts:ficha", args=[self.sessao.pk]), html)
-        self.assertNotIn(reverse("workouts:now"), sem_scripts(html))
+        self.assertIn(reverse("workouts:now"), sem_scripts(html))
+        self.assertIn("Ver ficha", html)
 
 
 class AFichaCompletaContinuaExistindoTests(TestCase):

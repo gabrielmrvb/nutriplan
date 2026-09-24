@@ -84,23 +84,25 @@ def _acao_de_refeicao(slot, rotulo, atrasada) -> Acao:
 
 def _acao_de_treino(estado, rotulo, atrasada, continuando=False) -> Acao:
     sessao = estado.sessao
-    # O VERBO DECIDE O DESTINO, e é o mesmo par em toda tela do app:
-    # "Começar treino" abre a FICHA — a pessoa vê o treino inteiro e escolhe
-    # por onde começar (requisito fechado em 13/09/2026: nunca o primeiro
-    # vídeo) —; "Continuar de onde parou" abre a EXECUÇÃO, que resolve
-    # sozinha o próximo pendente de `ExerciseLog`. Este cartão mandava os
-    # dois para a execução, e o painel mandava os dois para a ficha: o mesmo
-    # rótulo com dois destinos (UX P1-11, 14/09/2026).
+    # O VERBO DECIDE O DESTINO, e é o mesmo par em toda tela do app. O que
+    # este cartão NÃO pode fazer é divergir do painel: "Começar treino" com
+    # dois destinos foi o achado UX P1-11 (14/09/2026), e a régua está em
+    # `workouts/test_verbos_do_treino.py`.
+    #
+    # O DESTINO MUDOU EM 24/09/2026 (decisão do dono, rodada 2): os dois
+    # verbos levam à EXECUÇÃO. "Começar treino" abria a ficha por requisito
+    # de 13/09 ("nunca o primeiro vídeo"), e a rodada 2 mediu o outro lado —
+    # quem já decidiu pagava dois toques toda vez. A ficha continua a um
+    # toque, no painel, com o próprio rótulo.
+    url = reverse("workouts:now")
     if continuando:
         detalhe = "%d de %d séries registradas" % (
             estado.series_feitas, estado.total_series
         )
         cta = "Continuar de onde parou"
-        url = reverse("workouts:now")
     else:
         detalhe = "%d exercícios" % estado.total_exercicios
         cta = "Começar treino"
-        url = reverse("workouts:ficha", args=[sessao.pk])
     return Acao(
         tipo="treino",
         rotulo=rotulo,

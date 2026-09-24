@@ -540,9 +540,13 @@ POR PRIORIDADE (22/09/2026).**
   `workouts.tests.create_user` nascem em 2020 — os testes escrevem
   histórico em agosto; quem quer "nasceu hoje" sobrescreve.
   `plans/test_ofensiva_comeca_na_conta.py`.
-- **A ofensiva em zero diz o que faltou ONTEM** (`Ofensiva.falta_ontem`,
-  só quando ontem já era da conta): "Ontem faltou dieta ou água. Hoje
-  recomeça" em vez de "Comece hoje" para quem já vinha usando (achado #11).
+- **A ofensiva em zero distingue quem já vinha usando** (`Ofensiva.
+  falta_ontem`, só quando ontem já era da conta; achado #11). Ela DIZIA o
+  que faltou ("Ontem faltou dieta ou água. Hoje recomeça"); desde a rodada
+  2 de 24/09/2026 a frase não nomeia mais a falta, e o que sobrou de
+  `falta_ontem` na tela é o VERBO — "Recomeça hoje" para quem tinha conta
+  ontem, "Comece hoje" para quem chegou hoje. Ver "A OFENSIVA EM ZERO
+  CONVIDA", na rodada 2.
 - **Aderência: hoje só cobra o que já passou, e o consolidado é dos dias
   fechados** (item 6). `tracking.history` recorta o denominador de HOJE
   pelo relógio (`previstas_ate_agora`; o feito entra no piso, então marcar
@@ -561,7 +565,9 @@ POR PRIORIDADE (22/09/2026).**
   dono — "a prioridade não muda a tela"): Treino → "Começar treino" para a
   sessão de hoje (nome, exercícios, séries feitas), ou "Ver a ficha" se
   concluído; Corrida → "Registrar corrida"; Progresso → "Registrar peso"
-  (`#pesar` quando a faixa está na Home, senão o Progresso). Quando o AGORA
+  (`#pesar` quando a faixa está na Home, senão o Progresso — e desde
+  24/09/2026 esse é o ÚNICO atalho de peso da Home: o rodapé do cartão do
+  painel voltou a "Ver progresso"). Quando o AGORA
   já é o treino, o cartão vira consulta (sem repetir o botão — dois
   "COMEÇAR TREINO" na mesma dobra, medido). `OCartaoDaAreaTemAAcaoDoDiaTests`.
 
@@ -1401,7 +1407,13 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   "Ver ficha do Treino X · N exercícios" continua logo abaixo — o que mudou
   foi qual dos dois é o principal. O rótulo diz o estado: "Começar treino"
   sem série hoje, "Continuar treino (3 de 8)" com o treino em andamento.
-  `workouts/test_ux_rodada2.py`.
+
+  E o **cartão AGORA da Home acompanha**, no mesmo commit: ele usa o MESMO
+  rótulo, e um rótulo com dois destinos é o defeito que a rodada 1 nomeou.
+  Isso desfaz o requisito de 13/09/2026 ("'Começar treino' abre a FICHA,
+  nunca o primeiro exercício com o vídeo tocando") — a premissa dele não
+  existe mais: nenhum `autoplay` é escrito no HTML e o vídeo do exercício
+  nasce no toque. `workouts/test_ux_rodada2.py`, `plans.tests.AcaoAgoraTests`.
 - **O PLACAR DIZ O TREINO, NÃO OS REGISTROS.** `minutos_entre_registros`
   descreve o BANCO; `EstadoDoTreino.minutos_do_treino` é da primeira série
   ao "Encerrar treino" (`EscolhaDeTreino.encerrado_em`) — quem anota a
@@ -1413,10 +1425,12 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
 - **A OFENSIVA EM ZERO CONVIDA.** "Recomeça hoje: … Ontem faltou dieta ou
   água" saiu inteiro: um contador em zero só tem uma leitura, e
   acrescentar "faltou" cobra duas vezes pela mesma coisa. A frase virou a
-  porta mais barata do dia — "Recomeça hoje: registre uma refeição ou um
-  copo d'água" —, e o TREINO fica de fora de propósito, porque tem dia
-  marcado. `falta_ontem` continua sendo calculada (o número é verdadeiro e
-  é lido em outro lugar); o que saiu foi a frase. As de risco, de 1 dia, de
+  porta mais barata do dia — "registre uma refeição ou um copo d'água" —, e
+  o TREINO fica de fora de propósito, porque tem dia marcado. O VERBO ainda
+  lê `falta_ontem`, e é a única coisa que ele decide: `None` é exatamente
+  "ontem não era da conta", e ali "recomeça" seria falso — quem chegou hoje
+  lê **"Comece hoje"**. `falta_ontem` continua sendo calculada por inteiro
+  (o número é verdadeiro e é lido em outro lugar); o que saiu foi a frase. As de risco, de 1 dia, de
   menos de 7 e de 30 não mudaram. `plans/test_ux_rodada2.py`.
 - **`/hoje/` responde 301 para a Home.** Era a rota do cardápio até 22/09 e
   virou 404 para a primeira tela do app. `RedirectView` com
@@ -1451,7 +1465,9 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
     execução (`/treino/agora/`)        -> "estou fazendo, e agora"
 
 O painel mostra o treino de hoje e um cartão por sessão, e cada cartão é um
-link. Ele NÃO lista exercício: "Começar treino" abre a ficha. A ficha é uma
+link. Ele NÃO lista exercício: "Começar treino" abre a EXECUÇÃO desde
+24/09/2026 (era a ficha; ver "UM CLIQUE PARA TREINAR"), e "Ver ficha do
+Treino X · N exercícios" fica logo abaixo. A ficha é uma
 lista numerada — nome, séries × repetições, músculo e o marcador do movimento
 principal —, e cada linha é uma porta para a execução. O selo "Principal" é o
 PRIMEIRO composto de cada grupo anunciado da opção
@@ -2130,7 +2146,10 @@ Django mostra o msgid, que já é o texto certo; não rode `compilemessages`),
 e **template NOVO carrega `{% load i18n %}` e marca texto visível com
 `{% translate %}`** — a régua é `TEMPLATES_NOVOS` em `config/test_i18n.py`,
 que cresce com cada template criado a partir de hoje e cobra a frase no
-catálogo. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
+catálogo — **com uma exceção, o painel de gestão** (`templates/analytics/`),
+escrita no próprio arquivo em 24/09/2026 depois de ter existido calada
+desde o primeiro dia: aquelas telas são a ferramenta de quem OPERA o
+produto, e a segunda língua é para quem USA o app. Marcar mil frases antigas de uma vez não é o objetivo; marcar as
 novas custa nada agora e evita a varredura no dia da segunda língua. A
 primeira frase marcada é a faixa do staging em `base.html`.
 **O BUSCADOR VÊ SETE ROTAS, E O RESTO É `noindex` POR PADRÃO (21/09/2026).**

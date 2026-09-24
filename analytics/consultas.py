@@ -18,6 +18,8 @@ from django.db.models import CharField, Count, F, Min, Value
 from django.db.models.functions import Coalesce, Cast, TruncDate, TruncWeek
 from django.utils import timezone
 
+from accounts.models import Pilar
+
 from .models import DailyAggregate, Event
 
 #: A chave de pessoa: user_id (como texto) ou, se anônimo, o anon_id.
@@ -366,13 +368,25 @@ def _linha_do_funil(quando_rotulo, pessoas, quando, chaves):
 #: Que evento conta como REGISTRO em cada pilar. É a lista que responde "o que
 #: a base usa de fato" — e ela é de REGISTRO, não de visita: abrir a tela de
 #: água não é beber água.
+#: A CHAVE é o `value` de `accounts.models.Pilar`, e não um slug próprio: o
+#: nome de cada área mora em `Pilar.label` e em nenhum outro lugar
+#: (`CLAUDE.md`, "Uma área, um nome"). A primeira versão desta tabela usava
+#: "alimentacao"/"hidratacao" e a tela escrevia `capfirst` em cima —
+#: "Alimentacao" e "Hidratacao", sem acento, um TERCEIRO vocabulário para as
+#: mesmas cinco áreas. `dieta` continuar valendo "Alimentação" é exatamente a
+#: separação que `Pilar` existe para manter.
 EVENTOS_DA_AREA = {
-    "alimentacao": ("dieta.refeicao_registrada", "dieta.pulou", "dieta.comeu_outra_coisa"),
-    "treino": ("treino.serie_concluida",),
-    "hidratacao": ("agua.registrada",),
-    "progresso": ("progresso.peso_registrado",),
-    "corrida": ("corrida.registrada",),
+    Pilar.DIETA.value: ("dieta.refeicao_registrada", "dieta.pulou", "dieta.comeu_outra_coisa"),
+    Pilar.TREINO.value: ("treino.serie_concluida",),
+    Pilar.HIDRATACAO.value: ("agua.registrada",),
+    Pilar.PROGRESSO.value: ("progresso.peso_registrado",),
+    Pilar.CORRIDA.value: ("corrida.registrada",),
 }
+
+
+def nome_da_area(valor: str) -> str:
+    """O nome de tela de uma área, do único lugar onde ele é escrito."""
+    return Pilar(valor).label
 
 #: Todo evento de registro, achatado — a régua de "voltou" da retenção e o
 #: denominador do uso por área saem da MESMA lista, de propósito: duas

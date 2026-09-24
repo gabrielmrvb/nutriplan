@@ -176,6 +176,8 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
                 "weekdays": ["1", "3"], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "experiencia": "intermediario", "equipamento": "completa",
                 "start_time": "",
                 "duracao_treino": "padrao",
                 "wake_time": "07:00",
@@ -221,6 +223,8 @@ class OHorarioSalvoNaoESilenciosamenteApagadoTests(TestCase):
                 "goal": user.profile.goal,
                 "activity_level": user.profile.activity_level,
                 "weekdays": [str(d.weekday) for d in user.training_days.all()], "musculacao": "sim",
+                # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+                "equipamento": "completa",
                 "start_time": "06:30",
                 "experiencia": "intermediario",
                 "wake_time": "07:00",

@@ -384,16 +384,6 @@ class LandingView(TemplateView):
 
     template_name = "plans/landing.html"
 
-    def get(self, request, *args, **kwargs):
-        # O PRIMEIRO DEGRAU DO FUNIL DE ENTRADA (24/09/2026). Fica no
-        # servidor, e não no `tela.vista` que o cliente já dispara: um degrau
-        # preso ao texto de uma rota quebra em silêncio no dia em que a rota
-        # muda de nome. O evento respeita o consentimento como todos os
-        # outros — quem desligou a atribuição conta só de forma anônima
-        # (`analytics.servidor.evento`).
-        analytics.evento(request, "site.landing_vista")
-        return super().get(request, *args, **kwargs)
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["sem_tabbar"] = True

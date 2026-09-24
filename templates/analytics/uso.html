@@ -27,7 +27,7 @@
           <thead>
             <tr>
               <th>Semana</th>
-              {% for a in areas %}<th>{{ a|capfirst }}</th>{% endfor %}
+              {% for a in areas %}<th>{{ a.nome }}</th>{% endfor %}
             </tr>
           </thead>
           <tbody>

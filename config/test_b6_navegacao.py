@@ -82,6 +82,8 @@ class AEdicaoVoltaParaOndeAPessoaEstavaTests(TestCase):
         "goal": "cut",
         "activity_level": "light",
         "weekdays": ["0", "2", "4"], "musculacao": "sim",
+        # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+        "experiencia": "intermediario", "equipamento": "completa",
         "wake_time": "07:00",
         "sleep_time": "23:00",
         "split_preference": "three",
@@ -498,6 +500,8 @@ class AOrigemSobreviveAPerguntaDaDivisaoTests(TestCase):
         "goal": "cut",
         "activity_level": "light",
         "weekdays": ["0", "2", "4", "6"], "musculacao": "sim",
+        # Obrigatórias desde 24/09/2026 (`TrainingForm.clean`).
+        "experiencia": "intermediario", "equipamento": "completa",
         "wake_time": "07:00",
         "sleep_time": "23:00",
     }

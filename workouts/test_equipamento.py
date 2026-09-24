@@ -303,7 +303,8 @@ class APerguntaTests(TestCase):
 
     def test_o_formulario_grava_a_resposta(self):
         aberto = TrainingForm(user=self.user)
-        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim", "equipamento": "casa_halteres"}
+        # `experiencia` virou obrigatória com `musculacao=sim` em 24/09/2026.
+        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim", "equipamento": "casa_halteres", "experiencia": "intermediario"}
         enviado = TrainingForm(dados, user=self.user)
         self.assertTrue(enviado.is_valid(), enviado.errors)
         enviado.save()
@@ -311,13 +312,23 @@ class APerguntaTests(TestCase):
         self.assertEqual(self.user.profile.equipamento, Equipamento.CASA_HALTERES)
         del aberto
 
-    def test_em_branco_nao_apaga_o_que_a_pessoa_tinha(self):
+    def test_em_branco_e_RECUSADO_e_o_que_a_pessoa_tinha_continua_la(self):
+        """A REGRA VIROU MAIS FORTE em 24/09/2026, e a garantia é a mesma.
+
+        Antes: enviar sem equipamento era aceito e o valor gravado ficava —
+        o `or ""` impedia o app de apagar o que a pessoa tinha. A garantia
+        continua (nada reescreve o perfil de quem não respondeu), mas o envio
+        em branco com `musculacao=sim` deixou de passar em silêncio e virou
+        recusa com o erro no campo. Na TELA isso nunca aparece: o rádio abre
+        com o equipamento gravado marcado, então um navegador sempre manda
+        algum — este `dict` é o caminho que só um POST forjado percorre.
+        """
         self.user.profile.equipamento = Equipamento.BASICA
         self.user.profile.save(update_fields=["equipamento"])
-        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim"}
+        dados = {"wake_time": "07:00", "sleep_time": "23:00", "weekdays": ["0", "2"], "musculacao": "sim", "experiencia": "intermediario"}
         enviado = TrainingForm(dados, user=self.user)
-        self.assertTrue(enviado.is_valid(), enviado.errors)
-        enviado.save()
+        self.assertFalse(enviado.is_valid())
+        self.assertIn("equipamento", enviado.errors)
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.equipamento, Equipamento.BASICA)
 

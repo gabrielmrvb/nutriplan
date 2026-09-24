@@ -16,7 +16,10 @@ Dois eventos que a taxonomia declarava e ninguém disparava entraram junto
 """
 from datetime import timedelta
 
+from django.conf import settings
 from django.test import TestCase
+
+from accounts.models import Pilar
 from django.urls import reverse
 from django.utils import timezone
 
@@ -172,11 +175,13 @@ class OUsoPorAreaTests(TestCase):
         self.assertEqual(len(linhas), 1)
         por_area = {a["area"]: a for a in linhas[0]["areas"]}
         # Três registros de alimentação, mas DUAS pessoas: somar as pessoas
-        # distintas de cada evento contaria a "a" duas vezes.
-        self.assertEqual(por_area["alimentacao"]["registros"], 3)
-        self.assertEqual(por_area["alimentacao"]["pessoas"], 2)
-        self.assertEqual(por_area["treino"]["registros"], 1)
-        self.assertEqual(por_area["corrida"]["registros"], 0)
+        # distintas de cada evento contaria a "a" duas vezes. A CHAVE é
+        # `Pilar.DIETA` — "dieta" —, e o nome de tela ("Alimentação") sai de
+        # `Pilar.label`: o valor nunca muda, a tela pode mudar.
+        self.assertEqual(por_area[Pilar.DIETA]["registros"], 3)
+        self.assertEqual(por_area[Pilar.DIETA]["pessoas"], 2)
+        self.assertEqual(por_area[Pilar.TREINO]["registros"], 1)
+        self.assertEqual(por_area[Pilar.CORRIDA]["registros"], 0)
 
     def test_toda_area_aparece_mesmo_zerada(self):
         """Área sem registro é RESPOSTA — some da tabela e ninguém repara que
@@ -248,10 +253,17 @@ class AsTelasDeProdutoTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.context["por"], "dia")
 
-    def test_a_tela_de_uso_lista_as_cinco_areas(self):
+    def test_a_tela_de_uso_lista_as_cinco_areas_com_o_nome_oficial(self):
+        """E o nome é o de `Pilar.label` — "Alimentação", não "Alimentacao".
+        A tela escrevia `capfirst` sobre o slug, e isso era um TERCEIRO
+        vocabulário para as mesmas cinco áreas (`CLAUDE.md`, "Uma área, um
+        nome"). Sabotado (voltando ao `capfirst`), este teste fica
+        vermelho nas duas áreas com acento."""
         html = self.client.get(reverse("analytics_painel:uso")).content.decode()
-        for area in consultas.EVENTOS_DA_AREA:
-            self.assertIn(area.capitalize(), html)
+        for valor in consultas.EVENTOS_DA_AREA:
+            self.assertIn(Pilar(valor).label, html)
+        self.assertNotIn("Alimentacao", html)
+        self.assertNotIn("Hidratacao", html)
 
     def test_a_retencao_mostra_d1_d7_e_d30(self):
         html = self.client.get(reverse("analytics_painel:retencao")).content.decode()
@@ -263,3 +275,41 @@ class AsTelasDeProdutoTests(TestCase):
         for nome in ("entrada", "uso", "retencao"):
             resposta = self.client.get(reverse("analytics_painel:%s" % nome))
             self.assertIn(resposta.status_code, (302, 403), nome)
+
+
+class OTopoDoFunilNaoCustaOBancoTests(TestCase):
+    """`site.landing_vista` é o único degrau que nasce no CLIENTE, e a razão é
+    uma garantia medida: `/` anônima é a página mais barata do app, com ZERO
+    consulta (`plans/test_landing.py`), porque é ela que o visitante novo vê
+    com o Render dormindo e o Neon à parte. A primeira versão disparava o
+    evento em `LandingView.get()` — um INSERT em toda visita, inclusive as de
+    robô — e este teste é o que impede a volta.
+
+    As DUAS pontas ficam presas aqui de propósito: o marcador no template sem
+    o leitor no JavaScript é um evento que nunca chega, e o leitor sem o
+    marcador é código morto. Já aconteceu neste repositório com o seletor do
+    `pwa.js` (`CLAUDE.md`, "O JavaScript da página mora em `pwa.js`")."""
+
+    def test_a_landing_nao_dispara_evento_pelo_servidor(self):
+        with self.assertNumQueries(0):
+            resposta = self.client.get("/")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(Event.objects.exists())
+
+    def test_o_template_da_landing_marca_o_evento_ao_abrir(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn('data-evento-ao-abrir="site.landing_vista"', html)
+
+    def test_o_javascript_dispara_o_que_o_marcador_pede(self):
+        # SEM OS COMENTÁRIOS: este arquivo explica o marcador em prosa, e uma
+        # asserção sobre o texto cru passaria com o código apagado — a
+        # armadilha que o `CLAUDE.md` descreve na seção de Testes. Sabotado
+        # (só o comentário sobrando), este teste fica vermelho.
+        js = (settings.BASE_DIR / "static" / "js" / "analytics.js").read_text(
+            encoding="utf-8"
+        )
+        codigo = chr(10).join(
+            linha for linha in js.splitlines() if not linha.lstrip().startswith("//")
+        )
+        self.assertIn('querySelector("[data-evento-ao-abrir]")', codigo)
+        self.assertIn('getAttribute("data-evento-ao-abrir")', codigo)

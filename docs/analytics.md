@@ -126,7 +126,19 @@ custo que não cresce com o volume — `analytics/test_painel.py`).
 | 6 | 1ª refeição registrada | `dieta.refeicao_registrada` | — |
 | 7 | 1ª série registrada | `treino.serie_concluida` | — |
 
-Três decisões que custaram pensamento:
+Quatro decisões que custaram pensamento:
+
+- **`site.landing_vista` nasce no CLIENTE**, e é o único degrau assim. A
+  primeira versão o disparava em `LandingView.get()` e quebrou uma garantia
+  medida: `/` anônima é a página mais barata do app, com ZERO consulta
+  (`plans/test_landing.py`), porque é ela que o visitante novo vê com o
+  Render dormindo e o Neon à parte — um INSERT ali custaria o banco em toda
+  visita, inclusive as de robô. O marcador é `data-evento-ao-abrir` no
+  template (`analytics.js`, "EVENTO AO ABRIR"), e a ingestão é o mesmo
+  `sendBeacon` de sempre, com o mesmo consentimento. E não é `tela.vista`
+  com filtro de rota: `/` é a landing para quem não entrou e o app para quem
+  entrou, e o mesmo caminho contaria os dois — além de um degrau preso ao
+  TEXTO de uma rota quebrar em silêncio no dia em que a rota muda de nome.
 
 - **A COORTE é do PRIMEIRO passo da pessoa**, não do dia do evento. Quem
   abriu a landing na segunda e treinou na quarta pertence à segunda —
@@ -159,13 +171,20 @@ produto; a matriz é a curva de longo prazo.
 Os dois números juntos de propósito — 400 registros podem ser quarenta
 pessoas ou uma obsessiva, e a decisão de onde investir muda com a resposta.
 
-| área | eventos |
-|---|---|
-| alimentação | `dieta.refeicao_registrada`, `dieta.pulou`, `dieta.comeu_outra_coisa` |
-| treino | `treino.serie_concluida` |
-| hidratação | `agua.registrada` |
-| progresso | `progresso.peso_registrado` |
-| corrida | `corrida.registrada` |
+| chave (`Pilar`) | nome de tela (`Pilar.label`) | eventos |
+|---|---|---|
+| `dieta` | Alimentação | `dieta.refeicao_registrada`, `dieta.pulou`, `dieta.comeu_outra_coisa` |
+| `treino` | Treino | `treino.serie_concluida` |
+| `hidratacao` | Hidratação | `agua.registrada` |
+| `progresso` | Progresso | `progresso.peso_registrado` |
+| `corrida` | Corrida | `corrida.registrada` |
+
+A chave é o `value` de `accounts.models.Pilar` e o nome vem de
+`Pilar.label` — o único lugar do projeto onde ele é escrito (`CLAUDE.md`,
+"Uma área, um nome"). A primeira versão da tabela tinha slug próprio
+("alimentacao") e a tela escrevia `capfirst` em cima, o que dava
+"Alimentacao" e "Hidratacao": um terceiro vocabulário para as mesmas cinco
+áreas.
 
 `EVENTOS_DE_REGISTRO` é essa tabela achatada, e é a MESMA lista de onde a
 retenção tira o "voltou": duas definições de "usou o app" é como duas telas

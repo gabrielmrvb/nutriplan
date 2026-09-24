@@ -142,9 +142,13 @@ class Ofensiva:
             #
             # `falta_ontem` CONTINUA sendo calculada: ela é lida em outro
             # lugar e o número dela é verdadeiro. O que saiu foi a frase.
-            return (
-                "Recomeça hoje: registre uma refeição ou um copo d'água."
-            )
+            #
+            # E o VERBO respeita a idade da conta. `falta_ontem is None` é
+            # exatamente "ontem não era da conta" — primeiro dia de uso —, e
+            # ali "recomeça" seria falso: não há o que recomeçar. Quem já
+            # tinha conta ontem recomeça; quem chegou hoje começa.
+            verbo = "Comece hoje" if self.falta_ontem is None else "Recomeça hoje"
+            return f"{verbo}: registre uma refeição ou um copo d'água."
         if self.em_risco:
             falta = ", ".join(self.falta_hoje)
             return f"Falta {falta} para manter a sequência hoje."

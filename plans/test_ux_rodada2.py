@@ -60,6 +60,8 @@ class AOfensivaEmZeroConvidaTests(TestCase):
         treino, mais dieta ou água" descreve como o contador funciona; quem
         está em zero precisa do primeiro toque."""
         frase = self._mensagem()
+        # "Recomeça" porque este fixture tem conta de ontem; quem chega hoje
+        # lê "Comece hoje" com as mesmas palavras — o teste logo abaixo.
         self.assertIn("Recomeça hoje", frase)
         self.assertIn("refeição", frase)
         self.assertIn("copo", frase)
@@ -81,9 +83,11 @@ class AOfensivaEmZeroConvidaTests(TestCase):
         )
         self.assertIn("dieta ou água", ofensiva.mensagem)
 
-    def test_sabotagem_a_frase_de_zero_e_uma_so(self):
-        """Com e sem ontem medido, o zero diz a MESMA coisa: era o ramo de
-        `falta_ontem` que trazia a cobrança de volta."""
+    def test_o_zero_nunca_nomeia_o_que_faltou_e_a_instrucao_e_a_mesma(self):
+        """Era o ramo de `falta_ontem` que trazia a cobrança de volta, e o
+        que ele NÃO pode mais fazer é nomear a falta. A INSTRUÇÃO é a mesma
+        com e sem ontem medido; o que `falta_ontem` ainda decide é só o
+        VERBO, porque "recomeça" é falso para quem criou a conta hoje."""
         com_ontem = streaks.Ofensiva(
             dias=0, recorde=0, hoje_completo=False, falta_hoje=["treino"],
             falta_ontem=["dieta ou água"],
@@ -92,7 +96,13 @@ class AOfensivaEmZeroConvidaTests(TestCase):
             dias=0, recorde=0, hoje_completo=False, falta_hoje=["treino"],
             falta_ontem=None,
         )
-        self.assertEqual(com_ontem.mensagem, sem_ontem.mensagem)
+        instrucao = ": registre uma refeição ou um copo d'água."
+        self.assertEqual(com_ontem.mensagem, "Recomeça hoje" + instrucao)
+        self.assertEqual(sem_ontem.mensagem, "Comece hoje" + instrucao)
+        for frase in (com_ontem.mensagem, sem_ontem.mensagem):
+            self.assertNotIn("faltou", frase)
+            self.assertNotIn("dieta ou água", frase)
+            self.assertNotIn("treino", frase)
 
 
 class UmSoRegistroDePesoNaHomeTests(TestCase):

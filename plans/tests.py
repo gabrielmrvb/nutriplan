@@ -3176,9 +3176,16 @@ class AcaoAgoraTests(TestCase):
 
         self.assertEqual(acao.tipo, "treino")
         self.assertEqual(acao.cta, "Começar treino")
-        # Requisito fechado (13/09/2026): "Começar treino" abre a FICHA da
-        # sessão, nunca o primeiro exercício com o vídeo tocando.
-        self.assertEqual(acao.url, reverse("workouts:ficha", args=[42]))
+        # UM CLIQUE PARA TREINAR (rodada 2, 24/09/2026). O requisito de
+        # 13/09/2026 mandava "Começar treino" abrir a FICHA, e a razão
+        # escrita era "nunca o primeiro exercício com o VÍDEO TOCANDO" —
+        # premissa que não existe mais: nenhum `autoplay` é escrito no HTML
+        # e o vídeo do exercício nasce no toque (`config/
+        # test_movimento_reduzido.py`). O painel do Treino passou a levar
+        # direto à execução, e este cartão tem o MESMO rótulo: um rótulo com
+        # dois destinos é o defeito que a rodada 1 já tinha nomeado. A ficha
+        # continua a um toque, com o nome dela ("Ver ficha").
+        self.assertEqual(acao.url, reverse("workouts:now"))
 
     def test_refeicao_mais_recente_ganha_do_treino_mais_antigo(self):
         slots = [self._slot(1, "Jantar", time(19, 30))]
@@ -3206,7 +3213,7 @@ class AcaoAgoraTests(TestCase):
         self.assertEqual(acao.tipo, "treino")
         self.assertEqual(acao.rotulo, "HOJE")
         self.assertEqual(acao.cta, "Começar treino")
-        self.assertEqual(acao.url, reverse("workouts:ficha", args=[42]))
+        self.assertEqual(acao.url, reverse("workouts:now"))
         self.assertFalse(acao.atrasada)
 
     def test_treino_sem_horario_nunca_deixa_o_dia_terminar_como_nada_pendente(self):

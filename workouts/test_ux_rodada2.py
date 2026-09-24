@@ -180,3 +180,34 @@ class OPlacarDizODiaTests(TestCase):
         escolha.encerrado_em = timezone.now() + timedelta(minutes=20)
         escolha.save(update_fields=["encerrado_em"])
         self.assertEqual(self._estado().minutos_do_treino, antes + 20)
+
+
+class ACorridaUsaALarguraDoDesktopTests(TestCase):
+    """A lista de corridas abria em 480 px num monitor de 1280 — o "celular no
+    meio da tela" que o redesenho de 22/09/2026 tirou de Hoje, Progresso e
+    Alimentação e esqueceu nesta.
+
+    A régua NÃO é o texto `largo`: é a comparação com uma tela IRMÃ que já
+    passou pelo redesenho. Um teste que procurasse a palavra continuaria
+    verde no dia em que a classe mudar de nome, e é a LARGURA que interessa
+    aqui. `/treino/` (o painel) segue estreito de propósito — está listado no
+    relatório da rodada 2 como achado, e mudá-lo é decisão de layout."""
+
+    def setUp(self):
+        self.pessoa = create_user(email="corrida-largura@exemplo.com")
+        self.client.force_login(self.pessoa)
+
+    def _classe_do_container(self, rota):
+        html = self.client.get(reverse(rota)).content.decode()
+        achado = re.search(r'class="container([^"]*)"', html)
+        self.assertIsNotNone(achado, "a tela %s não tem container" % rota)
+        return achado.group(1).split()
+
+    def test_corridas_abre_na_mesma_largura_do_progresso(self):
+        irma = self._classe_do_container("plans:history")
+        self.assertEqual(self._classe_do_container("workouts:corridas"), irma)
+
+    def test_sabotagem_a_irma_nao_e_estreita(self):
+        """Controle positivo: se o Progresso também fosse estreito, o teste
+        acima passaria com as DUAS erradas."""
+        self.assertTrue(self._classe_do_container("plans:history"))
