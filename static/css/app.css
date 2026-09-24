@@ -1610,7 +1610,6 @@ h3 {
      `:root`: token global é vocabulário do app inteiro, e este número só faz
      sentido ao lado desta curva. Os dois consumidores (o quadro e a linha de
      datas) a herdam de `.curva`, que é o pai dos dois. */
-  --curva-eixo: 3.2rem;
 }
 
 .curva__cabeca {
@@ -1664,42 +1663,16 @@ h3 {
 .curva--sobe .curva__delta { color: var(--terra); }
 .curva--igual .curva__delta { color: var(--text-mute); }
 
-.curva__periodo {
-  color: var(--text-mute);
-  font-size: var(--texto-xs);
-  font-weight: 600;
-}
 
 .curva__grafico { display: block; width: 100%; height: 4.6rem; overflow: visible; }
 
 /* O QUADRO DA CURVA: o gráfico, a régua da base e os dois números do eixo.
    O `padding-right` abre a faixa em que os números moram — sobre o gráfico
    eles competiriam com a linha, e a linha é o que a tela veio mostrar. */
-.curva__quadro {
-  position: relative;
-  padding-right: var(--curva-eixo);
-  border-bottom: 1px solid var(--fio);
-}
-.curva__eixo {
-  position: absolute;
-  right: 0;
-  font-size: var(--texto-xs);
-  color: var(--text-mute);
-  line-height: 1;
-}
-.curva__eixo--teto { top: 0; }
-.curva__eixo--piso { bottom: 0; }
 /* Um ponto por semana, na cor da própria linha. `vector-effect` não vale
    para `r`, então o esticão horizontal do SVG o achata de leve — medido,
    2,9 × 3,4px, que a olho é um ponto redondo. */
 .curva__ponto { fill: currentColor; }
-.curva__periodo-datas {
-  display: flex;
-  justify-content: space-between;
-  margin: var(--espaco-2) var(--curva-eixo) 0 0;
-  font-size: var(--texto-xs);
-  color: var(--text-mute);
-}
 
 .curva--desce .curva__grafico { color: var(--brand); }
 .curva--sobe .curva__grafico { color: var(--terra); }
@@ -2487,6 +2460,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .mapa__botao:active,
 .meal__linha:active,
 .modulo:active,
+.ajuda-inline__abrir:active,
+.periodo__item:active,
 .sessao-cartao:active,
 .tabbar__item:active{ transform: scale(.96); }
 
@@ -2543,6 +2518,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .mapa__botao,
 .meal__linha,
 .modulo,
+.ajuda-inline__abrir,
+.periodo__item,
 .sessao-cartao,
 .tabbar__item{
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -2594,6 +2571,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .mapa__area:active,
 .mapa__botao:active,
 .meal__linha:active,
+.ajuda-inline__abrir:active,
+.periodo__item:active,
 .modulo:active,
 .tabbar__item:active{ transform: none; }
 }
@@ -8239,52 +8218,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   min-height: 2rem;
 }
 
-.semana__rotulo {
-  min-width: 0;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  font-size: .75rem;
-}
 
-.semana__barra {
-  height: .45rem;
-  overflow: hidden;
-  border-radius: var(--quina-p);
-  /* `--border`, e não `--surface-2`: trilha é o que diz que há uma barra
-     mesmo quando ela está vazia, e superfície sobre superfície some no
-     escuro (avaliação de 16/09/2026, U28). */
-  background: var(--fio);
-}
 
-.semana__preenche { display: block; height: 100%; background: var(--folha); }
 
-.semana__preenche--0 { width: 0; }
-.semana__preenche--1 { width: 14%; }
-.semana__preenche--2 { width: 29%; }
-.semana__preenche--3 { width: 43%; }
-.semana__preenche--4 { width: 57%; }
-.semana__preenche--5 { width: 71%; }
-.semana__preenche--6 { width: 86%; }
-.semana__preenche--7 { width: 100%; }
 
-.semana__valor {
-  /* Largura RESERVADA, e a mesma nos dois cartões.
-     A barra é `1fr`, então ela fica com o que esta coluna não levar — e as
-     duas colunas tinham larguras diferentes: um dígito no treino, quatro mais
-     a unidade na água. Medido a 375px: o trilho do treino saía com 192px e o
-     da água com 129px, os dois na MESMA escala de 0 a 7. Cinco dias de água
-     (91px) desenhavam quase igual a três dias de treino (83px), que é
-     exatamente a comparação que unificar as duas listas existia para
-     permitir. Reservar aqui custa espaço vazio na coluna do treino e devolve
-     o trilho igual nos dois. */
-  min-width: 4.4rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: var(--texto-sm);
-  text-align: right;
-}
 
-.card__head--interno { margin-top: 1.25rem; }
 
 /* O delta da carga: sobe é a cor da marca, desce é o tom de alerta do app.
    Cor NÃO é o único sinal — o sinal de `+` e o de `-` vêm no próprio número,
@@ -8434,12 +8372,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    .68rem da 10,88px. O teste mede, e mediu — a regra existe porque letra
    menor que isso some numa tela ao sol, e a tela de progresso e aberta na
    academia. */
-.semana__unidade {
-  color: var(--text-mute);
-  font-family: var(--font);
-  font-size: .72rem;
-  font-weight: 500;
-}
 
 /* ==========================================================================
    28. Tela de hidratação
@@ -9089,15 +9021,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .agua-card.is-meta [data-agua-total], .ring--agua.is-meta .ring__value { display: inline-block; animation: numero-cresce var(--mov-nervura) var(--ease) both; }
 
 /* ---- Progresso: as barras crescem da esquerda, escalonadas. ---- */
-@keyframes barra-cresce {
-  from { transform: scaleX(0); }
-}
-.history-row__fill,
-.semana__preenche {
-  transform-origin: left center;
-  animation: barra-cresce var(--mov-sucesso) var(--ease) both;
-  animation-delay: calc(var(--i, 0) * var(--mov-degrau));
-}
 /* A barra herda o índice da linha (`--i` está na linha, não na barra). */
 .history-row__fill { animation-delay: calc(var(--i, 0) * var(--mov-degrau) + var(--mov-tela)); }
 
@@ -10101,3 +10024,294 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    (só a refeição da vez nasce aberta) vale para ela também: o que a vencida
    ganha é o convite, e não o card inteiro aberto. */
 .meal__linha-aberta { margin-left: auto; color: var(--brand); flex: none; }
+
+/* ==========================================================================
+   53. PROGRESSO — a tela de evolução (23/09/2026)
+   ==========================================================================
+
+   A tela era um extrato: faixa de três números misturando hoje com
+   histórico, e quatro cartões com oito linhas de semana cada. Para quem tem
+   três dias de uso isso dava 24 linhas, sete delas anteriores ao cadastro.
+
+   O desenho novo tem UM sistema de gráfico para as quatro áreas, e cada área
+   só escolhe a cor (`--cor-area`). A geometria vem do servidor
+   (`plans/graficos.py`): o SVG aqui só recebe `x`, `y` e `d` prontos —
+   nenhum filtro de aritmética entrou no template para isso.
+
+   AS CORES SÃO AS QUE O APP JÁ TEM, e isso é decisão: a paleta tem tokens de
+   pilar (`--brand`/`--folha` treino, `--agua` hidratação, `--brasa` corrida,
+   `--terra` progresso/peso) e `--carb` para a comida, que é o laranja que o
+   painel do dia já usa na barra de macros. O pedido original falava em "roxo
+   corrida"; roxo não existe nesta paleta, e inventar uma matiz nova seria
+   mexer em direção visual de que o `DESIGN.md` é dono — fica registrado no
+   relatório em vez de ser decidido aqui.
+   ------------------------------------------------------------------------ */
+
+/* --- o seletor de período ------------------------------------------------ */
+
+/* Ele gruda no topo porque esta é a tela mais longa do app: trocar o recorte
+   depois de rolar até a corrida não pode exigir voltar ao começo. */
+.periodo {
+  position: sticky;
+  top: 0;
+  z-index: var(--camada-barra-topo);
+  display: flex;
+  gap: var(--espaco-2);
+  margin-bottom: var(--espaco-6);
+  padding: var(--espaco-3) 0;
+  background: var(--bg);
+}
+
+.periodo__item {
+  flex: 1;
+  min-width: 0;
+  /* 44px de altura pela soma do padding com a linha do texto; a largura vem
+     do `flex: 1`, e a régua de alvo mede as DUAS dimensões. */
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espaco-4) var(--espaco-3);
+  border: var(--traco) solid var(--fio);
+  border-radius: var(--quina);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.periodo__item.is-active {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* --- os quatro tiles de tendência ---------------------------------------- */
+
+.tiles--tendencia {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--espaco-3);
+  margin-bottom: var(--espaco-6);
+}
+
+.tile--tendencia {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 var(--espaco-2);
+  min-width: 0;
+  padding: var(--espaco-4);
+  border: var(--traco) solid var(--fio);
+  border-radius: var(--quina);
+}
+
+.tile--tendencia .tile__label {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.tile--tendencia .tile__value {
+  font-family: var(--font-display);
+  font-size: var(--texto-2xl);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.tile__unidade {
+  margin-left: var(--espaco-1);
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: var(--texto-sm);
+  font-weight: 700;
+}
+
+/* A seta acompanha a DIREÇÃO, e cada tile tem um sentido próprio: peso caindo
+   é bom para quem corta, água caindo é ruim sempre. Por isso a cor diz "no
+   rumo" ou "parado", e quem lê a frase embaixo sabe de quê. */
+.tile__seta { font-size: var(--texto-lg); line-height: 1; }
+.tile--caindo .tile__seta,
+.tile--subindo .tile__seta { color: var(--brand); }
+.tile--parado .tile__seta { color: var(--terra); }
+
+.tile--tendencia .tile__meta {
+  grid-column: 1 / -1;
+  margin-top: var(--espaco-2);
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  line-height: 1.35;
+}
+
+/* --- o sistema de gráfico ------------------------------------------------ */
+
+/* Cada área declara a própria cor UMA vez e todo o resto lê `--cor-area`: é o
+   que faz mapa, colunas e legenda combinarem sem repetir valor. */
+.area-evolucao--dieta   { --cor-area: var(--carb); }
+/* `--folha` e não `--brand`: a distinção que o app já tinha escrita —
+   `--folha` é o verde do que FOI FEITO, `--brand` é o do que SE FAZ. O mapa
+   do treino é registro do que aconteceu, então é a folha. */
+.area-evolucao--treino  { --cor-area: var(--folha); }
+.area-evolucao--agua    { --cor-area: var(--agua); }
+.area-evolucao--corrida { --cor-area: var(--brasa); }
+
+.grafico { margin-top: var(--espaco-5); }
+.grafico svg { display: block; width: 100%; height: auto; }
+
+/* O mapa é limitado em altura para não esticar numa coluna larga: quadrado de
+   calendário com 40px de lado vira tabuleiro, não mapa. */
+.mapa-dias { max-height: 7.5rem; }
+
+.mapa-dias__dia { fill: var(--fio); }
+.mapa-dias__dia--n1 { fill: color-mix(in srgb, var(--cor-area) 30%, transparent); }
+.mapa-dias__dia--n2 { fill: color-mix(in srgb, var(--cor-area) 55%, transparent); }
+.mapa-dias__dia--n3 { fill: color-mix(in srgb, var(--cor-area) 78%, transparent); }
+.mapa-dias__dia--n4 { fill: var(--cor-area); }
+
+/* O dia COMBINADO SEM SÉRIE é vazado, e não apagado: apagado é o descanso, e
+   os dois precisam ser distinguíveis sem depender só da matiz. */
+.mapa-dias__dia--faltou {
+  fill: transparent;
+  stroke: var(--cor-area);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.grafico__legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2) var(--espaco-4);
+  margin: var(--espaco-3) 0 0;
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+}
+.legenda-item { display: inline-flex; align-items: center; gap: var(--espaco-2); }
+.legenda-cor {
+  width: var(--espaco-4);
+  height: var(--espaco-4);
+  border-radius: var(--quina-p);
+  background: var(--cor-area);
+}
+.legenda-cor--n0,
+.legenda-cor--descanso { background: var(--fio); }
+.legenda-cor--faltou {
+  background: transparent;
+  border: 1px dashed var(--cor-area);
+}
+.legenda-cor--peso { background: var(--terra); }
+.legenda-cor--media { background: var(--brand); }
+
+.colunas__grade { stroke: var(--fio); stroke-width: .5; }
+.colunas__eixo,
+.colunas__rotulo,
+.grafico-linha__eixo,
+.grafico-linha__data {
+  fill: var(--text-dim);
+  font-family: var(--font);
+  /* O TAMANHO NÃO MORA AQUI: ele é unidade de usuário do viewBox (o SVG
+     escala com o cartão), e não um degrau da escala tipográfica do app. Sai
+     como atributo `font-size` do `<text>`, do mesmo lugar que `x` e `y` —
+     `graficos.TAMANHO_ROTULO`. O piso de 11px do `CLAUDE.md` é para TEXTO DE
+     INTERFACE; rótulo de eixo é objeto gráfico, e o número que ele descreve
+     está no `<title>` de cada barra e na frase do tile. */
+}
+
+.colunas__barra { fill: color-mix(in srgb, var(--cor-area) 55%, transparent); }
+/* A semana corrente ainda está acontecendo: sem destaque, uma quarta-feira
+   parece a maior queda da série. */
+.colunas__barra--atual { fill: var(--cor-area); }
+
+/* --- a linha do peso ----------------------------------------------------- */
+
+.grafico-linha { display: block; width: 100%; height: auto; }
+.grafico-linha__grade { stroke: var(--fio); stroke-width: .5; }
+.grafico-linha__traco {
+  fill: none;
+  stroke: var(--terra);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.grafico-linha__media {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 3;
+}
+.grafico-linha__ponto { fill: var(--terra); }
+
+.peso__registrar { margin-top: var(--espaco-5); }
+
+/* --- o "?" de cada seção -------------------------------------------------- */
+
+.ajuda-inline { margin-left: auto; }
+.ajuda-inline__abrir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: var(--text-dim);
+  font-size: var(--texto-md);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.ajuda-inline__abrir::-webkit-details-marker { display: none; }
+.ajuda-inline[open] .ajuda-inline__abrir { color: var(--brand); }
+.ajuda-inline__texto {
+  margin: var(--espaco-3) 0 0;
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.45;
+}
+
+/* --- recordes e listas de apoio ------------------------------------------ */
+
+.recordes { margin-top: var(--espaco-5); }
+.recordes__titulo {
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.data-list__meta { color: var(--text-dim); font-weight: 400; }
+
+.grafico__nota { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
+
+/* A PRÉVIA FANTASMA: a conta é mais nova que o período pedido, e a tela diz
+   isso em vez de completar com semanas que não existiram. */
+.previa-fantasma {
+  margin: var(--espaco-4) 0 0;
+  padding-top: var(--espaco-3);
+  border-top: 1px dashed var(--fio);
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  line-height: 1.4;
+}
+
+@media (min-width: 60rem) {
+  /* Os tiles atravessam as duas colunas: eles governam a tela inteira, e meia
+     largura os transformaria em mais um cartão. */
+  .tiles--tendencia { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* O GRÁFICO NÃO ESTICA ALÉM DO QUE SE LÊ (23/09/2026). Medido a 1280px: numa
+   coluna de ~590px o viewBox 320×160 virava 300px de altura, e a linha do
+   peso sozinha ocupava metade da dobra. Com teto de altura o SVG encolhe
+   mantendo a proporção (o `preserveAspectRatio` padrão centraliza), e a
+   leitura continua a mesma em qualquer largura. */
+.grafico-linha { max-height: 11rem; }
+.colunas { max-height: 9rem; }
+
+/* A prévia fantasma é da TELA, e não de cada cartão: ela explica o RECORTE,
+   que é um só. Repetida nos quatro cartões (primeira versão, 23/09/2026) a
+   explicação virava ruído — quatro vezes a mesma frase numa rolagem. */
+.previa-fantasma--tela {
+  margin: calc(var(--espaco-6) * -1) 0 var(--espaco-6);
+  padding-top: 0;
+  border-top: 0;
+}

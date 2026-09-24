@@ -210,7 +210,18 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # agregada por semana (`progresso.km_corridos`), constante, e não
         # por linha. Achado #9 das personas: a tela não sabia que a pessoa
         # corria.
-        "plans:history": 29,
+        #
+        # 29 -> 31 (23/09/2026, o redesenho): a tela passou a desenhar o MAPA
+        # DO DIA das quatro áreas e os recordes de treino. O que entrou foi
+        # +1 do mapa de água, +1 do mapa de corrida, +1 dos recordes e +1 das
+        # receitas mais registradas; o que saiu foi a curva de peso semanal e
+        # a progressão de carga. Duas consultas líquidas.
+        #
+        # E o que NÃO mudou é o que importa: o custo é do NÚMERO DE ÁREAS e
+        # não do tamanho do período — as barras da semana são somadas em
+        # Python sobre o mapa do dia. `plans.test_evolucao` mede isso
+        # diretamente, comparando "semana" com "3 meses".
+        "plans:history": 31,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

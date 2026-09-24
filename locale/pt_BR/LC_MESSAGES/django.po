@@ -62,3 +62,47 @@ msgstr ""
 #: templates/plans/_receita.html
 msgid "Trocar por outra receita"
 msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "O que este gráfico mede"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "treinou"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "descanso combinado"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "combinado, sem série"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "sem registro"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "dia cheio"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "Seus recordes"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "Os recordes aparecem a partir do segundo treino com carga."
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "O que mais você registrou"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "Ritmo da última semana:"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "por km"
+msgstr ""

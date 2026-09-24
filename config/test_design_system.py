@@ -95,7 +95,7 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: quatro tamanhos crus (`.92rem` do nome, `.82rem` do kcal e da hora,
 #: `.85rem` da lista de ingredientes). O que substituiu tudo nasceu em
 #: token.
-TETO_FONT_SIZE_CRU = 109
+TETO_FONT_SIZE_CRU = 107
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -136,7 +136,7 @@ TETO_FONT_SIZE_CRU = 109
 #: 230 em 23/09/2026: o mesmo bloco `.option*` levou oito espaços crus
 #: (`.8rem .85rem` do corpo e do resumo, `.45rem`, `.35rem .5rem`...). O
 #: card de receita, a folha e o painel são todos escala.
-TETO_ESPACO_CRU = 230
+TETO_ESPACO_CRU = 229
 
 
 def sem_comentarios(texto):
@@ -424,7 +424,8 @@ class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
         ".equation__value",
         ".corrida-numero__valor",
         ".conquistas__numero",
-        ".semana__valor",
+        # `.semana__valor` saiu em 23/09/2026 com a lista semanal do
+        # Progresso: o número agora mora no `<title>` da barra e no tile.
         ".balance__value",
         ".ring__value",
         ".gole__valor",
@@ -471,7 +472,10 @@ class MetricaNaoDependeDoTemplateParaSerTabularTests(SimpleTestCase):
     def test_a_lista_de_valores_nao_esta_vazia_nem_casando_com_qualquer_coisa(self):
         """Controle positivo: se `_regra` devolvesse corpo para qualquer
         seletor, os dois testes acima passariam sem inspecionar nada."""
-        self.assertGreaterEqual(len(self.VALORES), 9)
+        # 9 -> 8 em 23/09/2026: `.semana__valor` saiu com a lista semanal do
+        # Progresso. O piso é controle positivo (a lista não pode estar vazia
+        # nem casar com qualquer coisa), e oito ainda o sustentam.
+        self.assertGreaterEqual(len(self.VALORES), 8)
         self.assertIsNone(self._regra(".metrica-que-nao-existe"))
 
 

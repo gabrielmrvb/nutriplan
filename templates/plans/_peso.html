@@ -1,3 +1,4 @@
+{% load l10n %}
 {% comment %}
   O cartão de peso, com a média da semana antes das pesagens do dia.
 
@@ -10,20 +11,6 @@
         <div class="card__head">
           <h2>Peso</h2>
         </div>
-        {% comment %}
-          O registro acontece AQUI, e antes da média.
-
-          O cabeçalho tinha um link "Registrar" que abria o passo 1 do
-          onboarding — quatro campos, sendo três que não mudam nunca, e a barra
-          de abas sumindo porque o passo se declara `sem_tabbar`. Quem tocava
-          "Registrar" era levado para um cadastro que já tinha concluído, e
-          voltava no Perfil. O passo 1 continua existindo para editar dados
-          corporais pelo Perfil; ele só deixou de ser o caminho para se pesar.
-
-          Acima da média porque é a ação primária do cartão: sem pesagem, tudo
-          o que vem abaixo é histórico parado.
-        {% endcomment %}
-        {% include "plans/_peso_campo.html" with origem="metricas" peso_atual=peso_de_hoje %}
         {% if weight_entries %}
           {% comment %}
             A média da semana vem antes dos números do dia, e isso é a
@@ -49,42 +36,61 @@
             aí a tabela aparece sozinha — desenhar uma linha de um ponto
             afirmaria direção onde não há.
           {% endcomment %}
-          {% if curva_peso %}
-            <div class="curva curva--{% if curva_peso.delta < 0 %}desce{% elif curva_peso.delta > 0 %}sobe{% else %}igual{% endif %}">
-              <div class="curva__cabeca">
-                <strong class="curva__valor num">{{ curva_peso.ultimo|floatformat:1 }}<span class="curva__unidade">kg</span></strong>
-                <span class="curva__delta">
-                  {% if curva_peso.delta > 0 %}+{% endif %}{{ curva_peso.delta|floatformat:1 }} kg
-                  <span class="curva__periodo">no período</span>
-                </span>
-              </div>
-              {% comment %}
-                O EIXO MORA NO HTML, e não dentro do SVG (22/09/2026).
+          {% comment %}
+            O GRÁFICO DAS PESAGENS, e não das médias semanais (23/09/2026).
 
-                O gráfico é esticado (`preserveAspectRatio="none"`), então
-                texto lá dentro sairia deformado e fora da escala tipográfica
-                do app. Como irmãos posicionados sobre o quadro, os dois
-                números são texto de verdade: herdam a fonte, o tamanho
-                mínimo de 11px e o `tabular-nums`.
-              {% endcomment %}
-              <div class="curva__quadro">
-                <svg class="curva__grafico"
-                     viewBox="0 0 {{ curva_peso.largura }} {{ curva_peso.altura }}"
-                     preserveAspectRatio="none"
-                     role="img"
-                     aria-label="Média semanal de peso, de {{ curva_peso.primeiro|floatformat:1 }} a {{ curva_peso.ultimo|floatformat:1 }} quilos, entre {{ curva_peso.de|date:'d/m/Y' }} e {{ curva_peso.ate|date:'d/m/Y' }}">
-                  <polyline class="curva__linha" points="{{ curva_peso.pontos }}"/>
-                  {% for marca in curva_peso.marcas %}
-                    <circle class="curva__ponto" cx="{{ marca.x }}" cy="{{ marca.y }}" r="3"/>
-                  {% endfor %}
-                </svg>
-                <span class="curva__eixo curva__eixo--teto num" aria-hidden="true">{{ curva_peso.teto|floatformat:1 }}</span>
-                <span class="curva__eixo curva__eixo--piso num" aria-hidden="true">{{ curva_peso.piso|floatformat:1 }}</span>
+            A curva anterior desenhava uma média por semana: ela respondia
+            "para onde isso vai", mas escondia o que a pessoa fez — duas
+            pesagens numa semana e nenhuma na outra davam dois pontos
+            igualmente espaçados. Agora o eixo é o TEMPO: cada ponto é uma
+            pesagem no dia em que aconteceu, e a média móvel de sete dias
+            passa por cima como a leitura suavizada. Com menos de três
+            pesagens ela não nasce — média de duas é a própria linha,
+            deslocada.
+
+            NÃO HÁ FAIXA DE META porque não há peso-alvo no app: `Profile`
+            guarda o OBJETIVO (emagrecer, manter, ganhar), não um número.
+            Desenhar uma faixa exigiria inventar o número, e inventar meta de
+            peso é decisão de produto que nenhum documento deste repositório
+            tomou.
+          {% endcomment %}
+          {% if peso_grafico.pontos %}
+            <div class="curva curva--{{ peso.direcao|default:'igual' }}">
+              <div class="curva__cabeca">
+                <strong class="curva__valor num">{{ peso.valor }}<span class="curva__unidade">kg</span></strong>
+                <span class="curva__delta">{{ peso.frase }}</span>
               </div>
-              <p class="curva__periodo-datas num" aria-hidden="true">
-                <span>{{ curva_peso.de|date:"d/m" }}</span>
-                <span>{{ curva_peso.ate|date:"d/m" }}</span>
-              </p>
+              {% localize off %}
+              <svg class="grafico-linha" viewBox="0 0 {{ peso_grafico.largura }} {{ peso_grafico.altura }}"
+                   role="img" aria-label="Peso registrado no período, de {{ janela.inicio|date:'d/m' }} a {{ janela.fim|date:'d/m' }}">
+                {% for marca in peso_grafico.eixo_y %}
+                  <line class="grafico-linha__grade" x1="{{ peso_grafico.grade_inicio }}" y1="{{ marca.pos }}"
+                        x2="{{ peso_grafico.grade_fim }}" y2="{{ marca.pos }}"/>
+                  <text class="grafico-linha__eixo" x="{{ peso_grafico.recuo_eixo }}" y="{{ marca.pos }}" font-size="{{ tamanho_rotulo }}"
+                        dy="0.32em" text-anchor="end">{{ marca.texto }}</text>
+                {% endfor %}
+                {% if peso_grafico.caminho_media %}
+                  <path class="grafico-linha__media" d="{{ peso_grafico.caminho_media }}"/>
+                {% endif %}
+                {% if not peso_grafico.unico %}
+                  <path class="grafico-linha__traco" d="{{ peso_grafico.caminho }}"/>
+                {% endif %}
+                {% for ponto in peso_grafico.pontos %}
+                  <circle class="grafico-linha__ponto" cx="{{ ponto.x }}" cy="{{ ponto.y }}" r="2.6"
+                    ><title>{{ ponto.rotulo }}</title></circle>
+                {% endfor %}
+                {% for marca in peso_grafico.eixo_x %}
+                  <text class="grafico-linha__data" x="{{ marca.pos }}" y="{{ peso_grafico.base_rotulo }}" font-size="{{ tamanho_rotulo }}"
+                        text-anchor="{{ marca.ancora }}">{{ marca.texto }}</text>
+                {% endfor %}
+              </svg>
+              {% endlocalize %}
+              {% if peso_grafico.caminho_media %}
+                <p class="grafico__legenda">
+                  <span class="legenda-item"><span class="legenda-cor legenda-cor--peso"></span>pesagens</span>
+                  <span class="legenda-item"><span class="legenda-cor legenda-cor--media"></span>média de 7 dias</span>
+                </p>
+              {% endif %}
             </div>
           {% endif %}
           {% if tendencia.tem_dados %}
@@ -232,4 +238,17 @@
           {% endcomment %}
           <p class="empty-state">Nenhum peso registrado ainda.</p>
         {% endif %}
+        {% comment %}
+          O CAMPO FICA NO RODAPÉ DO CARTÃO (item 2 da missão, 23/09/2026).
+
+          Ele estava no TOPO, acima de tudo, e com isso a primeira coisa da
+          seção "Peso" era um formulário: quem abria o Progresso para ver a
+          evolução via uma caixa de digitar antes de ver um número. A ação
+          continua a um dedo e continua sendo um toque — mudou a ordem de
+          leitura, não o fluxo. O recálculo da meta na próxima abertura é o
+          mesmo, e é o que a frase logo acima diz.
+        {% endcomment %}
+        <div class="peso__registrar">
+          {% include "plans/_peso_campo.html" with origem="metricas" peso_atual=peso_de_hoje %}
+        </div>
       </section>

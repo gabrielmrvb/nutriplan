@@ -425,7 +425,11 @@ class DemoCadaRotaMostraSuaTelaTests(TestCase):
         # `sessao-cartao__texto` e `sessao-cartao__nome`, e renomear o cartão
         # passaria verde — medido numa sabotagem.
         ("/demo/treino/", 'class="sessao-cartao'),
-        ("/demo/historico/", "Ader"),
+        # `class="periodo"` e não "Ader": o seletor de período é o que existe
+        # SÓ nesta tela desde o redesenho de 23/09/2026, e o tile de aderência
+        # passou a se chamar "Cardápio". Marco de rota tem de ser exclusivo da
+        # rota, senão ele para de provar que cada uma desenha a si mesma.
+        ("/demo/historico/", 'class="periodo"'),
         ("/demo/lista-de-compras/", "shopping"),
         ("/demo/conta/perfil/", "Meu perfil"),
     )
@@ -909,7 +913,12 @@ class DemoPesagemTests(TestCase):
         verdade — o middleware reescreve os links, e é isso que mantém o demo
         dentro dele mesmo."""
         html = self.client.get("/demo/historico/").content.decode()
-        formulario = html.split('class="pesagem"', 1)[1].split(">", 1)[0]
+        # `<form class="pesagem"` e não `class="pesagem"`: a lista semana a
+        # semana tem `<li class="pesagem">`, e desde 23/09/2026 o formulário
+        # mora no RODAPÉ do cartão — o `split` na classe solta passou a pegar
+        # o primeiro `<li>` e a devolver uma string vazia. A armadilha de
+        # sempre desta base: o marcador casa com outro lugar da página.
+        formulario = html.split('<form class="pesagem"', 1)[1].split(">", 1)[0]
 
         self.assertIn('action="/demo/conta/peso/"', formulario)
 
