@@ -1490,6 +1490,25 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
 
+**O CARTÃO DE HOJE CONTA O TREINO DE HOJE, E NÃO A REFERÊNCIA DA SEMANA
+(24/09/2026).** `TrainingSession.total_sets` e `estimated_minutes` são da
+OPÇÃO 1 — o retrato da LETRA, que é o que os cartões das outras mostram e o
+que faz o programa não oscilar conforme o dia em que a tela é aberta —, e o
+cartão de hoje os usava: num dia de variação 2 ele prometia os números de um
+treino que a pessoa não ia fazer. Medido (observado em produção em 18/09 e
+reproduzido em 24/09 no `abc2` do intermediário de cinco dias): a letra B
+fecha em 57 min na opção 1 e 60 na 2, a C em 25 séries contra 27 — o painel
+dizia "~57 min" e a ficha do mesmo dia, "~60". Não eram duas contas de
+duração (a conta é uma só desde 13/09); eram duas OPÇÕES. `preparar_dia` já
+calculava `sessao.minutos` da opção do dia e `progresso_do_dia` já tirava
+`total_exercicios` de `itens_do_dia`; faltava `series_do_dia`, e o template
+passou a ler os três. Zero consulta nova: as linhas das duas opções já
+estavam carregadas. `workouts/test_minutos_do_dia.py` mede a IGUALDADE com a
+ficha do mesmo dia — nunca um número escrito à mão, que envelhece com o
+catálogo — e o teste que protege o significado da referência tem controle
+positivo: a letra A dá 59 min nas duas opções, e sem uma letra que as
+distinga a sabotagem passava verde.
+
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
     painel   (`/treino/`)              -> "como é a minha semana"

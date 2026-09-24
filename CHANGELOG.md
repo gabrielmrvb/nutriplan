@@ -13,6 +13,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
+- **O painel e a ficha param de discordar sobre o treino de hoje.** No dia em que a sua letra cai na segunda versão, o cartão do painel dizia "~57 min · 24 séries" e a ficha do mesmo dia dizia "~60 min" — os dois falam do mesmo treino agora.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 
 *(gerência, não aparece para quem usa)*
