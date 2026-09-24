@@ -2,6 +2,12 @@
 {% load corrida %}
 {% block title %}Corridas · NutriPlan{% endblock %}
 
+{% comment %} A LARGURA DO DESKTOP (24/09/2026): a lista de corridas abria em 480 px
+   num monitor de 1280, enquanto Hoje, Progresso e Alimentação já usavam
+   1024 — o mesmo "celular no meio da tela" que o redesenho de 22/09 tirou
+   das outras. Uma linha, e a mesma que elas usam. {% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% block content %}
   <div class="page-head">
     <h1>Corridas</h1>

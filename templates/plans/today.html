@@ -213,12 +213,21 @@
               <p class="painel__valor">Sem pesagem</p>
               <p class="painel__detalhe">O primeiro peso é o que faz a curva existir.</p>
             {% endif %}
+            {% comment %}
+              UM SÓ REGISTRO DE PESO NA HOME (24/09/2026).
+
+              O rodapé oferecia "Registrar peso" apontando para `#pesar` —
+              a faixa que já está NESTA tela, com o campo. MEDIDO no
+              navegador, conta com Progresso declarado: TRÊS caminhos para
+              a mesma ação na mesma dobra (este cartão, o cartão AGORA e a
+              própria faixa). Dois deles eram âncoras para o terceiro.
+
+              O cartão volta a responder o que ele é — a porta da ÁREA —, e
+              a ação mora onde o campo está. Não é esconder: a faixa está
+              aberta quando o topo está pedindo o peso.
+            {% endcomment %}
             <p class="painel__rodape">
-              {% if convite_pesagem %}
-                <a class="btn btn--quiet btn--sm btn--block" href="#pesar">Registrar peso</a>
-              {% else %}
-                <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:history' %}">Ver progresso</a>
-              {% endif %}
+              <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:history' %}">Ver progresso</a>
             </p>
           </section>
 

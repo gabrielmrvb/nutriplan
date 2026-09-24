@@ -601,6 +601,32 @@ class TrainingForm(forms.Form):
         if cleaned.get("musculacao") == Musculacao.NAO:
             cleaned["weekdays"] = []
             cleaned["experiencia"] = ""
+            cleaned["equipamento"] = ""
+        elif cleaned.get("musculacao") == Musculacao.SIM:
+            # OBRIGATÓRIAS PARA QUEM FAZ MUSCULAÇÃO (24/09/2026).
+            #
+            # Os dois campos nasceram opcionais com a razão escrita acima:
+            # "sem resposta o motor usa 20 — a ficha não muda, e a tela não
+            # inventa a frase". A régua está certa e continua valendo: o app
+            # NÃO declara nível por ninguém. O que a rodada 2 mediu é o outro
+            # lado dela — quem passava batido saía do cadastro e o Perfil
+            # dizia "não informada", que é o app admitindo que montou a ficha
+            # com um palpite.
+            #
+            # A saída não é inventar a resposta: é PERGUNTAR. E só para quem
+            # disse que faz musculação — a pergunta-porta decide se o bloco
+            # existe na tela, e cobrar o que não foi perguntado seria um beco
+            # sem saída para quem só corre.
+            #
+            # O erro fica NO CAMPO (`add_error`), e não no topo: é o que faz
+            # o `aria-invalid` nascer e o "FOCO NO ERRO" do `pwa.js` rolar
+            # até ele.
+            for campo, frase in (
+                ("experiencia", "Diga há quanto tempo você treina — é o que ajusta o volume da sua ficha."),
+                ("equipamento", "Diga o que você tem para treinar — a ficha usa só o que está à mão."),
+            ):
+                if not cleaned.get(campo):
+                    self.add_error(campo, frase)
         wake, sleep = cleaned.get("wake_time"), cleaned.get("sleep_time")
         if wake and sleep:
             same_day = wake < sleep

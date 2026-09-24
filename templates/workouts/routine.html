@@ -244,31 +244,35 @@
               nasce com `hidden` e é revelado pelo mesmo caminho.
             {% endcomment %}
             {% comment %}
-              O CTA ABRE A FICHA, e não o primeiro exercício.
+              UM CLIQUE PARA TREINAR (decisão do dono, 24/09/2026).
 
-              Ele apontava para `workouts:now`, que abre direto o próximo
-              pendente — com o vídeo dele já na tela. O fluxo pulava a etapa em
-              que a pessoa decide: ela tocava em "Começar treino" e caía dentro
-              de um movimento sem ter visto o treino.
+              Este botão apontou para `workouts:now` até 22/09, foi movido
+              para a FICHA com a razão "o fluxo pulava a etapa em que a
+              pessoa decide", e volta agora para a execução. As duas leituras
+              são verdadeiras e medem gente diferente: quem ainda não decidiu
+              precisa ver a lista, e quem já decidiu pagava DOIS toques toda
+              vez — o segundo numa tela que ela não ia ler. A rodada 2 de
+              experiência mediu o segundo grupo, e o dono escolheu por ele.
 
-              O fluxo é: tela de Treino -> ficha -> a pessoa escolhe o
-              exercício -> execução -> Short. A ficha é a tela de preparação, e
-              é nela que se vê tudo antes de começar.
+              A tela de preparação não sumiu: "Ver ficha do Treino X · N
+              exercícios" está logo abaixo, e continua dizendo o tamanho do
+              que abre. O que mudou foi qual dos dois é o PRINCIPAL.
 
-              O ECO SAIU JUNTO. Ele nomeava o exercício que o botão ia abrir
-              ("Supino inclinado com halteres"), e passou a ser mentira: o
-              botão abre a lista. Nomear ali de novo prometeria o comportamento
-              que esta mudança tirou.
+              O TEXTO DIZ EM QUE MUNDO A PESSOA ESTÁ. "Começar treino" sem
+              série hoje; "Continuar treino (3 de 8)" com o treino em
+              andamento — o número é o que responde "de onde eu parei?" sem
+              abrir nada. `feitos_hoje` e `total_exercicios` já vinham
+              calculados para a barra de progresso ao lado.
 
               Continua sendo âncora e não POST: "começar treino" não existe
               como estado no banco, e inventar um registro para acender um
-              botão seria criar dado que nada lê. Abrir a ficha NÃO muda
-              progresso — ver `FichaDaSessaoView`.
+              botão seria criar dado que nada lê. Abrir a execução também não
+              muda progresso — ela só grava quando a série é concluída.
             {% endcomment %}
             <a class="btn btn--primary btn--block btn--hoje"
-               href="{% url 'workouts:ficha' hoje.pk %}"
+               href="{% url 'workouts:now' %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta>{% if hoje.feitos_hoje %}Abrir a ficha de hoje{% else %}Começar treino{% endif %}</a>
+               data-hoje-cta>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.

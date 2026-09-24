@@ -174,7 +174,14 @@
                 sem valor; escrever "Intermediário" no lugar afirmaria o que
                 ninguém declarou. O "Editar" do cabeçalho é a saída.
               {% endcomment %}
-              <dd>{% if profile.experiencia %}{{ profile.get_experiencia_display }}{% else %}não informada{% endif %}</dd>
+              {% comment %} NUNCA "não informada" (24/09/2026). A pergunta é obrigatória desde
+                 hoje para quem faz musculação, mas quem já tinha conta pode não
+                 ter respondido — e "não informada" é o app admitindo que montou
+                 a ficha com um palpite sem dizer QUAL. O motor usa intermediário
+                 quando o campo está vazio (`TETO_POR_EXPERIENCIA`), e é isso que
+                 a tela diz, marcado como padrão: um estado de verdade, não um
+                 buraco. Quem quiser trocar tem o "Editar" ao lado. {% endcomment %}
+              <dd>{% if profile.experiencia %}{{ profile.get_experiencia_display }}{% else %}Intermediário <span class="hint">— padrão, você ainda não respondeu</span>{% endif %}</dd>
             </div>
             <div>
               <dt>Equipamento</dt>
