@@ -1249,7 +1249,34 @@ class AreasView(OnboardingRequiredMixin, TemplateView):
             area["progresso"] = fatos.get(area["valor"] + ":pct")
             area["convite"] = fatos.get(area["valor"] + ":convite")
         contexto["ferramentas"] = self._fatos_das_ferramentas()
+        contexto["identidade"] = self._identidade(contexto["ferramentas"].get("perfil"))
         return contexto
+
+    def _identidade(self, perfil):
+        """Quem a pessoa é aqui dentro — a primeira linha da tela (23/09/2026).
+
+        Inicial, nome (ou o e-mail, quando o cadastro não tem nome — o de
+        e-mail e senha não pede; o do Google traz), e a linha do objetivo com
+        a meta que `_fatos_das_ferramentas` já calculou para o Perfil. Custo
+        zero: tudo sai de `request.user`, que o pedido já tem em memória.
+
+        A inicial é a primeira letra do nome ou do e-mail, maiúscula — o
+        avatar mais barato que existe, e o único que não precisa de upload.
+        """
+        user = self.request.user
+        nome = (user.get_short_name() or "").strip()
+        mostra_email = not nome
+        rotulo = nome or user.email
+        inicial = (rotulo[:1] or "?").upper()
+        linha = ""
+        if perfil:
+            # "manter o peso · 2.372 kcal por dia" ou, sem plano, só o objetivo
+            if "kcal" in perfil["rotulo"]:
+                objetivo = perfil["rotulo"].split("·", 1)[1].strip()
+                linha = f"{objetivo} · {perfil['valor']} kcal por dia"
+            else:
+                linha = f"{perfil['valor']} {perfil['rotulo']}"
+        return {"inicial": inicial, "nome": rotulo, "mostra_email": mostra_email, "linha": linha}
 
     def _fatos_das_ferramentas(self):
         """O que cada ferramenta responde ANTES do toque — a custo fixo.

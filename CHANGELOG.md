@@ -6,6 +6,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-23
 
+- **A aba "Mais" deixou de ser o que sobrou.** Ela abre com você: a inicial, o seu nome, o seu objetivo e a meta do dia — e essa primeira linha é a porta do Perfil. Antes o título era "Áreas sem aba" e o seu perfil aparecia como um cartão escrito "2.372 kcal por dia".
+- **Corrida e Hidratação continuam em cartão, com a ação no rodapé.** São as duas áreas com número vivo, e agora cada uma tem "Ver corrida ›" e "Ver hidratação ›".
+- **Conquistas, Lista de compras e Ajuda viraram uma lista de linhas**, com ícone, o que é e uma seta — em vez de cartões do mesmo tamanho, um deles quase vazio. Conta ganhou a mesma forma, com Perfil e "Sair da conta" (em vermelho, porque é a única ação que encerra alguma coisa).
+- **No computador a tela usa as duas colunas**: as suas áreas à esquerda, as listas à direita.
 - **Uma refeição agora parece uma refeição.** Cada horário mostra as DUAS opções do dia, sempre, como dois cartões de receita: desenho do prato, nome, calorias, os três macros (proteína, carboidrato e gordura), o tempo de preparo e os ingredientes com a quantidade numa linha — "2 unidades de pão francês · 3 ovos médios · 3 fatias de queijo". Antes era o nome, a caloria e um "Ver opções" que abria duas linhas de texto.
 - **O botão diz "Comi esta", e não "Registrar A".** A letra era um nome interno. O verde fica só na sugestão do dia; a outra opção tem o mesmo botão em contorno.
 - **"Pulei" e "Comi outra coisa" saíram da frente.** Eram dois botões do tamanho do registrar, cinco vezes por dia; agora são uma linha discreta no rodapé do cartão. As duas continuam fazendo exatamente o que faziam.

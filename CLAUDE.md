@@ -209,6 +209,36 @@ ele reverte para `/demo/` — que **não** é a tela Hoje, é a capa. O mapa man
 quem estava avaliando o produto para a página de marketing e ainda anunciava
 "você está aqui" ao fazê-lo.
 
+**A TELA "MAIS" (`/areas/`) ABRE COM A PESSOA, E A FORMA SEGUE O DADO
+(23/09/2026).** Ela era seis cartões do mesmo tipo com pesos desiguais sob o
+rótulo "Áreas sem aba" — que descreve a ARQUITETURA, não o que a pessoa tem:
+Corrida e Hidratação com número, Ajuda um cartão largo quase vazio, e o
+Perfil aparecendo como "2.372 kcal por dia". Hoje:
+
+- **a primeira linha é a identidade** (`.identidade`): inicial num círculo,
+  nome — ou o e-mail, quando o cadastro não tem nome —, objetivo e meta do
+  dia, e a linha inteira é a porta do Perfil. Sem plano ativo ela diz só o
+  objetivo, porque inventar a meta seria afirmar um número que não existe;
+- **cartão onde há número, LISTA onde não há.** A doutrina de 12/09 tirou a
+  lista das ÁREAS porque "a tela parecia Configurações", e ela continua
+  valendo para as áreas: Corrida e Hidratação seguem em cartão, com a ação
+  no rodapé. Ferramentas (Conquistas, Lista de compras, Ajuda) e Conta
+  (Perfil, Sair) são linhas de navegação — ícone, rótulo, detalhe, seta —,
+  que é a forma certa para o que não tem número e é o "Mais" de qualquer
+  app. Cartão vazio era o defeito que o dono viu em produção;
+- **"Sair da conta" é POST e é o único `<form>` do `<main>`** (há teste), em
+  `--danger` porque é a única ação da tela que encerra alguma coisa. No
+  celular a barra de cima não tem Sair, e esta é a linha dele;
+- **desktop em duas colunas** (≥ 60rem): áreas à esquerda, listas à direita.
+  Numa coluna só, a 1280, os dois cartões de área viravam faixas com o
+  número num canto e vazio no resto;
+- **mesmas 8 consultas** (`OCustoDaTelaDeAreasEstaMedidoTests`): a identidade
+  sai de `request.user` e do fato do plano que o Perfil já calculava. Lista
+  de compras e Lembretes ficaram SEM contagem de propósito — cada número ali
+  seria uma consulta nova;
+- os ícones das linhas são **inline**, e não do sprite de 13 símbolos: ele é
+  fechado e nenhum símbolo dele dizia "conquista" ou "sair".
+
 **A Home organiza pela área principal, e o AGORA continua sendo o primeiro
 bloco.** A prioridade declarada move UMA seção para o alto da tela de Hoje,
 logo abaixo do resumo do dia — e nunca acima do cartão AGORA. Urgência vence
