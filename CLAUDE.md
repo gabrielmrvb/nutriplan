@@ -3142,6 +3142,22 @@ no Windows o `agent-browser.cmd` passa o `eval` pelo cmd.exe, que come `||`
 agent-browser herda os descritores (saída em ARQUIVO, `stdin` fechado, nunca
 pipe); e o CTA da ficha nova não navegou atrás do convite de instalação (o
 roteiro dispensa o convite na Home e, se um clique não navega, abre o `href`).
+E uma QUINTA, que custou produção parada: **`check` sai com código 0 mesmo
+quando a caixa não ficou marcada**. Em 24/09/2026 o `promover-lote` das
+12:27 e das 17:26 reprovou em `onboarding-1` com a SEGUNDA caixa de
+consentimento desmarcada ("Para continuar, marque esta caixa" no snapshot
+do erro), e o mesmo roteiro fizera 13/13 três horas antes contra o MESMO
+commit do staging — as duas caixas moram DENTRO de um `<label>` clicável, e
+ali o clique no rótulo pode desfazer o do input. `Navegador.marcar` só
+tratava a EXCEÇÃO, que é uma guarda que não confere: ela nunca via o caso
+em que o comando "deu certo" e nada mudou. Hoje ela LÊ o estado, força pelo
+DOM quando ele não é o pedido (com `input` e `change`, que é o que o
+`pwa.js` escuta) e FALHA ALTO com o seletor quando nem assim marca —
+reprovar três passos depois é um diagnóstico que já não diz o que houve.
+**A consequência operacional fica escrita: E2E vermelho PARA a promoção do
+lote**, e produção fica no commit anterior até alguém consertar; foi o que
+segurou `1c66b92` por cinco horas.
+
 `config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
 
 **O TESTE DE CARGA É MANUAL, SÓ GET, SÓ NO STAGING (21/09/2026).**

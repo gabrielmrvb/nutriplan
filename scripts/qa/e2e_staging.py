@@ -109,15 +109,48 @@ class Navegador:
         return self("eval", js, timeout=timeout)
 
     def marcar(self, seletor):
-        """`check`, com o plano B do rádio escondido (a divisão só aparece com N dias).
+        """`check`, CONFERIDO, com o plano B pelo DOM.
 
         `wait` antes: no runner (MEDIDO no primeiro run do Actions) o `check`
-        chegava com a tela ainda carregando e o plano B achava `null`."""
+        chegava com a tela ainda carregando e o plano B achava `null`.
+
+        E a conferência veio de um caso real (24/09/2026): o `promover-lote`
+        das 12:27 e das 17:26 reprovou em `onboarding-1` com a SEGUNDA caixa
+        de consentimento desmarcada — "Para continuar, marque esta caixa" no
+        snapshot —, e o mesmo roteiro fizera 13/13 três horas antes contra o
+        MESMO commit do staging. O `check` sai com código 0 mesmo quando a
+        caixa não ficou marcada, e as duas caixas moram DENTRO de um
+        `<label>` clicável, onde o clique no rótulo pode desfazer o do input.
+        Pegar só a EXCEÇÃO era uma guarda que não confere: ela nunca via o
+        caso em que o comando "deu certo" e nada mudou.
+
+        Vale para rádio e para caixa: nos dois o estado pedido é
+        `checked = true`, e o `change` é o que o `pwa.js` escuta para revelar
+        bloco (a divisão do treino, o bloco da academia)."""
         try:
             self("wait", seletor, "--timeout", "30000")
             self("check", seletor)
         except RuntimeError:
-            self.eval("(function(){var e=document.querySelector(%s);e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}));return e.checked})()" % json.dumps(seletor))
+            pass
+        if self._marcado(seletor):
+            return
+        self.eval(
+            "(function(){var e = document.querySelector(%s);"
+            "if (!e) return 'sem elemento';"
+            "e.checked = true;"
+            "e.dispatchEvent(new Event('input', {bubbles: true}));"
+            "e.dispatchEvent(new Event('change', {bubbles: true}));"
+            "return String(e.checked)})()" % json.dumps(seletor)
+        )
+        if not self._marcado(seletor):
+            raise RuntimeError("não consegui marcar %s" % seletor)
+
+    def _marcado(self, seletor):
+        resposta = self.eval(
+            "(function(){var e = document.querySelector(%s);"
+            "return e ? String(e.checked) : 'sem elemento'})()" % json.dumps(seletor)
+        )
+        return resposta.strip().strip('"') == "true"
 
     def preencher(self, seletor, valor):
         """`fill`, conferido — o `<input type=date>` não aceita `fill` (MEDIDO:
