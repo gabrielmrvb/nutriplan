@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
 - **Um clique para treinar.** O botão do painel de Treino — e o cartão do treino na Home — leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
 - **O placar diz quanto tempo você treinou.** Era "1 min entre o primeiro e o último registro"; agora é o tempo da primeira série até você tocar em "Encerrar treino". E ele conta: "5 de 8 exercícios feitos", com os que ficaram de fora na ordem da ficha.
 - **A sequência em zero convida em vez de cobrar.** "Recomeça hoje: treino no dia de treino, mais dieta ou água. Ontem faltou dieta ou água." virou "Recomeça hoje: registre uma refeição ou um copo d'água." — e "Comece hoje", com as mesmas palavras, para quem criou a conta hoje.

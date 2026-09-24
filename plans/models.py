@@ -35,6 +35,33 @@ class NutritionPlan(models.Model):
     activity_level = models.CharField(max_length=20, choices=ActivityLevel.choices)
     goal = models.CharField(max_length=10, choices=Goal.choices)
     training_days_per_week = models.PositiveSmallIntegerField(default=0)
+    #: O QUE ESCOLHE A COMIDA, também no retrato (24/09/2026).
+    #:
+    #: Os campos acima fotografam o que calcula a META. As restrições e o
+    #: estilo de cardápio escolhem as RECEITAS, e ficavam de fora: marcar
+    #: "sem peixe" no Perfil não invalidava nada, e o cardápio continuava
+    #: oferecendo sardinha — na tela daquele POST e em toda visita seguinte,
+    #: porque `plan_is_current` comparava só o que estava aqui.
+    #:
+    #: `restricoes` são os slugs ORDENADOS, separados por vírgula. Ordenados
+    #: porque a ordem do `values_list` de um M2M não é estável, e uma ordem
+    #: diferente seria lida como restrição diferente — o plano nasceria
+    #: "desatualizado" e o cardápio seria remontado em toda abertura da Home.
+    #: Texto e não JSON pela mesma razão que o resto do retrato é escalar: a
+    #: comparação é `==` com o que `build_inputs` monta, e lista contra tupla
+    #: nunca é igual.
+    #:
+    #: `default=""` e SEM backfill: plano que nasceu antes deste campo fica
+    #: com o vazio, que é a verdade de quem não marcou restrição nenhuma —
+    #: e quem marcou alguma recebe um cardápio novo na primeira visita, que
+    #: é exatamente a correção. Invalidar todo mundo no deploy seria trocar o
+    #: cardápio de quem não pediu nada.
+    restricoes = models.CharField(
+        "restrições no dia da criação", max_length=200, blank=True, default=""
+    )
+    meal_style = models.CharField(
+        "estilo de cardápio na criação", max_length=10, blank=True, default=""
+    )
     formula = models.CharField(max_length=30, default="mifflin_st_jeor")
 
     # --- Saídas do cálculo ---

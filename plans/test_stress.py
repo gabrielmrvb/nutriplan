@@ -163,7 +163,9 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # em 0 faz o teste imprimir o número), já com a invalidação por
         # `items_changed_at` dentro da mesma consulta de `template__is_active`
         # em `plan_is_current` (zero a mais).
-        "plans:today": 17,  # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`)
+        # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`);
+        # 17 → 18 em 24/09 pela consulta das restrições — a razão está lá.
+        "plans:today": 18,
         # A ALIMENTAÇÃO ENTRA NA TABELA em 23/09/2026, com 18.
         #
         # Ela nasceu da separação de 22/09 e ficou sem orçamento próprio: o
@@ -180,7 +182,7 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # E os cards de receita não custam nada: os ingredientes e a medida
         # caseira saem do `prefetch_related` que a tela já fazia.
-        "plans:alimentacao": 18,
+        "plans:alimentacao": 19,  # 18 → 19 em 24/09: a mesma consulta das restrições
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
