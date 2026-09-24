@@ -6,6 +6,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-23
 
+- **A aba "Mais" deixou de ser o que sobrou.** Ela abre com você: a inicial, o seu nome, o seu objetivo e a meta do dia — e essa primeira linha é a porta do Perfil. Antes o título era "Áreas sem aba" e o seu perfil aparecia como um cartão escrito "2.372 kcal por dia".
+- **Corrida e Hidratação continuam em cartão, com a ação no rodapé.** São as duas áreas com número vivo, e agora cada uma tem "Ver corrida ›" e "Ver hidratação ›".
+- **Conquistas, Lista de compras e Ajuda viraram uma lista de linhas**, com ícone, o que é e uma seta — em vez de cartões do mesmo tamanho, um deles quase vazio. Conta ganhou a mesma forma, com Perfil e "Sair da conta" (em vermelho, porque é a única ação que encerra alguma coisa).
+- **No computador a tela usa as duas colunas**: as suas áreas à esquerda, as listas à direita.
 - **O Progresso virou uma tela de evolução.** Escolha o período (semana, mês ou 3 meses) no topo e veja quatro números com a direção de cada um; o peso virou um gráfico de verdade, com um ponto por pesagem; e alimentação, treino, água e corrida ganharam um calendário do mês e as barras de cada semana, todos no mesmo desenho.
 - **Nada mais de semanas vazias de antes de você entrar.** A tela mostrava oito semanas sempre — quem tinha três dias de uso via sete linhas zeradas de antes de ter conta. Agora os gráficos começam no dia em que você chegou e crescem com você.
 - **O treino mostra os seus recordes.** A carga máxima de cada exercício, com a data, e quantos dias seguidos você vem treinando.

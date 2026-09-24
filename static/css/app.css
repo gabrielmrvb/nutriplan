@@ -2455,7 +2455,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.identidade:active,
 .mapa__area:active,
+.mapa__botao:active,
 .meal__linha:active,
 .modulo:active,
 .ajuda-inline__abrir:active,
@@ -2511,7 +2513,9 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar,
 .conquista-item__share,
 .ficha-item__link,
+.identidade,
 .mapa__area,
+.mapa__botao,
 .meal__linha,
 .modulo,
 .ajuda-inline__abrir,
@@ -2562,8 +2566,10 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .conquista__continuar:active,
 .conquista-item__share:active,
 .ficha-item__link:active,
+.identidade:active,
 .sessao-cartao:active,
 .mapa__area:active,
+.mapa__botao:active,
 .meal__linha:active,
 .ajuda-inline__abrir:active,
 .periodo__item:active,
@@ -8545,6 +8551,146 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   color: var(--text-mute);
   font-size: var(--texto-xs);
   line-height: 1.35;
+}
+
+/* ==========================================================================
+   MAIS (23/09/2026): a identidade no topo e as listas em cartão.
+
+   A tela tinha três formas para três coisas diferentes e as três eram o
+   mesmo cartão de métrica: área com número (certo), ferramenta sem número
+   (um retângulo com uma frase) e o Perfil como "2.372 kcal por dia" (meta
+   não é ferramenta). Agora cada coisa tem a sua forma: a pessoa é uma LINHA
+   DE IDENTIDADE, as áreas continuam cartões, e ferramentas e conta são a
+   linha de navegação que já existia (`.mapa__area`), dentro de um cartão,
+   com um ícone na frente. Nenhum componente novo além do contêiner.
+   ========================================================================== */
+.identidade {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--espaco-4);
+  min-width: 0;
+  margin-bottom: var(--espaco-7);
+  padding: var(--espaco-4) var(--espaco-5);
+  border: 1px solid transparent;
+  border-radius: var(--quina);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-rest);
+  color: var(--text);
+  text-decoration: none;
+}
+.identidade:hover { background: var(--surface-2); }
+.identidade:hover .identidade__acao { color: var(--brand-strong); }
+
+/* O avatar mais barato que existe: a inicial, num círculo da cor da marca. */
+.identidade__inicial {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-family: var(--font-display);
+  font-size: var(--texto-xl);
+  font-weight: 900;
+  line-height: 1;
+}
+.identidade__texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  min-width: 0;
+}
+.identidade__nome {
+  font-size: var(--texto-base);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+.identidade__linha { color: var(--text-dim); font-size: var(--texto-sm); }
+.identidade__acao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  color: var(--brand);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.identidade__acao svg { width: 1rem; height: 1rem; }
+
+/* A lista de linhas dentro de um cartão: o cartão dá o fundo e a borda, as
+   linhas herdam a grade de `.mapa__area` e ganham uma coluna para o ícone. */
+.mapa__lista--cartao {
+  margin-bottom: var(--espaco-7);
+  padding: var(--espaco-2);
+  border-radius: var(--quina);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-rest);
+}
+.mapa__lista--cartao .mapa__area {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 3.5rem;
+}
+.mapa__lista--cartao .mapa__area > .mapa__nome,
+.mapa__lista--cartao .mapa__area > .mapa__apoio { grid-column: 2; }
+.mapa__lista--cartao .mapa__seta { grid-column: 3; }
+.mapa__lista--cartao .mapa__area + .mapa__area { border-top: 1px solid var(--fio); }
+.mapa__icone {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--brand);
+}
+
+/* A linha que é uma AÇÃO (Sair): um formulário com a mesma grade, e o botão
+   ocupa as colunas do texto — fundo e borda nenhuns, o toque é a linha. */
+.mapa__area--acao { padding: 0 var(--espaco-4); }
+.mapa__botao {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--espaco-1);
+  min-height: 3.5rem;
+  padding: var(--espaco-3) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mapa__botao .mapa__nome { color: var(--danger); }
+.modulo__acao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  margin-top: var(--espaco-4);
+  color: var(--brand);
+  font-size: var(--texto-sm);
+  font-weight: 600;
+}
+.modulo__acao svg { width: 1rem; height: 1rem; }
+
+/* Duas colunas a partir do desktop: áreas | listas. A grade das áreas passa a
+   ser uma coluna por cartão, porque a coluna já é estreita. */
+@media (min-width: 60rem) {
+  .mais {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--espaco-6);
+    align-items: start;
+  }
+  .mais__areas .modulos { grid-template-columns: minmax(0, 1fr); }
+  .identidade { padding: var(--espaco-5) var(--espaco-6); }
+}
+/* No celular, "Editar perfil" cede a largura ao nome: fica só a seta — a
+   linha inteira já é a porta. */
+@media (max-width: 47.99rem) {
+  .identidade__acao span { display: none; }
 }
 
 /* ==========================================================================
