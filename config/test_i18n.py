@@ -29,6 +29,9 @@ TEMPLATES_NOVOS = {
     # objetivo desta régua, e a lista diz exatamente o que está coberto.
     "templates/plans/receita.html": ['Voltar ao cardápio'],
     "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
+    # A missão "dado errado" (24/09/2026): duas parciais novas e uma tela
+    # nova, e as três nascem marcadas.
+    "templates/workouts/_series_do_dia.html": ['kg no total'],
 }
 
 

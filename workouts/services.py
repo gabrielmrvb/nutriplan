@@ -3812,8 +3812,25 @@ def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
     poucas linhas a mais. Sem série registrada, lista vazia.
 
     "Como fui neste exercício?" é a pergunta; a resposta é o registro cru
-    ("03/09 · 60 × 10, 10, 9"), sem e1RM nem volume — `progresso.py` já
-    decidiu que a tela não inventa métrica.
+    ("03/09 · 60 × 10 · 62,5 × 9"), sem e1RM — `progresso.py` já decidiu que
+    a tela não inventa métrica.
+
+    CADA SÉRIE COM A CARGA DELA (24/09/2026), e isto é a correção de um
+    número errado, não um enfeite. `series` é a lista na ordem do
+    `set_number`; `carga` continua sendo o MÁXIMO do dia porque é dele que
+    a curva de carga é desenhada (`views.ExercicioView`), e `reps` continua
+    existindo pelos mesmos consumidores antigos.
+
+    Até aqui o dia inteiro era reduzido a `max(weight_kg)` mais uma lista de
+    repetições, e a tela escrevia "62,50 × 8, 7, 6" para quem tinha feito
+    60 × 8, 62,5 × 7 e 62,5 × 6 — a primeira série aparecia com a carga da
+    segunda. MEDIDO no navegador, conta de teste, três séries pela execução.
+
+    `volume` é a soma de `carga × reps` das séries do dia — a conta que a
+    pessoa consegue refazer no papel, e a única maneira de uma lista de
+    pares fechar. `None` quando nenhuma série tem carga: `weight_kg` é NOT
+    NULL e o peso do corpo grava ZERO, então "sem carga" aqui é zero, e
+    somar zero quilo seria anunciar um total que não existe.
     """
     linhas = (
         ExerciseLog.objects.filter(user=user, exercise=exercise)
@@ -3824,10 +3841,18 @@ def historico_do_exercicio(user, exercise, datas=DATAS_DO_HISTORICO) -> list:
         if log.date not in por_data:
             if len(por_data) == datas:
                 break
-            por_data[log.date] = {"data": log.date, "carga": log.weight_kg, "reps": []}
+            por_data[log.date] = {
+                "data": log.date, "carga": log.weight_kg, "reps": [], "series": [],
+            }
         sessao = por_data[log.date]
         sessao["carga"] = max(sessao["carga"], log.weight_kg) if log.weight_kg is not None else sessao["carga"]
         sessao["reps"].append(log.reps if log.reps is not None else "—")
+        sessao["series"].append(
+            {"numero": log.set_number, "carga": log.weight_kg, "reps": log.reps}
+        )
+    for sessao in por_data.values():
+        pesadas = [s for s in sessao["series"] if s["carga"] and s["reps"]]
+        sessao["volume"] = sum((s["carga"] * s["reps"] for s in pesadas), Decimal("0")) if pesadas else None
     return list(por_data.values())
 
 

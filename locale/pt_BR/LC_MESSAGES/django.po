@@ -62,3 +62,7 @@ msgstr ""
 #: templates/plans/_receita.html
 msgid "Trocar por outra receita"
 msgstr ""
+
+#: templates/workouts/_series_do_dia.html
+msgid "kg no total"
+msgstr ""
