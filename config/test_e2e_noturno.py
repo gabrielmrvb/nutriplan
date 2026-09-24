@@ -125,6 +125,49 @@ class ORoteiroTests(SimpleTestCase):
                 e2e.main(["--base", "https://nutriplan-xxfn.onrender.com"])
         self.assertNotIn("nutriplan-xxfn", ROTEIRO, "o endereço de produção não aparece no roteiro")
 
+    def test_marcar_confere_e_forca_quando_o_check_mente(self):
+        """O `promover-lote` das 12:27 e das 17:26 de 24/09/2026 reprovou em
+        `onboarding-1` com a SEGUNDA caixa de consentimento desmarcada — o
+        snapshot do erro mostra `checked=false` e "Para continuar, marque
+        esta caixa" —, e o mesmo roteiro passara 13/13 três horas antes
+        contra o MESMO commit do staging. A causa não é o app: `check` do
+        agent-browser sai com código 0 mesmo quando a caixa não ficou
+        marcada, e as duas caixas moram DENTRO de um `<label>` clicável,
+        onde um clique no rótulo pode desfazer o do input.
+
+        Guarda que não confere não é guarda. `marcar` passou a LER o estado
+        e a forçar pelo DOM quando ele não é o pedido — e a falhar alto se
+        nem assim ficar, que é o que impede a próxima versão de mentir em
+        silêncio."""
+        estado = {"marcado": False}
+
+        def falso(comando, timeout):
+            args = comando[3:]
+            if args[0] == "check":          # o `check` que sai 0 sem marcar
+                return ""
+            if args[0] == "eval":
+                if "e.checked = true" in args[1]:
+                    estado["marcado"] = True
+                    return "true"
+                return "true" if estado["marcado"] else "false"
+            return ""
+
+        gravados = []
+        ab = e2e.Navegador("s", executar=lambda c, t: gravados.append(c[3:]) or falso(c, t))
+        ab.marcar("input[name=transferencia]")
+        self.assertTrue(estado["marcado"], "a caixa tinha de acabar marcada")
+        evals = [c[1] for c in gravados if c[0] == "eval"]
+        self.assertTrue(any("e.checked = true" in js for js in evals),
+                        "sem a força pelo DOM o roteiro segue com a caixa vazia")
+
+    def test_marcar_falha_alto_quando_nem_o_dom_marca(self):
+        """Controle positivo: caixa que não marca de jeito nenhum precisa
+        PARAR o roteiro ali, com o nome do seletor — não seguir e reprovar
+        três passos depois, onde o diagnóstico já não diz o que houve."""
+        ab = e2e.Navegador("s", executar=lambda c, t: "false" if c[3] == "eval" else "")
+        with self.assertRaisesMessage(RuntimeError, "input[name=transferencia]"):
+            ab.marcar("input[name=transferencia]")
+
     def test_o_agent_browser_recebe_a_sessao_em_todo_comando(self):
         gravados = []
         ab = e2e.Navegador("sessao-x", executar=lambda comando, timeout: gravados.append(comando) or "")
