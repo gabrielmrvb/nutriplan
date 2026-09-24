@@ -26,6 +26,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import (
     Count,
     DecimalField,
+    Exists,
     ExpressionWrapper,
     F,
     Max,
@@ -367,6 +368,65 @@ def ciclo_roda(plan) -> bool:
     dizer o que ela faz na quinta. Ajustada, a ficha fica presa ao dia da
     semana — como o plano de antes da rotação."""
     return plan is not None and plan.inicio_do_ciclo is not None and not plan.is_customized
+
+
+@dataclass
+class SequenciaDoTreino:
+    """A sequência de treinos JÁ FEITOS de um plano, e o que ela recomenda.
+
+    SEQUÊNCIA POR PRESENÇA (24/09/2026). "Feito" é ter série registrada
+    (`ExerciseLog`) num dia com escolha daquela letra — encerrar com zero
+    série NÃO conta, pular um dia não avança nada. `feitas` é a lista
+    (data, letra) em ordem de data, ANTES do dia de referência; dela saem a
+    última letra feita (que decide o recomendado), a contagem por letra (que
+    decide a opção) e a projeção da semana.
+    """
+
+    letras: list
+    feitas: list  # [(date, label)]
+
+    def ultima_letra(self):
+        return self.feitas[-1][1] if self.feitas else None
+
+    def contagem(self, letra) -> int:
+        return sum(1 for _, l in self.feitas if l == letra)
+
+    def recomendada(self):
+        """A letra SEGUINTE à última feita — ou a primeira do ciclo se nada
+        foi feito (ou se a última feita já não está no ciclo). É o que "qual
+        treino é hoje" responde quando a pessoa não escolheu outro."""
+        if not self.letras:
+            return None
+        ultima = self.ultima_letra()
+        if ultima is None or ultima not in self.letras:
+            return self.letras[0]
+        return self.letras[(self.letras.index(ultima) + 1) % len(self.letras)]
+
+
+def sequencia_do_treino(user, plan, ate=None, sessoes=None) -> SequenciaDoTreino:
+    """Lê a sequência realizada do plano numa consulta só.
+
+    `ate` é o dia de referência (padrão hoje): conta o que foi feito ANTES
+    dele — o de hoje é a escolha do dia, não a sequência que recomenda hoje.
+    Escopo do PLANO atual (`session__plan=plan`): feito sob plano antigo
+    (remontado) não conta, como `inicio_do_ciclo` reiniciava. É a leitura
+    única de que a letra recomendada, a opção da letra, a tira-projeção e o
+    aviso de repetição derivam — computada uma vez por tela e passada adiante.
+    """
+    if plan is None:
+        return SequenciaDoTreino(letras=[], feitas=[])
+    ate = ate or timezone.localdate()
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
+    letras = letras_do_ciclo(sessoes)
+    tem_serie = ExerciseLog.objects.filter(user=user, date=OuterRef("date"))
+    feitas = list(
+        EscolhaDeTreino.objects.filter(user=user, date__lt=ate, session__plan=plan)
+        .annotate(tem=Exists(tem_serie))
+        .filter(tem=True)
+        .order_by("date")
+        .values_list("date", "session__label")
+    )
+    return SequenciaDoTreino(letras=letras, feitas=[(d, l) for d, l in feitas])
 
 
 def letra_do_dia(plan, dia, sessoes=None):
