@@ -531,3 +531,44 @@ class OPainelDaDireitaTests(TestCase):
 
         self.assertIn("pendente", estados.values(), "o fixture precisa de uma vencida")
         self.assertEqual(estados[painel["slot"].pk], "agora")
+
+
+class OCartaoAgoraFicaSoNaHomeTests(TestCase):
+    """O cartão AGORA repetia a refeição que estava logo abaixo, com o mesmo
+    botão — decisão do dono em 24/09/2026, depois de usar o app.
+
+    A Alimentação abre com o anel (meta e saldo) e o cardápio; quem orquestra o
+    dia é a Hoje, e lá o cartão continua sendo o herói — apontando a refeição,
+    não registrando por ela.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        cls.user = create_complete_user(email="sem-agora@exemplo.com")
+        cls.plan = services.create_plan(cls.user)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_a_alimentacao_nao_tem_o_cartao_agora(self):
+        with mock.patch("plans.views.relogio", return_value=_as(8)):
+            html = self.client.get(reverse("plans:alimentacao")).content.decode()
+
+        self.assertNotIn("agora-card", html)
+        self.assertNotIn("agora__sugestao", html)
+        # Controle positivo: a tela continua sendo a da Alimentação, com o anel
+        # e o cardápio. Sem isto, a asserção de ausência passaria por acidente
+        # num redirect ou numa página de erro.
+        self.assertIn("today-hero", html)
+        self.assertIn('<article class="receita', html)
+
+    def test_a_hoje_continua_com_o_cartao_agora_apontando_a_refeicao(self):
+        with mock.patch("plans.views.relogio", return_value=_as(8)):
+            html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn("agora-card", html)
+        self.assertIn("Ver refeição", html)
+        # E a Hoje nunca registrou comida: o ramo que fazia isso era da
+        # Alimentação, e saiu junto com o cartão de lá.
+        self.assertNotIn("agora__sugestao", html)

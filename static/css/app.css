@@ -7438,7 +7438,6 @@ body.montando { overflow: hidden; }
 .ficha-item__trocar,
 .registro__nota-abrir,
 .ficha-item__ver,
-.agora__ver,
 .folha-receita__fechar,
 .receita-folha__outra,
 .receita__abrir,
@@ -7463,7 +7462,6 @@ body.montando { overflow: hidden; }
 .ficha-item__trocar:active,
 .registro__nota-abrir:active,
 .ficha-item__ver:active,
-.agora__ver:active,
 .folha-receita__fechar:active,
 .receita-folha__outra:active,
 .receita__abrir:active,
@@ -7490,7 +7488,6 @@ body.montando { overflow: hidden; }
   .ficha-item__trocar,
   .registro__nota-abrir,
   .ficha-item__ver,
-  .agora__ver,
   .folha-receita__fechar,
   .receita-folha__outra,
   .receita__abrir,
@@ -7514,7 +7511,6 @@ body.montando { overflow: hidden; }
   .ficha-item__trocar:active,
   .registro__nota-abrir:active,
   .ficha-item__ver:active,
-  .agora__ver:active,
   .folha-receita__fechar:active,
   .receita-folha__outra:active,
   .receita__abrir:active,
@@ -9694,29 +9690,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .today-hero__proteina--atras { color: var(--terra); }
 
 /* -- O herói que registra, na tela de Alimentação ------------------------ */
-
-/* A receita sugerida entre o detalhe e o CTA: ilustração pequena à esquerda,
-   nome e números à direita. A ilustração aqui é um SELO (2,5rem) e não a
-   faixa do card — o herói já tem título, horário e alvo, e uma segunda faixa
-   de desenho empurraria o botão para fora da primeira dobra, que é
-   exatamente o que este cartão existe para evitar. */
-.agora__sugestao {
-  display: flex;
-  align-items: center;
-  gap: var(--espaco-4);
-  margin: var(--espaco-4) 0;
-  min-width: 0;
-}
-.agora__ilu { flex: none; color: var(--brand); }
-.agora__ilu svg { display: block; width: 3.4rem; height: 2.5rem; stroke-width: 1.6; }
-.agora__receita { min-width: 0; }
-.agora__receita-nome { display: block; min-width: 0; overflow-wrap: anywhere; }
-.agora__receita-num { display: block; color: var(--text-dim); font-size: var(--texto-sm); }
-
-/* "Ver as duas opções" é a saída de quem quer comparar antes de decidir, e
-   por isso é link e não botão: dois botões no herói seriam duas ações com o
-   mesmo peso, e a ação do herói é uma só. */
-.agora__ver { display: inline-block; margin-top: var(--espaco-3); }
 
 /* --------------------------------------------------------------------------
    A PORTA DO CARD — o bloco de cima é um link para a receita

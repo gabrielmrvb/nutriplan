@@ -48,19 +48,20 @@
     <div class="split__main stack">
 
       {% comment %}
-        O cartão AGORA entra aqui SÓ quando a ação da vez é uma refeição — é
-        o herói da próxima refeição desta tela. Treino, água e pesagem não são
-        assunto desta página: quem responde por eles é a Hoje, e o mesmo
-        cartão nas duas seria a mesma coisa dita duas vezes.
+        O CARTÃO AGORA NÃO ENTRA AQUI (decisão do dono, 24/09/2026, depois de
+        usar o app).
+
+        Ele repetia a refeição que está logo abaixo, com o mesmo botão: o herói
+        e o primeiro card do cardápio eram a mesma coisa dita duas vezes, a
+        três centímetros um do outro. O cartão fica na Hoje, que é o
+        orquestrador do dia; a Alimentação abre com o anel (a meta e o saldo) e
+        o cardápio, que é o que esta tela existe para responder.
+
+        Isto desfaz a decisão de 22/09/2026 ("o parcial é incluído por duas
+        telas") e o item 8 da auditoria de 23/09 ("o herói registra a refeição
+        da vez") — as duas foram medidas antes de a tela ter cards de receita;
+        com eles, o herói virou eco.
       {% endcomment %}
-      {% if acao.tipo == 'refeicao' %}
-        {% comment %}
-          `sugestao` só aqui: é o que liga o "Comi esta" do herói. A Hoje
-          inclui o mesmo parcial sem ela e continua sendo um ponteiro — ver o
-          comentário dentro do arquivo.
-        {% endcomment %}
-        {% include "plans/_agora.html" with sugestao=acao.slot.opcoes_do_dia.0 %}
-      {% endif %}
 
       {# ---------------- Painel do dia ---------------- #}
       <section class="card today-hero">
