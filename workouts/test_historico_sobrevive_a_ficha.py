@@ -16,6 +16,7 @@ registrou série é dela**, esteja ele na ficha de hoje ou não.
 O 404 continua para o que não é dela: id inexistente, exercício que ela
 nunca fez e que não está na ficha dela.
 """
+import re
 from datetime import timedelta
 from decimal import Decimal
 
@@ -182,9 +183,17 @@ class OsExerciciosQueJaFizTests(TestCase):
             )
 
     def test_a_lista_diz_quantas_series_e_quando_foi_a_ultima(self):
+        """O texto VISÍVEL, com as tags e o `&nbsp;` fora: o número e a
+        unidade são indivisíveis no markup (`.ficha-item__dose`), e um
+        `assertIn("2 séries")` no HTML cru nunca casaria."""
         html = self.client.get(reverse("workouts:exercicios_feitos")).content.decode()
         corpo = html.split("<main", 1)[1].split("</main>", 1)[0]
-        self.assertIn("2 séries", corpo)
+        texto = " ".join(
+            re.sub(r"<[^>]+>", " ", corpo).replace(" ", " ").replace("&nbsp;", " ").split()
+        )
+        self.assertIn("2 séries", texto)
+        ultima = timezone.localdate().strftime("%d/%m")
+        self.assertIn(ultima, texto)
 
     def test_a_lista_e_de_quem_pede(self):
         """Série de outra pessoa não entra — a lista é do histórico DELA."""

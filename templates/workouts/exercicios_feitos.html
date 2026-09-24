@@ -14,6 +14,14 @@
     que saiu da ficha não aparece em tela nenhuma, e só quem tivesse
     guardado o endereço chegaria lá.
 
+    O COMPONENTE É O DA FICHA (`.ficha-lista` + `.ficha-item`), e não um
+    novo: ela já é "uma lista numerada em que cada linha é uma porta para a
+    leitura do exercício", que é exatamente esta tela. A primeira versão
+    inventou `.data-list__item`, que não existe no CSS — a régua de toque
+    mediu 214×17 no link, contra os 44 que a `.ficha-item__ver` já garante.
+    "Antes de criar componente novo, procure" é a seção de design do
+    CLAUDE.md, e esta tela é o caso dela.
+
     A lista é do HISTÓRICO, não do catálogo: ela mostra o que esta pessoa
     fez, com quantas séries e quando foi a última. Quem nunca registrou nada
     vê o convite, e não uma tabela vazia.
@@ -26,16 +34,35 @@
 
   <section class="card">
     {% if feitos %}
-      <ul class="data-list">
+      <ol class="ficha-lista">
         {% for exercicio in feitos %}
-          <li class="data-list__item">
-            <a class="data-list__nome" href="{% url 'workouts:exercicio' exercicio.pk %}">{{ exercicio.name }}</a>
-            <span class="data-list__valor num">
-              {% blocktranslate count series=exercicio.series %}{{ series }} série{% plural %}{{ series }} séries{% endblocktranslate %}<span class="data-list__meta"> · {{ exercicio.ultima|date:"d/m" }}</span>
-            </span>
+          <li class="ficha-item">
+            <div class="ficha-item__link">
+              <a class="ficha-item__ver" href="{% url 'workouts:exercicio' exercicio.pk %}"
+                 aria-label="{% blocktranslate with nome=exercicio.name %}Ver {{ nome }}{% endblocktranslate %}">
+                {% if exercicio.frames %}
+                  <img class="ficha-item__foto" src="{{ exercicio.frames.0 }}" alt=""
+                       width="64" height="48" loading="lazy" decoding="async">
+                {% else %}
+                  <span class="ficha-item__foto ficha-item__foto--vazia num" aria-hidden="true">{{ forloop.counter }}</span>
+                {% endif %}
+                <span class="ficha-item__ordem num" aria-hidden="true">{{ forloop.counter }}</span>
+                <span class="ficha-item__nome">{{ exercicio.name }}</span>
+                <span class="ficha-item__dados">
+                  <span class="ficha-item__dose"><span class="num">{{ exercicio.series }}</span>&nbsp;{% blocktranslate count series=exercicio.series %}série{% plural %}séries{% endblocktranslate %}</span>
+                </span>
+                <span class="ficha-item__meta">
+                  <span class="ficha-item__musculo">{{ exercicio.get_muscle_group_display }}</span>
+                  <span class="ficha-item__ultima">
+                    <span class="vis-oculto">{% translate "Última vez:" %} </span>
+                    <span class="num">{{ exercicio.ultima|date:"d/m" }}</span>
+                  </span>
+                </span>
+              </a>
+            </div>
           </li>
         {% endfor %}
-      </ul>
+      </ol>
     {% else %}
       <div class="empty-state">
         <p>{% translate "Nenhuma série registrada ainda. A primeira aparece aqui assim que você concluir uma na execução." %}</p>

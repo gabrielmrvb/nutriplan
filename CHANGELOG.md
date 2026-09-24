@@ -4,6 +4,13 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-24
+
+- **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
+- **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
+- **O Progresso diz o mesmo número toda vez.** A média de "kcal/dia" incluía o dia de hoje, que ainda está acontecendo: ela caía de manhã e subia à noite, ao lado da meta de um dia inteiro. Agora ela é dos dias fechados, como a aderência ao lado — e no primeiro dia, quando não há nenhum, a caixa mostra o que você comeu hoje em vez de inventar uma média.
+- **"Ontem faltou dieta ou água" virou o número do que faltou.** A frase era dita a quem tinha registrado as duas coisas e só não chegado na meta. Agora ela diz "Ontem: 3 de 5 refeições e água 1,5 de 3 L".
+
 ## 2026-09-23
 
 - **Uma refeição agora parece uma refeição.** Cada horário mostra as DUAS opções do dia, sempre, como dois cartões de receita: desenho do prato, nome, calorias, os três macros (proteína, carboidrato e gordura), o tempo de preparo e os ingredientes com a quantidade numa linha — "2 unidades de pão francês · 3 ovos médios · 3 fatias de queijo". Antes era o nome, a caloria e um "Ver opções" que abria duas linhas de texto.

@@ -86,3 +86,7 @@ msgstr ""
 #: templates/workouts/exercicios_feitos.html
 msgid "Nenhuma série registrada ainda. A primeira aparece aqui assim que você concluir uma na execução."
 msgstr ""
+
+#: templates/workouts/exercicios_feitos.html
+msgid "Última vez:"
+msgstr ""

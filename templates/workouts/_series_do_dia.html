@@ -15,4 +15,4 @@
 
   O volume leva ponto de milhar (`-2g`): é a mesma régua do placar, onde
   "8008" contra "8.008" foi o achado #16 das personas.
-{% endcomment %}{% for serie in sessao.series %}{% if not forloop.first %} · {% endif %}{% if serie.carga %}{{ serie.carga|floatformat:"-2" }} × {% endif %}{{ serie.reps|default_if_none:"—" }}{% endfor %}{% if sessao.volume %}<span class="data-list__meta"> · {{ sessao.volume|floatformat:"-2g" }} {% translate "kg no total" %}</span>{% endif %}
+{% endcomment %}{% for serie in sessao.series %}{% if not forloop.first %} · {% endif %}{% if serie.carga %}{{ serie.carga|floatformat:"-2" }} × {% endif %}{{ serie.reps|default_if_none:"—" }}{% endfor %}{% if sessao.volume %}<span class="hint"> · {{ sessao.volume|floatformat:"-2g" }} {% translate "kg no total" %}</span>{% endif %}
