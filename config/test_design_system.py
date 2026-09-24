@@ -136,7 +136,11 @@ TETO_FONT_SIZE_CRU = 107
 #: 230 em 23/09/2026: o mesmo bloco `.option*` levou oito espaços crus
 #: (`.8rem .85rem` do corpo e do resumo, `.45rem`, `.35rem .5rem`...). O
 #: card de receita, a folha e o painel são todos escala.
-TETO_ESPACO_CRU = 229
+#: 228 em 24/09/2026: `.btn--hoje { gap: .1rem }` saiu com o CTA do painel
+#: de treino — o `gap` só existia para o `flex-direction: column` do eco
+#: (o nome do exercício embaixo do verbo), removido em 22/09/2026; sem
+#: coluna, sobrava cru e sem uso.
+TETO_ESPACO_CRU = 228
 
 
 def sem_comentarios(texto):
