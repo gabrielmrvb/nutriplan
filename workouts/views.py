@@ -777,7 +777,7 @@ class VersaoRapidaHojeView(AcaoDeTela, OnboardingRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         dia = timezone.localdate()
         plan = services.get_active_routine(request.user)
-        sessao = services.sessao_do_dia(plan, dia)
+        sessao = services.sessao_do_dia(plan, dia, user=request.user)
         if sessao is None:
             messages.info(request, "Hoje não é dia de treino.")
             return redirect("workouts:routine")
@@ -1694,7 +1694,9 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 pk=sessao_id, plan__user=request.user, plan__is_active=True
             ).prefetch_related("exercises").first()
         if sessao is None:
-            sessao = services.sessao_do_dia(services.get_active_routine(request.user), dia)
+            sessao = services.sessao_do_dia(
+                services.get_active_routine(request.user), dia, user=request.user
+            )
         if sessao is None:
             return
         try:

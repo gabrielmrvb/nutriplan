@@ -370,6 +370,11 @@ def ciclo_roda(plan) -> bool:
     return plan is not None and plan.inicio_do_ciclo is not None and not plan.is_customized
 
 
+#: Sentinela: `None` é um valor VÁLIDO em vários pontos (teto sem limite,
+#: escolha ausente), então não pode servir de "argumento não informado".
+_NAO_INFORMADO = object()
+
+
 @dataclass
 class SequenciaDoTreino:
     """A sequência de treinos JÁ FEITOS de um plano, e o que ela recomenda.
@@ -429,11 +434,47 @@ def sequencia_do_treino(user, plan, ate=None, sessoes=None) -> SequenciaDoTreino
     return SequenciaDoTreino(letras=letras, feitas=[(d, l) for d, l in feitas])
 
 
-def letra_do_dia(plan, dia, sessoes=None):
+def usa_presenca(plan) -> bool:
+    """A recomendação por presença (24/09/2026) vale para plano com rotação E
+    para plano de antes da rotação (`inicio_do_ciclo` em branco, não
+    remontado). Só o plano CUSTOMIZADO à mão fica preso ao dia da semana: a
+    pessoa arranjou os dias com o assistente, e "qual treino é hoje" ali é o
+    que ela montou, não o que a sequência recomendaria."""
+    return plan is not None and not plan.is_customized
+
+
+def _letra_resolvida(plan, dia, sessoes, user, seq=None, escolha=_NAO_INFORMADO):
+    """A letra de `dia` num plano por presença: a ESCOLHIDA do dia (quando
+    casa com o plano), senão a RECOMENDADA — a seguinte à última feita antes
+    de `dia`. `seq` já calculada (ate=hoje) serve o caso comum de hoje sem
+    reconsultar; `escolha` já carregada evita a segunda consulta na execução."""
+    letras = letras_do_ciclo(sessoes)
+    if not letras:
+        return None
+    if escolha is _NAO_INFORMADO:
+        escolha = escolha_do_dia(user, dia) if user is not None else None
+    if (
+        escolha is not None
+        and escolha.session.plan_id == plan.pk
+        and escolha.session.label in letras
+    ):
+        return escolha.session.label
+    if seq is None:
+        seq = (
+            sequencia_do_treino(user, plan, ate=dia, sessoes=sessoes)
+            if user is not None
+            else SequenciaDoTreino(letras, [])
+        )
+    return seq.recomendada()
+
+
+def letra_do_dia(plan, dia, sessoes=None, user=None, seq=None):
     """A letra que cai em `dia`, ou `None` se não é dia de treino.
 
-    Plano com `inicio_do_ciclo`: a letra da POSIÇÃO do dia no ciclo
-    (rotação contínua). Plano antigo: a letra presa ao dia da semana.
+    Plano por presença (`usa_presenca`): a letra ESCOLHIDA do dia, senão a
+    RECOMENDADA pela sequência feita (`_letra_resolvida`) — a doutrina de
+    24/09/2026 que substituiu a POSIÇÃO no ciclo. Plano customizado à mão:
+    a letra presa ao dia da semana, como a pessoa arranjou.
     """
     if plan is None:
         return None
@@ -441,10 +482,9 @@ def letra_do_dia(plan, dia, sessoes=None):
     dias = dias_de_treino_de(sessoes)
     if dia.weekday() not in dias:
         return None
-    if not ciclo_roda(plan):
+    if not usa_presenca(plan):
         return next(s.label for s in sessoes if s.weekday == dia.weekday())
-    letras = letras_do_ciclo(sessoes)
-    return letras[posicao_no_ciclo(plan.inicio_do_ciclo, dia, dias) % len(letras)]
+    return _letra_resolvida(plan, dia, sessoes, user, seq)
 
 
 def _no_dia(sessao, molde, dia=None):
@@ -464,19 +504,23 @@ def _no_dia(sessao, molde, dia=None):
     return vestida
 
 
-def sessao_do_dia(plan, dia, sessoes=None):
+def sessao_do_dia(plan, dia, sessoes=None, user=None, seq=None, escolha=_NAO_INFORMADO):
     """A sessão de `dia` — a linha da LETRA daquele dia, vestindo horário e
-    duração do dia da semana —, ou `None` em dia sem treino."""
+    duração do dia da semana —, ou `None` em dia sem treino.
+
+    A letra sai de `_letra_resolvida` (presença: escolha do dia → recomendada);
+    plano customizado fica preso ao dia da semana. `user`/`seq`/`escolha`
+    alimentam a presença sem reconsultar quando a tela já os tem."""
     if plan is None:
         return None
     sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
     molde = next((s for s in sessoes if s.weekday == dia.weekday()), None)
     if molde is None:
         return None
-    if not ciclo_roda(plan):
+    if not usa_presenca(plan):
         molde.data = dia
         return molde
-    letra = letra_do_dia(plan, dia, sessoes)
+    letra = _letra_resolvida(plan, dia, sessoes, user, seq, escolha)
     da_letra = next(s for s in sorted(sessoes, key=lambda s: s.order) if s.label == letra)
     return _no_dia(da_letra, molde, dia)
 
@@ -1788,10 +1832,6 @@ def realocar_complementares_orfaos(por_sessao, prescricao, descartados, teto):
             break
     return prescricao
 
-
-#: Sentinela para `prescrever_semana`: `None` É um teto válido — significa
-#: "sem limite rígido" —, então ele não pode servir de "não informado".
-_NAO_INFORMADO = object()
 
 
 def teto_completo_de(user):
@@ -3916,7 +3956,7 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
 
     dia = dia or timezone.localdate()
     escolha = escolha_do_dia(user, dia)
-    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
+    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia, user=user)
     if sessao is None:
         return None
     # A opção do dia: a pinada, senão a variação do ciclo (ficha única).
@@ -3968,7 +4008,7 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     # A sessão de hoje é a da LETRA de hoje: a escolha gravada já a traz;
     # sem escolha, `sessao_do_dia` a acha (plano + linhas, duas consultas
     # a mais só na primeira série do dia).
-    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia)
+    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia, user=user)
     if sessao is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
     linhas = _linha_do_exercicio(user, sessao.pk, opcao_do_dia(user, sessao, dia, escolha=escolha), exercise.pk)
@@ -4110,7 +4150,13 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # "Outras formas": a troca da pessoa veste as linhas ANTES de tudo, então
     # a execução, a contagem e o histórico são do exercício feito.
     aplicar_trocas(user, linhas, trocas)
-    sessao = sessao_do_dia(plan, dia, linhas)
+    # SEQUÊNCIA POR PRESENÇA: a letra de hoje é a escolhida do dia, senão a
+    # recomendada (a seguinte à última feita). A escolha e a sequência são
+    # lidas UMA vez e passadas a `sessao_do_dia` — a mesma escolha serve à
+    # opção logo abaixo, sem segunda consulta.
+    escolha = escolha_do_dia(user, dia)
+    seq = sequencia_do_treino(user, plan, ate=dia, sessoes=linhas)
+    sessao = sessao_do_dia(plan, dia, linhas, user=user, seq=seq, escolha=escolha)
     if sessao is None:
         if escolhido is not None:
             raise ExercicioForaDaSessao(escolhido)
@@ -4122,7 +4168,6 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     # que saiu fica nomeado em `removidos`.
     from . import opcoes as motor_de_opcoes
 
-    escolha = escolha_do_dia(user, dia)
     if escolha is not None and escolha.session_id != sessao.pk:
         escolha = None
     estado.escolha = escolha

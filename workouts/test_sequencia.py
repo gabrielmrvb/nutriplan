@@ -125,3 +125,51 @@ class ASequenciaRealizadaTests(TestCase):
             seq = services.sequencia_do_treino(self.user, self.plan, sessoes=self.linhas)
             # materializa (a query roda aqui dentro)
             _ = seq.recomendada(), seq.contagem("A")
+
+
+class ALetraDeHojePorPresencaTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.relogio = relogio.Relogio(QUINTA).ligar()
+        self.addCleanup(self.relogio.desligar)
+        self.user = _pessoa("hoje@exemplo.com")
+        self.plan = services.create_routine(self.user)
+        self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
+
+    def test_sem_historico_hoje_e_a_primeira_letra_vestida_no_dia(self):
+        sessao = services.sessao_do_dia(self.plan, QUINTA, self.linhas, user=self.user)
+        self.assertEqual(sessao.label, "A")
+        self.assertEqual(sessao.weekday, QUINTA.weekday())  # vestida no dia de hoje
+        self.assertEqual(sessao.data, QUINTA)
+        self.assertEqual(services.letra_do_dia(self.plan, QUINTA, self.linhas, user=self.user), "A")
+
+    def test_o_caso_do_dono_pulou_a_quarta_e_hoje_recomenda_c(self):
+        """A na segunda, B na terça, NADA na quarta. Hoje (quinta) o
+        recomendado é C — continua de onde parou, não a A que o calendário
+        daria (posição 3)."""
+        fazer(self.user, self.plan, "A", SEGUNDA)
+        fazer(self.user, self.plan, "B", SEGUNDA + timedelta(days=1))
+        sessao = services.sessao_do_dia(self.plan, QUINTA, self.linhas, user=self.user)
+        self.assertEqual(sessao.label, "C")
+
+    def test_a_escolha_do_dia_vence_a_recomendacao(self):
+        """A pessoa escolheu fazer B hoje, mesmo que o recomendado fosse A."""
+        linha_b = next(s for s in self.linhas if s.label == "B")
+        services.registrar_escolha(self.user, linha_b, 1, dia=QUINTA)
+        sessao = services.sessao_do_dia(self.plan, QUINTA, self.linhas, user=self.user)
+        self.assertEqual(sessao.label, "B")
+
+    def test_plano_customizado_fica_preso_ao_dia_da_semana(self):
+        """Ficha ajustada à mão: a pessoa arranjou os dias, e a presença não
+        remexe nisso — a letra é a da linha do dia da semana."""
+        from django.utils import timezone as _tz
+        TrainingPlan.objects.filter(pk=self.plan.pk).update(customized_at=_tz.now())
+        self.plan.refresh_from_db()
+        # quinta é a 2ª ocorrência de A nas linhas [A,B,C,A,B] -> label A
+        sessao = services.sessao_do_dia(self.plan, QUINTA, user=self.user)
+        self.assertEqual(sessao.label, "A")
+        self.assertFalse(services.usa_presenca(self.plan))

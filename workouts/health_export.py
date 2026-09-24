@@ -120,7 +120,7 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
     if sessao is None:
         from .services import get_active_routine, sessao_do_dia
 
-        sessao = sessao_do_dia(get_active_routine(user), dia)
+        sessao = sessao_do_dia(get_active_routine(user), dia, user=user)
     descanso = 90
     if sessao:
         # O descanso médio é o da OPÇÃO do dia (a escolhida, senão a 1):
