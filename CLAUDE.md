@@ -3177,6 +3177,16 @@ reprovar três passos depois é um diagnóstico que já não diz o que houve.
 lote**, e produção fica no commit anterior até alguém consertar; foi o que
 segurou `1c66b92` por cinco horas.
 
+E a SEXTA, achada pelo conserto da quinta: **`ir` clicava sem esperar o
+link**. Com as caixas marcando, o lote das 15:22 passou o onboarding inteiro
+e reprovou em `serie` com "Element not found: `a[href^='/treino/agora/']`" —
+o segundo `ir` do passo chegou à ficha antes de ela existir. O caminho do
+app está ÍNTEGRO (reproduzido com o perfil que o roteiro cria, sete dias e
+ABC: o painel linka a ficha de hoje e a ficha traz a execução); o runner é
+mais lento que esta máquina e o app ANIMA a troca de página — durante a view
+transition o `elementFromPoint` devolve `<html>` por ~300 ms. `ir` agora
+espera o seletor, como `marcar` já fazia desde o primeiro run do Actions.
+
 `config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
 
 **O TESTE DE CARGA É MANUAL, SÓ GET, SÓ NO STAGING (21/09/2026).**
