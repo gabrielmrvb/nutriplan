@@ -66,15 +66,27 @@ class ExperienciaSobreviveAReedicaoSemDiasTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.experiencia, Experiencia.AVANCADO)
 
-    def test_quem_nunca_respondeu_continua_em_branco(self):
-        """`or ""` continua valendo: enviar em branco não grava declaração."""
+    def test_quem_nunca_respondeu_e_PERGUNTADO_em_vez_de_gravar_em_branco(self):
+        """A REGRA VIROU MAIS FORTE em 24/09/2026, e o princípio é o mesmo.
+
+        Até aqui: "enviar em branco não grava declaração" — o `or ""` impedia
+        o app de inventar um nível. O princípio continua de pé (o app NÃO
+        declara nível por ninguém); o que mudou é que enviar em branco com
+        `musculacao=sim` deixou de ser aceito em silêncio e passou a ser
+        RECUSADO, com o erro no campo. O outro lado da régua antiga era o
+        Perfil dizendo "não informada", que é admitir que a ficha foi montada
+        com um palpite.
+
+        Quem já tinha conta em branco continua intocado: a recusa é do
+        FORMULÁRIO, e nada reescreve o perfil de quem não abriu a tela.
+        """
         self.user.profile.experiencia = ""
         self.user.profile.save(update_fields=["experiencia"])
         aberto = TrainingForm(user=self.user)
         self.assertFalse(aberto.get_initial_for_field(aberto.fields["experiencia"], "experiencia"))
         enviado = TrainingForm(_dados_iniciais(aberto), user=self.user)
-        self.assertTrue(enviado.is_valid(), enviado.errors)
-        enviado.save()
+        self.assertFalse(enviado.is_valid())
+        self.assertIn("experiencia", enviado.errors)
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.experiencia, "")
 

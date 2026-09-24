@@ -162,6 +162,20 @@ urlpatterns = [
     # `accounts.urls` está sob `/conta/`, e `/conta/areas/` diria que Áreas é
     # uma subseção da conta — que é o contrário do que a barra passa a afirmar.
     path("areas/", accounts_views.AreasView.as_view(), name="areas"),
+    # ENDEREÇO ANTIGO DA HOME (24/09/2026). A tela Hoje morou em `/hoje/`
+    # até 22/09, quando "Hoje" voltou a ser o dia inteiro e o cardápio ganhou
+    # `/alimentacao/`. Quem fixou o link na tela inicial do celular, ou o tem
+    # num e-mail, recebia "Esta página não existe" para a PRIMEIRA tela do
+    # app. 301 porque a mudança é permanente — é o que faz o navegador e o
+    # buscador pararem de pedir o endereço velho. `pattern_name` e não uma
+    # URL escrita: sob `set_script_prefix("/demo/")` ele reverte para dentro
+    # do demo, e uma barra literal jogaria quem está avaliando o produto para
+    # fora dele.
+    path(
+        "hoje/",
+        RedirectView.as_view(pattern_name="plans:today", permanent=True),
+        name="hoje_antigo",
+    ),
     path("", include("plans.urls")),
 ]
 

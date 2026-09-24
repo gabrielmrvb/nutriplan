@@ -204,6 +204,19 @@
       drenar();
     });
 
+    // EVENTO AO ABRIR: SÓ o que o template marcar com `data-evento-ao-abrir`
+    // (24/09/2026). Ele existe para o primeiro degrau do funil de entrada — a
+    // landing —, e nasceu no CLIENTE depois de a primeira versão ter nascido
+    // no servidor e quebrar uma garantia: `/` anônima é a página mais barata
+    // do app, com ZERO consulta (`plans/test_landing.py`), porque é ela que o
+    // visitante novo vê com o Render dormindo e o Neon à parte. Um INSERT ali
+    // custaria o banco em toda visita, inclusive as de robô.
+    //
+    // Não é `tela.vista` com filtro de rota: `/` é a landing para quem não
+    // entrou e o app para quem entrou, e o mesmo caminho contaria os dois.
+    var aoAbrir = document.querySelector("[data-evento-ao-abrir]");
+    if (aoAbrir) track(aoAbrir.getAttribute("data-evento-ao-abrir"), {});
+
     // Cliques genéricos: SÓ o que o template marcar com data-evento.
     document.addEventListener(
       "click",

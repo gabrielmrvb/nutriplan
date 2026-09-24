@@ -82,6 +82,14 @@ class OrcamentoTests(BasePainel):
             "funil": reverse("analytics_painel:funil") + "?funil=onboarding",
             "retencao": reverse("analytics_painel:retencao"),
             "usuario": reverse("analytics_painel:usuario") + "?id=anon-1",
+            # As duas telas de PRODUTO (24/09/2026). A "entrada" é a mais
+            # cara: UMA consulta por passo do funil — sete, FIXAS, porque a
+            # lista de passos é fechada. Elas entram no mesmo teto de 15 de
+            # propósito: o dia em que um passo novo empurrar a conta para 16,
+            # este teste é que decide se ele vale a consulta.
+            "entrada": reverse("analytics_painel:entrada"),
+            "entrada-semana": reverse("analytics_painel:entrada") + "?por=semana",
+            "uso": reverse("analytics_painel:uso"),
         }
         for nome, url in alvos.items():
             with self.subTest(tela=nome):

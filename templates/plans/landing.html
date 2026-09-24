@@ -45,7 +45,15 @@
     não envelhece é o próprio demo, e é para ele que os dois CTAs mandam. As
     capturas são o aperitivo; o demo é a prova.
   {% endcomment %}
-  <div class="page-head landing__hero">
+  {% comment %}
+    O PRIMEIRO DEGRAU DO FUNIL DE ENTRADA (24/09/2026). O evento é disparado
+    pelo CLIENTE (`static/js/analytics.js`, "EVENTO AO ABRIR") e não pela
+    view: `/` anônima é a página mais barata do app, com ZERO consulta
+    (`plans/test_landing.py`), porque é ela que o visitante novo vê com o
+    Render dormindo e o Neon à parte — um INSERT aqui custaria o banco em
+    toda visita, inclusive as de robô.
+  {% endcomment %}
+  <div class="page-head landing__hero" data-evento-ao-abrir="site.landing_vista">
     <span class="pill pill--brand">Alimentação e treino</span>
     <h1>Pare de adivinhar o que comer e como treinar</h1>
     <p class="lead landing__proposta">

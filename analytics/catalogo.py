@@ -31,6 +31,15 @@ CATALOGO = {
         "props": ["mensagem", "rota"],
         "desc": "Um erro de JavaScript na tela.",
     },
+    # --- Entrada ---
+    #
+    # O PRIMEIRO DEGRAU DO FUNIL, e ele é do SERVIDOR (24/09/2026). O cliente
+    # já dispara `tela.vista` em toda rota, e dava para filtrar por `route` —
+    # mas um degrau de funil preso ao texto de uma rota quebra em silêncio no
+    # dia em que a rota muda de nome, e a landing é a única tela cujo papel no
+    # produto é ser o topo do funil. Nome próprio, disparado onde a tela é
+    # servida: some se a landing sumir, e não se ela mudar de endereço.
+    "site.landing_vista": {"props": [], "desc": "Alguém abriu a landing."},
     # --- Onboarding ---
     "onboarding.iniciado": {"props": [], "desc": "Abriu a primeira etapa."},
     "onboarding.etapa_concluida": {"props": ["etapa"], "desc": "Concluiu uma etapa (1-3)."},

@@ -21,6 +21,15 @@ CATALOGO = RAIZ / "locale" / "pt_BR" / "LC_MESSAGES" / "django.po"
 #: 21/09/2026: cada um carrega `{% load i18n %}` e marca o texto visível.
 #: `templates/base.html` entra pela FRASE nova (a faixa do staging), não pelo
 #: arquivo inteiro — marcar mil frases antigas de uma vez não é o objetivo.
+#:
+#: A EXCEÇÃO, que existe desde 21/09/2026 e nunca esteve escrita:
+#: `templates/analytics/` — o painel de GESTÃO — fica de fora. Os seis
+#: templates nascidos com o painel, no MESMO dia em que esta régua foi
+#: escrita, não carregam `{% load i18n %}` e nunca entraram na lista; os de
+#: 24/09 (entrada, uso) seguem o precedente. A razão: aquelas telas são a
+#: ferramenta de quem OPERA o produto, não o produto — a segunda língua, no
+#: dia em que existir, é para quem USA o app. Quando isso mudar, entram
+#: todos de uma vez, e não meia dúzia de frases soltas.
 TEMPLATES_NOVOS = {
     "templates/base.html": ["STAGING — não é produção"],
     # A receita (23/09/2026): duas telas NOVAS, e por isso o texto visível

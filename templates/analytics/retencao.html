@@ -4,10 +4,50 @@
 {% block content %}
   <div class="page-head"><h1>Retenção</h1></div>
 
+  {% comment %}
+    D1 / D7 / D30 PRIMEIRO (24/09/2026): é a régua de produto — "voltou no dia
+    seguinte, na semana, no mês" —, e a matriz semanal abaixo é a curva de
+    longo prazo. "Voltou" aqui é ter REGISTRADO alguma coisa; abrir o app sem
+    registrar é curiosidade, não retenção.
+
+    Célula "—" é janela que ainda não fechou (o D30 de quem se cadastrou
+    ontem), e não zero: zero seria a tela afirmando que ninguém voltou de um
+    prazo que ainda não chegou.
+  {% endcomment %}
+  <section class="card">
+    <div class="card__head"><h2>Voltou e registrou</h2></div>
+    {% if coortes %}
+      <div class="tabela-rolagem" tabindex="0" role="region" aria-label="Retenção D1, D7 e D30">
+        <table class="coorte">
+          <thead>
+            <tr>
+              <th>Cadastro</th><th>Contas</th>
+              {% for d in degraus %}<th>D{{ d }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in coortes %}
+              <tr>
+                <td>{{ l.semana|date:"d/m" }}</td>
+                <td class="num">{{ l.base }}</td>
+                {% for c in l.celulas %}
+                  <td class="num">{% if c.pct is None %}—{% else %}{{ c.pct }}%<span class="hint"> · {{ c.n }}</span>{% endif %}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">Cada linha é quem criou conta naquela semana. D1 é o dia seguinte ao cadastro dela, D7 uma semana depois, D30 um mês — e conta quem REGISTROU alguma coisa naquele dia.</p>
+    {% else %}
+      <p class="empty-state">Ainda não há cadastros no período.</p>
+    {% endif %}
+  </section>
+
   <section class="card">
     <div class="card__head"><h2>Coorte por semana de cadastro</h2></div>
     {% if linhas %}
-      <div class="tabela-rolagem">
+      <div class="tabela-rolagem" tabindex="0" role="region" aria-label="Retenção semana a semana">
         <table class="coorte">
           <thead>
             <tr>

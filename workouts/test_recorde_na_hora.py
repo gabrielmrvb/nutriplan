@@ -173,4 +173,13 @@ CONSULTAS_DA_EXECUCAO = 22
 #: online e o offline pelo mesmo ponto. É UM INSERT constante (não N+1); o
 #: opt-out é sem consulta (só DNT aqui, sessão no bloco 4), e na rede lenta da
 #: academia o round-trip domina, não a consulta. Constante: 21 com 3 e 30.
-CONSULTAS_DO_POST_SEM_RECORDE = 21
+#: 22 em 24/09/2026, e a correção é de ATRIBUIÇÃO. O parágrafo acima creditou
+#: o +1 de 21/09 ao INSERT de `treino.serie_concluida` — e esse evento estava
+#: na taxonomia sem NUNCA ser disparado: o catálogo e o teto foram escritos, a
+#: chamada não. Ela entrou agora (o último degrau do funil de entrada não
+#: existia, e o "uso por área" enxergava tudo menos o treino), e o INSERT
+#: MEDIDO leva o número a 22. Tudo que aquele parágrafo diz continua valendo —
+#: um INSERT constante, emitido no servidor para pegar o online e o offline
+#: pelo mesmo ponto. Só o `criada=True` é novo: o reenvio da fila não conta de
+#: novo. Constante: 22 com 3 e com 30 registros.
+CONSULTAS_DO_POST_SEM_RECORDE = 22
