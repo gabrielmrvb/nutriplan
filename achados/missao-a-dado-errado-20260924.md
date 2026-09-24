@@ -251,7 +251,7 @@ sem a correção.
 
 ## Qualidade
 
-- **Suíte completa** `[EXECUTADA]`: ver a última linha desta seção.
+- **Suíte completa** `[EXECUTADA]`: **4 422 testes, OK** (`expected failures=1` — o `expectedFailure` nomeado da letra A no perfil "só o peso do corpo", que é decisão antiga e não desta missão), 1 257 s, banco `test_nutriplan_dado` desta sessão.
 - **axe** nas três telas mudadas (`/treino/exercicio/<id>/`,
   `/treino/exercicios/`, `/historico/`) a **390 e 1280, escuro e claro** —
   12 combinações, **zero violações** `[EXECUTADA]`.
