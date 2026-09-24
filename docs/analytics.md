@@ -140,6 +140,14 @@ Quatro decisões que custaram pensamento:
   entrou, e o mesmo caminho contaria os dois — além de um degrau preso ao
   TEXTO de uma rota quebrar em silêncio no dia em que a rota muda de nome.
 
+  **O que o cliente muda na leitura do número:** o degrau conta só quem
+  EXECUTA JavaScript. Robô que só busca o HTML não entra (a versão do
+  servidor contaria todos eles); robô que renderiza, como o do buscador,
+  entra. O topo do funil é um TETO — "aberturas de navegador", não
+  "pessoas" —, e os degraus seguintes exigem POST, que nenhum robô alcança.
+  É por isso que a taxa do passo 1 para o 2 é a que menos se deve ler
+  sozinha.
+
 - **A COORTE é do PRIMEIRO passo da pessoa**, não do dia do evento. Quem
   abriu a landing na segunda e treinou na quarta pertence à segunda —
   contar a série de quarta como conversão de quarta faria a taxa de um dia

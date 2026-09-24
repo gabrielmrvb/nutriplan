@@ -169,7 +169,16 @@ O app já tinha evento bruto com taxonomia fechada, alias no login e poda de
   `tela.vista` filtrado por rota. `/` é a landing para quem não entrou e o
   app para quem entrou — o mesmo caminho contaria os dois —, e um degrau
   preso ao TEXTO de uma rota quebra em silêncio no dia em que a rota muda
-  de nome. As duas pontas têm teste
+  de nome.
+
+  Efeito colateral que vale registrar: no cliente, o degrau conta só quem
+  EXECUTA JavaScript. Robô que só busca o HTML não entra — a versão do
+  servidor contaria todos eles —, e robô que renderiza (o do buscador)
+  entra. O topo do funil é, portanto, um teto: "quantas aberturas de
+  navegador", não "quantas pessoas". Os degraus seguintes exigem POST, e
+  nenhum robô os alcança.
+
+  As duas pontas têm teste
   (`OTopoDoFunilNaoCustaOBancoTests`): o marcador no template E o leitor no
   JavaScript, este último lido SEM os comentários — a primeira versão do
   teste passava com o código apagado, porque o arquivo explica o marcador
@@ -374,8 +383,14 @@ O item 6 foi conferido no servidor: `GET /hoje/` → **301** para `/`
      repositório inteiro, e a varredura passa a medir marcação vazia. É o
      caso de todo worktree criado sob o scratchpad da sessão.
 2. **`achados/experiencia-usuario-20260923.md` não existe** (ver o topo).
-3. **`/treino/` também abre em 480 px no desktop** — o mesmo defeito do item
-   8, numa tela que a missão não citou. Fica listado, não corrigido.
+3. **`/treino/` e `/conquistas/` abrem em 480 px no desktop** — o mesmo
+   defeito do item 8, em duas telas que a missão não citou `[OBSERVADA]`:
+   medi o `container` das oito telas principais e só essas duas ficaram
+   estreitas. Não corrigi porque largura é layout, o painel do Treino é
+   justamente a tela que esta missão acabou de promover a porta principal, e
+   mexer nela sem o desenho ao lado é exatamente o que o dono pediu para não
+   fazer. A guarda de largura que nasceu aqui torna a correção barata quando
+   for decidida.
 4. **O PR #140 (missão "dado errado") continua aberto e agora está `behind`**
    duas vezes: `main` andou com o #137 e andará com este. Ele conflita com o
    item 5 em `plans/streaks.py`.
@@ -389,6 +404,11 @@ O item 6 foi conferido no servidor: `GET /hoje/` → **301** para `/`
   A alternativa (denormalizar os slugs no perfil) cria uma segunda cópia da
   verdade.
 - **O item 7 foi feito pelas duas saídas** que a missão ofereceu (ver acima).
+- **O `EVENTOS_DA_AREA` passou a ser chaveado por `Pilar`**, e não por slug
+  próprio. Podia ter ficado só na tela (`capfirst` → um dicionário de
+  nomes), mas aí o nome existiria em DOIS lugares — e o `CLAUDE.md` conta a
+  vez em que o produto teve três vocabulários ao mesmo tempo por causa
+  disso.
 - **A frase da ofensiva em zero não cita o treino**: ele tem dia marcado, e
   oferecê-lo num dia de descanso seria a frase errando de novo.
 - **O VERBO da frase distingue quem chegou hoje.** A instrução que a missão
