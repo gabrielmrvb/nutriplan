@@ -1,0 +1,153 @@
+{% load i18n l10n %}
+{% comment %}
+  UMA SEÇÃO DE ÁREA, e o mesmo desenho para as quatro (23/09/2026).
+
+  Antes desta parcial a mesma pergunta — "como foi cada semana?" — tinha três
+  respostas visuais na MESMA tela: barra com classe de largura no treino,
+  barra com classe de largura na água e lista de números na corrida. O
+  `_progresso_agua.html` já registrava o problema em prosa ("duas soluções
+  para o mesmo problema na MESMA tela é dívida de UX nascendo") e depois a
+  corrida virou a terceira.
+
+  Aqui a forma é uma só e cada área escolhe a COR (`--cor-area`): mapa do dia
+  em grade, colunas por semana com eixo, e o que for próprio da área embaixo.
+  A geometria vem de `plans/graficos.py` — o template desenha, não calcula.
+  Nenhum filtro de aritmética entrou para isso: `x` e `y` chegam prontos,
+  porque um filtro de soma em template é infraestrutura nova para uma conta.
+
+  O "?" ao lado do título guarda a explicação que antes ocupava um parágrafo
+  fixo debaixo de cada cartão (item 8). O texto é o mesmo: ele explica o que
+  o número É e o que ele NÃO é, e some da leitura de quem já sabe.
+{% endcomment %}
+{% comment %}
+  `{% localize off %}` EM VOLTA DE TODO SVG, e isto é um defeito real que o
+  navegador não reclama (23/09/2026).
+
+  O app é pt-BR e o Django formata número com vírgula decimal — a régua do
+  `CLAUDE.md` ("número é `tabular-nums` e vírgula decimal") existe para o
+  número que a PESSOA lê. Coordenada de SVG é número que o NAVEGADOR lê:
+  `y="140,0"` é atributo inválido, e o resultado é a linha não desenhar, sem
+  erro no console e sem nada vermelho em teste que só confira o status.
+  MEDIDO: com a curva do peso montada, o eixo saiu em "140,0" e o gráfico
+  ficou vazio na captura.
+{% endcomment %}
+<section class="card area-evolucao area-evolucao--{{ area.chave }}" id="area-{{ area.chave }}">
+  <div class="card__head">
+    <h2>{{ area.titulo }}</h2>
+    {% if area.extra.ajuda %}
+      <details class="ajuda-inline">
+        <summary class="ajuda-inline__abrir">
+          <span aria-hidden="true">?</span>
+          <span class="vis-oculto">{% translate "O que este gráfico mede" %}</span>
+        </summary>
+        <p class="ajuda-inline__texto">{{ area.extra.ajuda }}</p>
+      </details>
+    {% endif %}
+  </div>
+
+  {% if area.tem_dado %}
+    {% comment %}
+      O MAPA DO DIA. Coluna é semana, linha é dia da semana — a grade que não
+      precisa ser aprendida. O buraco no alto da primeira coluna é o cadastro:
+      a conta não nasceu numa segunda-feira, e a ausência diz isso sem texto.
+    {% endcomment %}
+    <div class="grafico grafico--mapa">
+      {% localize off %}
+      <svg class="mapa-dias" viewBox="0 0 {{ area.grade.largura }} {{ area.grade.altura }}"
+           role="img" aria-label="{% blocktranslate with titulo=area.titulo %}Calendário de {{ titulo }}, dia a dia{% endblocktranslate %}">
+        {% for coluna in area.grade.colunas %}{% for celula in coluna %}{% if celula %}
+          <rect class="mapa-dias__dia mapa-dias__dia--{{ celula.dia.estado }} mapa-dias__dia--n{{ celula.dia.intensidade }}"
+                x="{{ celula.x }}" y="{{ celula.y }}"
+                width="{{ area.grade.lado }}" height="{{ area.grade.lado }}" rx="2"
+                ><title>{{ celula.dia.data|date:"d/m" }} · {{ celula.dia.titulo }}</title></rect>
+        {% endif %}{% endfor %}{% endfor %}
+      </svg>
+      {% endlocalize %}
+      <p class="grafico__legenda">
+        {% if area.chave == 'treino' %}
+          <span class="legenda-item"><span class="legenda-cor legenda-cor--feito"></span>{% translate "treinou" %}</span>
+          <span class="legenda-item"><span class="legenda-cor legenda-cor--descanso"></span>{% translate "descanso combinado" %}</span>
+          <span class="legenda-item"><span class="legenda-cor legenda-cor--faltou"></span>{% translate "combinado, sem série" %}</span>
+        {% else %}
+          <span class="legenda-item"><span class="legenda-cor legenda-cor--n0"></span>{% translate "sem registro" %}</span>
+          <span class="legenda-item"><span class="legenda-cor legenda-cor--n4"></span>{% translate "dia cheio" %}</span>
+        {% endif %}
+      </p>
+    </div>
+
+    {% comment %}
+      AS COLUNAS POR SEMANA, com eixo. A semana corrente vem destacada: ela
+      ainda está acontecendo, e uma barra baixa ali não é queda, é quarta-feira.
+
+      COM UMA SEMANA SÓ elas não aparecem: uma barra sozinha ocupa a largura
+      inteira e não compara com nada — ela desenha 100% de si mesma. No
+      recorte de uma semana (ou na conta recém-nascida) quem responde é o
+      mapa do dia, que é o gráfico certo para aquela escala.
+    {% endcomment %}
+    {% if area.colunas.barras|length > 1 %}
+    <div class="grafico grafico--colunas">
+      {% localize off %}
+      <svg class="colunas" viewBox="0 0 {{ area.colunas.largura }} {{ area.colunas.altura }}"
+           role="img" aria-label="{% blocktranslate with titulo=area.titulo %}{{ titulo }} por semana{% endblocktranslate %}">
+        {% for marca in area.colunas.eixo_y %}
+          <line class="colunas__grade" x1="{{ area.colunas.grade_inicio }}" y1="{{ marca.pos }}"
+                x2="{{ area.colunas.grade_fim }}" y2="{{ marca.pos }}"/>
+          <text class="colunas__eixo" x="{{ area.colunas.recuo_eixo }}" y="{{ marca.pos }}" font-size="{{ tamanho_rotulo }}"
+                dy="0.32em" text-anchor="end">{{ marca.texto }}</text>
+        {% endfor %}
+        {% for barra in area.colunas.barras %}
+          <rect class="colunas__barra{% if barra.atual %} colunas__barra--atual{% endif %}"
+                x="{{ barra.x }}" y="{{ barra.y }}"
+                width="{{ barra.largura }}" height="{{ barra.altura }}" rx="1"
+                ><title>{{ barra.rotulo }} · {{ barra.valor_texto }}</title></rect>
+          <text class="colunas__rotulo" x="{{ barra.centro }}" y="{{ area.colunas.base_rotulo }}" font-size="{{ tamanho_rotulo }}"
+                text-anchor="middle">{{ barra.rotulo }}</text>
+        {% endfor %}
+      </svg>
+      {% endlocalize %}
+    </div>
+    {% endif %}
+
+    {% if area.chave == 'treino' %}
+      <ul class="data-list recordes">
+        <li class="data-list__item recordes__titulo">
+          <span>{% translate "Seus recordes" %}</span>
+          {% if area.extra.sequencia %}
+            <span class="pill pill--brand">{% blocktranslate count dias=area.extra.sequencia %}{{ dias }} dia seguido{% plural %}{{ dias }} dias seguidos{% endblocktranslate %}</span>
+          {% endif %}
+        </li>
+        {% for recorde in area.extra.recordes %}
+          <li class="data-list__item">
+            <span class="data-list__nome">{{ recorde.exercise__name }}</span>
+            <span class="data-list__valor num">{{ recorde.weight_kg|floatformat:"-2" }} kg<span class="data-list__meta"> × {{ recorde.reps }} · {{ recorde.date|date:"d/m" }}</span></span>
+          </li>
+        {% empty %}
+          <li class="data-list__item hint">{% translate "Os recordes aparecem a partir do segundo treino com carga." %}</li>
+        {% endfor %}
+      </ul>
+    {% elif area.chave == 'dieta' and area.extra.receitas %}
+      <ul class="data-list">
+        <li class="data-list__item recordes__titulo"><span>{% translate "O que mais você registrou" %}</span></li>
+        {% for receita in area.extra.receitas %}
+          <li class="data-list__item">
+            <span class="data-list__nome">{{ receita.recipe_name }}</span>
+            <span class="data-list__valor num">{{ receita.vezes }}<span class="data-list__meta">×</span></span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif area.chave == 'corrida' and area.extra.ritmo_texto %}
+      <p class="grafico__nota">
+        {% translate "Ritmo da última semana:" %}
+        <strong class="num">{{ area.extra.ritmo_texto }}</strong> {% translate "por km" %}
+      </p>
+    {% endif %}
+
+  {% else %}
+    <div class="empty-state">
+      <p>{{ area.extra.vazio }}</p>
+      {% if area.extra.porta %}
+        <a class="btn btn--ghost" href="{{ area.extra.porta }}">{{ area.extra.porta_texto }}</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>

@@ -2194,7 +2194,7 @@ fila offline é a mesma série chegando de novo, e contá-la inflaria o número
 que decide investimento.
 
 E duas classes que existiam no template da Retenção **sem regra nenhuma no
-CSS** ganharam a seção 53 (`.tabela-rolagem`, `.coorte`): a tabela só não
+CSS** ganharam a seção 54 (`.tabela-rolagem`, `.coorte`): a tabela só não
 vazava a 390 px porque as colunas cabiam, e as telas novas, com cabeçalho de
 palavra de verdade, mediram 621 px numa janela de 390. A rolagem é do BLOCO
 (com `tabindex` e `role="region"`), nunca da página. O dead-class ruler não

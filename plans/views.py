@@ -37,7 +37,7 @@ from catalog.models import Food
 from workouts import progresso
 from workouts.models import Corrida
 
-from . import calculations, rodizio, services, shopping, streaks, tracking, weight_trend
+from . import calculations, evolucao, graficos, rodizio, services, shopping, streaks, tracking, weight_trend
 from . import agora as agora_mod
 from analytics import servidor as analytics
 from workouts import services as treino_services
@@ -1242,31 +1242,43 @@ class ClearMealView(AcaoDeTela, OnboardingRequiredMixin, View):
 
 
 class HistoryView(OnboardingRequiredMixin, TemplateView):
+    """Progresso — a tela que responde "para onde isso está indo".
+
+    REDESENHADA em 23/09/2026. Antes ela era um extrato: uma faixa de três
+    números que misturava hoje com histórico, e quatro cartões com OITO
+    semanas fixas cada um — para quem tinha três dias de uso, 24 linhas de
+    semana, sete delas começando antes de a conta existir. O diagnóstico é do
+    dono, e foi medido em produção (e6194b7).
+
+    O que mudou aqui: a view deixou de montar cinco séries independentes
+    (`dias_treinados`, `km_corridos`, `agua_por_semana`, `curva_de_peso`,
+    `progressao_de_carga`, cada uma com o próprio horizonte) e passa a pedir
+    UM painel a `plans.evolucao`, recortado pelo período escolhido e pela vida
+    da conta. `reunir()` custa dez consultas e o custo NÃO cresce com o
+    período: as barras da semana são somadas em Python sobre o mapa do dia.
+    """
+
     template_name = "plans/history.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        rows = tracking.history(self.request.user)
         plan = services.get_active_plan(self.request.user)
-        # A meta DA ÉPOCA, e não a de hoje. `NutritionPlan` é retrato e os
-        # antigos ficam, então a informação sempre esteve no banco: comparar
-        # todo dia com a meta atual fazia a segunda-feira parecer excesso para
-        # quem cortou calorias na terça.
+        periodo = evolucao.periodo_valido(self.request.GET.get("p"))
+        painel = evolucao.reunir(self.request.user, periodo, plano=plan)
+
+        # O DIA A DIA REUSA AS LINHAS do painel: `tracking.history` já foi
+        # chamado lá dentro para o mapa da alimentação, e chamá-lo de novo
+        # seria pagar a mesma consulta duas vezes na mesma resposta.
+        rows = painel["areas"][0].extra["linhas"]
         metas = tracking.metas_por_dia(self.request.user, [r["date"] for r in rows])
         atual = plan.target_kcal if plan else 0
         for row in rows:
             meta = metas.get(row["date"]) or atual or 1
             row["meta"] = meta
             row["pct"] = min(int(row["kcal"] * 100 / meta), 100)
-        # A lista é materializada aqui porque o peso de hoje sai dela: as
-        # pesagens vêm ordenadas por data decrescente, então se existe uma de
-        # hoje ela é a primeira. Uma consulta a mais só para reencontrar a
-        # linha que já está na mão seria consulta paga duas vezes.
+
         recusa = recusa_pendente(self.request, "metricas")
         tendencia = weight_trend.analisar(self.request.user)
-        semanas_de_agua = tracking.agua_por_semana(self.request.user)
-        semanas_de_treino = progresso.dias_treinados(self.request.user)
-        semanas_de_corrida = progresso.km_corridos(self.request.user)
         entries = list(self.request.user.weight_entries.all()[:10])
         hoje = timezone.localdate()
         de_hoje = entries[0] if entries and entries[0].date == hoje else None
@@ -1274,63 +1286,37 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         # CONQUISTAS ENTRAM AQUI, e a razão é de produto: a pergunta "como
         # estou evoluindo" é desta tela, e conquista é resposta dela. A página
         # isolada continua existindo para quem quiser ver tudo.
-        #
-        # `resumo` é a MESMA função que a tela de conquistas usa — a regra do
-        # que entra em "próxima" é delicada ("só o que dá para medir sem
-        # inventar", que é o que impede a parede de medalhas cinzentas), e duas
-        # cópias dela divergiriam na primeira mudança.
         total_conquistas, recente, proxima = conquistas.resumo(
             self.request.user, request=self.request
         )
 
         context.update(
             {
+                "painel": painel,
+                "peso": painel["peso"],
+                # A LINHA DO PESO é desenhada com a mesma geometria das outras
+                # áreas (`plans/graficos.py`): um sistema só para a tela toda.
+                "peso_grafico": graficos.linha(
+                    painel["peso"].pontos, media=painel["peso"].media_movel
+                ),
+                "janela": painel["janela"],
+                # O corpo do rótulo de eixo é GEOMETRIA (unidade do viewBox), e por
+                # isso viaja com o resto dela e não como regra de CSS.
+                "tamanho_rotulo": graficos.TAMANHO_ROTULO,
                 "conquistas_total": total_conquistas,
                 "conquistas_recente": recente,
                 "conquistas_proxima": proxima,
                 "plan": plan,
                 "rows": rows,
-                "totals": tracking.adherence(rows),
-                "days": tracking.HISTORY_DAYS,
                 "weight_entries": entries,
                 "tendencia": tendencia,
-                # A CURVA é derivada da MESMA lista de semanas que a tabela
-                # imprime — não é uma segunda fonte, é a mesma leitura em outra
-                # forma. Uma tabela responde "quanto eu pesava em 31/08?"; a
-                # curva responde "para onde isso está indo?", que é a pergunta
-                # de quem abre a tela de Progresso.
-                "curva_peso": _curva_de_peso(tendencia.semanas),
-                # Preenche o campo com o peso já registrado hoje: salvar de
-                # novo é corrigir, e corrigir começa do valor que está lá.
                 "peso_de_hoje": de_hoje.weight_kg if de_hoje else None,
                 "houve_recusa": recusa is not None,
                 "peso_recusado": recusa.valor if recusa else "",
                 "peso_erro": recusa.mensagem if recusa else "",
-                # O treino nesta tela. Cada série sempre esteve no banco, e a
-                # tela chamada "Métricas" não mostrava nenhuma: quem treinava
-                # há dois meses não via nada do próprio treino aqui.
-                "semanas_de_treino": semanas_de_treino,
-                # Mesma distinção da água, e aqui eu tinha errado: a lista tem
-                # SEMPRE oito semanas, inclusive as zeradas — buraco na série é
-                # informação. `{% if lista %}` é verdadeiro mesmo sem nenhum
-                # treino, e o estado vazio nunca apareceria.
-                "tem_treino": any(s["dias"] for s in semanas_de_treino),
-                "dias_combinados": self.request.user.training_days.count(),
-                # A corrida é pilar: o cartão só aparece para quem correu
-                # (uma consulta agregada; achado #9 das personas, 22/09/2026).
-                "semanas_de_corrida": semanas_de_corrida,
-                "tem_corrida": any(s["corridas"] for s in semanas_de_corrida),
-                "semana_de_corrida": semanas_de_corrida[-1],
-                "cargas": progresso.progressao_de_carga(self.request.user),
-                # Iniciante há meio ano e duas dúzias de treinos: convite a
-                # atualizar o nível (uma consulta; zero para os outros níveis).
-                "convite_de_nivel": progresso.convidar_a_atualizar_experiencia(self.request.user),
-                "agua_semanas": semanas_de_agua,
-                # A pergunta é "existe algum registro?", e não "a lista tem
-                # itens": a lista SEMPRE tem oito semanas, inclusive as
-                # zeradas — buraco na série é informação. Sem esta distinção o
-                # cartão nunca mostraria o estado vazio.
-                "tem_agua": any(s["dias"] for s in semanas_de_agua),
+                "convite_de_nivel": progresso.convidar_a_atualizar_experiencia(
+                    self.request.user
+                ),
                 "nav": "history",
             }
         )

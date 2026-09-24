@@ -36,13 +36,16 @@ class CorridaNoProgressoTests(TestCase):
         _correr(self.user, 1, 5.0)
         _correr(self.user, 2, 4.2)
         html = self.client.get(reverse("plans:history")).content.decode()
-        bloco = html.split("<h2>Corrida</h2>", 1)[1].split("</section>", 1)[0]
-        self.assertIn("9,2", bloco)  # km da semana, com vírgula
-        self.assertIn(reverse("workouts:corridas"), bloco)
+        # O CARTÃO virou a parcial única de área (23/09/2026): o mapa do dia
+        # mais as colunas da semana. Os km da semana continuam na tela — agora
+        # no `<title>` da barra, que é de onde a leitura de tela os anuncia.
+        bloco = html.split("area-evolucao--corrida", 1)[1].split("</section>", 1)[0]
+        self.assertIn("9,2 km", bloco)
+        self.assertIn("mapa-dias__dia--feito", bloco)
 
     def test_quem_nunca_correu_nao_ganha_o_cartao(self):
         html = self.client.get(reverse("plans:history")).content.decode()
-        self.assertNotIn("<h2>Corrida</h2>", html)
+        self.assertNotIn("area-evolucao--corrida", html)
 
     def test_a_exclusao_lista_as_corridas(self):
         _correr(self.user, 1, 5.0)
