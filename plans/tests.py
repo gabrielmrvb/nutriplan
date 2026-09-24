@@ -3983,24 +3983,31 @@ class MigracaoDoRankTests(TransactionTestCase):
         executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_a_opcao_a_vira_rank_zero_e_a_b_vira_rank_um(self):
-        # Modelos REAIS para tudo que a migration não altera — usuário, receita,
-        # plano e horário têm a mesma forma no estado 0006 e no atual. Só
-        # `MealOption` vem do estado histórico, porque é a única tabela que
-        # ainda tem a coluna `label` neste ponto e já não a tem no modelo atual.
+        # TUDO que vive no schema histórico vem do estado histórico.
+        #
+        # A versão anterior usava os modelos REAIS para plano e horário, com o
+        # comentário "têm a mesma forma no estado 0006 e no atual" — e a frase
+        # envelheceu na primeira coluna nova: a `0012` deu `restricoes` e
+        # `meal_style` ao `NutritionPlan`, e o `create()` do modelo atual
+        # passou a escrever colunas que o banco no estado 0006 não tem. O
+        # usuário e a receita continuam reais porque vivem em OUTROS apps, que
+        # este `_migrar` não move.
         velho = self._migrar(self.ANTES)
         Option = velho.get_model("plans", "MealOption")
+        Plano = velho.get_model("plans", "NutritionPlan")
+        Slot = velho.get_model("plans", "MealSlot")
 
         user = User.objects.create_user(
             email="migracao@exemplo.com", password="Migracao!2026#"
         )
-        plano = NutritionPlan.objects.create(
-            user=user, is_active=True, weight_kg=Decimal("80.0"), height_cm=178,
+        plano = Plano.objects.create(
+            user_id=user.pk, is_active=True, weight_kg=Decimal("80.0"), height_cm=178,
             age_years=30, sex="M", activity_level=ActivityLevel.ACTIVE,
             goal=Goal.CUT, training_days_per_week=3, bmr_kcal=1800, tdee_kcal=2500,
             target_kcal=2200, protein_g=160, carb_g=220, fat_g=70, notes="",
         )
-        slot = MealSlot.objects.create(
-            plan=plano, name="Almoço", category=MealCategory.MAIN, time=time(12, 0),
+        slot = Slot.objects.create(
+            plan_id=plano.pk, name="Almoço", category=MealCategory.MAIN, time=time(12, 0),
             order=0, target_kcal=700, target_protein_g=50, target_carb_g=70,
             target_fat_g=20,
         )

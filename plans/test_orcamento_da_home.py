@@ -39,7 +39,16 @@ from django.urls import reverse
 from plans.test_stress import PopulatedAccountMixin
 
 #: O piso medido em 21/09/2026 (o dono pediu < 15; ver a docstring).
-TETO = 17
+#: A +1 de 24/09/2026 é `restricoes_de`: `plan_is_current` passou a comparar
+#: as restrições alimentares e o estilo de cardápio, e os dois vêm de um M2M
+#: que não entra por JOIN em consulta de linha. Sem ela, marcar "sem peixe"
+#: no Perfil não invalidava o cardápio — nem naquele POST nem em visita
+#: nenhuma —, e a tela continuava oferecendo sardinha. O custo é CONSTANTE
+#: (uma consulta, não uma por linha; `test_o_custo_da_tela_nao_cresce_com_os_
+#: registros` continua verde), e a alternativa para devolver o número seria
+#: denormalizar os slugs numa coluna do perfil — uma segunda cópia da
+#: verdade, que é o defeito que este repositório recusa em outro lugar.
+TETO = 18
 
 RAIZ = "nutriplan"
 
