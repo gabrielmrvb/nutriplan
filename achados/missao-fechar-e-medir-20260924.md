@@ -413,6 +413,44 @@ ficou fora daqui porque é hardening do roteiro, não da missão.
   **944 OK** `[EXECUTADA]`. O único `expectedFailure` é o nomeado de sempre
   (a letra A do peso do corpo).
 
+### E a promoção do lote ficou VERMELHA por causa do roteiro de QA, não do app
+
+Voltei a conferir produção horas depois e achei o que uma conferência de
+`/saude/` sozinha não mostra: **produção continuava em `3a6094b`** e o
+`1c66b92` (o relatório) esperava em `main` havia cinco horas. O cron
+`promover-lote` estava vermelho desde as 12:27 UTC — e **lote reprovado não
+promove**, então toda a fila para atrás dele.
+
+Duas causas, as duas no roteiro do E2E e nenhuma no app:
+
+1. **`agent-browser check` sai com código 0 mesmo sem marcar a caixa.** O
+   snapshot do erro (`erro-onboarding-1.txt`, do artefato do run) mostra a
+   etapa 1 devolvida com a SEGUNDA caixa de consentimento em
+   `checked=false` e "Para continuar, marque esta caixa" embaixo — e o MESMO
+   roteiro fizera 13/13 três horas antes contra o MESMO commit do staging.
+   As duas caixas moram dentro de um `<label>` clicável, onde o clique no
+   rótulo pode desfazer o do input. `Navegador.marcar` tratava só a
+   EXCEÇÃO: uma guarda que nunca vê o caso em que o comando "deu certo" e
+   nada mudou — a mesma classe de defeito que o `CLAUDE.md` descreve na
+   seção de Testes, desta vez na ferramenta de QA. PR #144, em `main`.
+2. **`ir` clicava sem esperar o link.** Com as caixas marcando, o lote
+   seguinte passou o onboarding inteiro e reprovou em `serie` com "Element
+   not found: `a[href^='/treino/agora/']`" — o segundo `ir` do passo chegou
+   à ficha antes de ela existir. **Reproduzi o caminho ao contrário para
+   provar que o app está íntegro** `[EXECUTADA]`: com o perfil que o próprio
+   roteiro cria (sete dias de treino, ABC), o painel linka a ficha de HOJE e
+   a ficha traz `/treino/agora/?exercicio=N`
+   (`scratchpad/repro_e2e_serie.py`). É o runner sendo mais lento que esta
+   máquina somado à view transition do app, que devolve `<html>` por ~300 ms.
+   `ir` passou a esperar o seletor, como `marcar` já fazia desde o primeiro
+   run do Actions.
+
+As duas com teste no navegador falso e **sabotagem 3 de 3 vermelhas** (o
+`check` que mente; a caixa que não marca de jeito nenhum; o `wait` removido).
+E o `CLAUDE.md` ganhou a consequência operacional que não estava escrita:
+**E2E vermelho PARA a promoção do lote**, e produção fica no commit anterior
+até alguém consertar.
+
 ## O que ficou no meio do caminho, e por quê
 
 1. **Dois falsos positivos do `pre-push`, os dois anteriores a esta missão**
