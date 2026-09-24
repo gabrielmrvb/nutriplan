@@ -14,6 +14,8 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
+- **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
+- **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
 
 *(gerência, não aparece para quem usa)*
 

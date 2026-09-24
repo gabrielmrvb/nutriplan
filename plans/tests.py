@@ -1374,8 +1374,14 @@ class TrackingTests(CatalogFixture):
         self.assertEqual(totals["days"], 1)
 
     def test_adherence_of_an_empty_history_does_not_divide_by_zero(self):
+        """Sem linha nenhuma não há média nem nota — e `avg_kcal` passou a
+        ser `None` como `adherence_pct` (24/09/2026). Zero era um número, e
+        a tela imprimia "0 kcal/dia · meta 2 161" para quem ainda não tinha
+        registrado nada: a mesma falsa precisão que a porcentagem já evitava.
+        """
         vazio = tracking.adherence([])
-        self.assertEqual((vazio["days"], vazio["avg_kcal"]), (0, 0))
+        self.assertEqual(vazio["days"], 0)
+        self.assertIsNone(vazio["avg_kcal"])
         self.assertIsNone(vazio["adherence_pct"])
 
 

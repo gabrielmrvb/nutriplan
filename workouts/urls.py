@@ -25,6 +25,10 @@ urlpatterns = [
     # A leitura de um exercício, em qualquer dia: demonstração, dica, músculos.
     # GET puro — não colide com `ROTAS` de `fila.js`, que são só POST.
     path("exercicio/<int:exercise_id>/", views.ExercicioView.as_view(), name="exercicio"),
+    # "Exercícios que já fiz": a porta para o que a remontagem da ficha
+    # tirou de lá. Sem ela, a leitura de um exercício fora da ficha abre
+    # (desde 24/09/2026) mas não tem por onde ser alcançada.
+    path("exercicios/", views.ExerciciosFeitosView.as_view(), name="exercicios_feitos"),
     path("agora/serie/", views.ConcluirSerieView.as_view(), name="record_set"),
     # "Acabei" — o fecho que a execução não tinha (22/09/2026). POST, porque
     # carimba o dia; o GET volta para a execução, como as outras ações de

@@ -43,6 +43,10 @@ TEMPLATES_NOVOS = {
     # de uma vez não é o objetivo desta régua.
     "templates/plans/_progresso_area.html": ['O que este gráfico mede', 'treinou', 'descanso combinado', 'combinado, sem série', 'sem registro', 'dia cheio', 'Seus recordes', 'Os recordes aparecem a partir do segundo treino com carga.', 'O que mais você registrou', 'Ritmo da última semana:', 'por km'],
     "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
+    # A missão "dado errado" (24/09/2026): duas parciais novas e uma tela
+    # nova, e as três nascem marcadas.
+    "templates/workouts/_series_do_dia.html": ['kg no total'],
+    "templates/workouts/exercicios_feitos.html": ['Exercícios que já fiz', 'Treino', 'Tudo em que você registrou série, esteja na ficha de hoje ou não.', 'Ver a semana', 'Última vez:'],
 }
 
 

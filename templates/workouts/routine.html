@@ -388,7 +388,18 @@
           agora".
         {% endcomment %}
         <section class="card programa">
-          <div class="card__head"><h2>Seu programa</h2></div>
+          {% comment %}
+            "Exercícios que já fiz" (24/09/2026) mora no cabeçalho de "Seu
+            programa" porque é a mesma pergunta de consulta que o cartão
+            responde — e porque `.card__head a` já é o link de 44px desta
+            tela (o mesmo "Editar" dos outros cartões). É a maçaneta da
+            porta que a leitura do exercício abriu: o que a remontagem da
+            ficha tirou de lá não aparece em tela nenhuma sem ela.
+          {% endcomment %}
+          <div class="card__head">
+            <h2>Seu programa</h2>
+            <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
+          </div>
           <p class="programa__resumo">
             {% comment %}
               O NOME DA DIVISÃO PODE QUEBRAR LINHA; os dois números, não.
