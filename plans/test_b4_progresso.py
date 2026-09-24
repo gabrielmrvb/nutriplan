@@ -184,22 +184,35 @@ class OsDoisCartoesSemanaisSaoComparaveisTests(TestCase):
         )
         return m.group(1) if m else None
 
-    def test_a_coluna_de_valor_reserva_largura(self):
-        corpo = self._regra(".semana__valor")
+    def test_as_duas_areas_desenham_na_mesma_escala(self):
+        """A metade que a estrutura igual não garantia — agora por construção.
 
-        self.assertIsNotNone(corpo, "a regra .semana__valor sumiu")
-        largura = re.search(r"min-width:\s*([\d.]+)rem", corpo)
-        self.assertIsNotNone(
-            largura,
-            "sem largura reservada a barra volta a sobrar no treino e faltar "
-            "na agua",
-        )
-        self.assertGreaterEqual(float(largura.group(1)), 4.0)
+        A régua antiga media `min-width` da coluna de valor, porque as duas
+        listas eram HTML com larguras próprias e divergiram uma vez. No
+        redesenho de 23/09/2026 as duas passaram a ser o MESMO SVG, montado
+        pela mesma função com o mesmo viewBox: a escala é a mesma porque a
+        caixa é a mesma, e não porque alguém lembrou de igualar dois números.
+
+        O que ainda dá para divergir é a COR, e é isso que se mede aqui: cada
+        área declara `--cor-area` uma vez, e o resto do desenho lê o token.
+        """
+        for area in ("treino", "agua"):
+            corpo = self._regra(".area-evolucao--%s " % area) or self._regra(
+                ".area-evolucao--%s" % area
+            )
+            with self.subTest(area=area):
+                self.assertIsNotNone(corpo, "a área %s não declara cor" % area)
+                self.assertIn("--cor-area", corpo)
 
     def test_nao_existe_mais_uma_largura_so_para_a_agua(self):
         """A classe `--largo` era o que criava a diferenca. Enquanto ela
         existir, alguem pode reaplica-la e os trilhos divergem de novo."""
         self.assertNotIn("semana__valor--largo", self.css)
+        # E a classe base foi junto no redesenho: a lista semanal virou SVG.
+        # A busca é por REGRA, e não pela string: o CSS ainda CITA o nome num
+        # comentário ("família própria, e não .semana__valor reciclado"), e
+        # comentário que cita o nome é a armadilha de sempre desta base.
+        self.assertIsNone(self._regra(".semana__valor"))
 
     def test_nenhum_template_usa_a_classe_que_deixou_de_existir(self):
         raiz = Path(__file__).resolve().parent.parent / "templates"
@@ -263,9 +276,14 @@ class ATelaNaoParteOsCartoesTests(TestCase):
         Vale como teste porque `.split` e coluna unica: aqui a ordem do HTML e
         a ordem da tela em qualquer largura.
         """
-        # `class="tiles"` e não "Aderência": no primeiro dia a caixa diz
-        # "Refeições · hoje, até agora" (22/09/2026) — o cartão é o mesmo.
-        marcos = ['class="tiles"', "<h2>Peso", "<h2>Treino", "<h2>Água", "Dia a dia"]
+        # A ORDEM MUDOU NO REDESENHO de 23/09/2026, e a régua continua sendo
+        # a mesma: resumo → peso → áreas → registro cru. O que entrou antes
+        # das áreas é o seletor de período, que governa o recorte de todas
+        # elas; e Alimentação passou a vir antes de Treino porque era a única
+        # área que a faixa do topo media — a tela nunca tinha falado das
+        # outras por si.
+        marcos = ['class="periodo"', 'class="tiles tiles--tendencia"', "<h2>Peso",
+                  "<h2>Alimentação", "<h2>Treino", "<h2>Água", "Dia a dia"]
         posicoes = [self.html.index(m) for m in marcos]
 
         self.assertEqual(posicoes, sorted(posicoes), marcos)

@@ -326,14 +326,23 @@ class GanchosNosTemplatesTests(SimpleTestCase):
             ("workouts/ficha.html", '<ol class="ficha-lista" data-escalonado start='),
             ("accounts/areas.html", '<nav class="modulos" data-escalonado'),
             ("plans/history.html", '<div class="history-rows" data-escalonado>'),
-            ("plans/_progresso_agua.html", '<ul class="semanas" data-escalonado'),
-            ("plans/_progresso_treino.html", '<ul class="semanas" data-escalonado'),
+            # As duas listas `.semanas` do Progresso saíram no redesenho de
+            # 23/09/2026: a série semanal virou o mapa do dia mais as colunas
+            # da semana, em SVG, e SVG não entra escalonado — a entrada é do
+            # cartão inteiro. As linhas do "dia a dia", que continuam sendo
+            # lista, continuam na régua.
         ):
             with self.subTest(caminho=caminho):
                 self.assertIn(trecho, self.ler(caminho))
 
     def test_os_numeros_do_progresso_contam(self):
-        self.assertEqual(self.ler("plans/history.html").count('class="tile__value" data-conta>'), 3)
+        """UMA linha de template, quatro tiles (23/09/2026).
+
+        Eram três caixas escritas à mão; o redesenho as trocou por um laço
+        sobre `painel.tiles`, e contar ocorrências no ARQUIVO passou a contar
+        o laço, não a tela. O gancho continua sendo o mesmo — o que mudou é
+        que ele agora vale para os quatro de uma vez."""
+        self.assertEqual(self.ler("plans/history.html").count('class="tile__value" data-conta>'), 1)
 
     def test_o_onboarding_grava_e_le_a_direcao(self):
         etapa = self.ler("accounts/onboarding/step.html")
