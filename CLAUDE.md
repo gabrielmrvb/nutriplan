@@ -810,6 +810,38 @@ números do dia em que foram criados. Mudou a entrada, nasce plano novo — os
 antigos ficam. Nunca edite os números de um plano ativo: `plan_is_current()`
 compara com o que o motor calcula hoje e descarta o que não bate.
 
+**O RETRATO DO PLANO INCLUI O QUE ESCOLHE A COMIDA (24/09/2026).**
+`NutritionPlan` fotografava peso, altura, idade, sexo, atividade, objetivo e
+dias de treino — tudo que calcula a META — e nada do que escolhe a RECEITA.
+Consequência medida: marcar "sem peixe" no Perfil devolvia "Alterações
+salvas." e o cardápio seguia oferecendo sardinha, **e continuava seguindo**
+em toda visita, porque `plan_is_current` comparava só aqueles sete campos.
+Hoje o retrato tem `restricoes` (os slugs ORDENADOS, separados por vírgula)
+e `meal_style`, os dois em `_INPUT_FIELDS`. Ordenados porque a ordem do
+`values_list` de um M2M não é estável, e uma ordem diferente seria lida como
+restrição diferente — o cardápio remontaria em toda abertura da Home.
+**Texto e não JSON** pela mesma razão que o resto do retrato é escalar: a
+comparação é `==` contra o que `build_inputs` monta, e lista contra tupla
+nunca é igual.
+
+O VAZIO é assimétrico, e a assimetria é a decisão (`_VAZIO_E_DESCONHECIDO`):
+`meal_style` vazio no retrato é "nasci antes do campo" e NÃO invalida — o
+perfil sempre tem estilo, então trocar o cardápio de todo mundo num deploy
+seria cobrar de quem não pediu nada; `restricoes` vazio compara normalmente,
+porque quem TEM restrição no perfil e um retrato vazio é exatamente quem
+está vendo sardinha. Sem backfill, pelos dois motivos.
+
+E a etapa 3 em EDIÇÃO remonta AGORA (`EtapaCompostaView.acertar_cardapio`,
+`PASSO_COMIDA`), como a etapa 2 já remontava a ficha: a mensagem vira
+"Alterações salvas — o cardápio foi remontado com elas". O cache do perfil
+sai antes de o motor ler, pelo mesmo motivo escrito em `acertar_ficha` —
+`salvar()` grava por `self.profile` e `build_inputs` lê `user.profile`; as
+restrições escapariam (o M2M consulta toda vez), o estilo não. **Preço
+medido: +1 consulta na Home (17 → 18) e na Alimentação (18 → 19)**, constante
+e não por linha; devolver o número exigiria denormalizar os slugs numa coluna
+do perfil, que é uma segunda cópia da verdade.
+`plans/test_restricao_invalida_o_cardapio.py`.
+
 **Ficha ajustada não é remontada.** `TrainingPlan.customized_at` desliga o
 gerador. Sem isso, mudar o horário de terça apaga a troca de ontem.
 

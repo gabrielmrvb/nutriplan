@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-24
+
+- **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
+
 ## 2026-09-23
 
 - **A aba "Mais" deixou de ser o que sobrou.** Ela abre com você: a inicial, o seu nome, o seu objetivo e a meta do dia — e essa primeira linha é a porta do Perfil. Antes o título era "Áreas sem aba" e o seu perfil aparecia como um cartão escrito "2.372 kcal por dia".

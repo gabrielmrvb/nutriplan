@@ -128,6 +128,17 @@ class PlanInputs:
     #: piso, o piso ganha e a pessoa é avisada.
     kcal_adjustment: int = 0
 
+    #: O QUE ESCOLHE A COMIDA (24/09/2026). Não entra em conta nenhuma aqui —
+    #: `calculate()` ignora os dois —, e mora neste objeto porque é ele que
+    #: `plan_is_current` compara com o retrato do plano. Sem eles ali, mudar
+    #: a restrição no Perfil não invalidava o cardápio.
+    #:
+    #: `restricoes` é a string ordenada (`services.restricoes_de`), não uma
+    #: coleção: o retrato guarda texto, e comparar tupla com texto nunca é
+    #: igual.
+    restricoes: str = ""
+    meal_style: str = ""
+
     @property
     def training_days_per_week(self) -> int:
         return len(self.session_minutes)
