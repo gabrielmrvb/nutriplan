@@ -30,7 +30,6 @@ class OTcxSaiuTests(TestCase):
         self.assertTrue(hasattr(health_export, "resumo_da_sessao"), "o resumo do painel fica")
 
     def test_nenhum_template_oferece_exportar(self):
-        from pathlib import Path
 
         from django.conf import settings
 

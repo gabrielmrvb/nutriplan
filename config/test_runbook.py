@@ -17,7 +17,6 @@ prendem, sem rede (a API do Render e a do GitHub são fakes):
 * o CLAUDE.md nomeia os quatro cenários e os quatro verbos.
 """
 import io
-import json
 import re
 import tempfile
 from contextlib import redirect_stdout

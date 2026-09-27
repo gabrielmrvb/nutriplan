@@ -2,9 +2,8 @@
 from django.urls import reverse
 from django.views.generic import TemplateView
 
-from workouts.models import Split
 
-from .middleware import PREFIXO, usuario_demo
+from .middleware import usuario_demo
 
 
 #: As áreas do app, na ordem em que fazem sentido para quem chega de fora.

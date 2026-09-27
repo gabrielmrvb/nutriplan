@@ -1,5 +1,4 @@
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.views import LogoutView
 from django.urls import path, reverse_lazy
 
 from . import exportacao, login_nativo, saude_do_aparelho, views

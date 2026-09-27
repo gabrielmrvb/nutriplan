@@ -11,7 +11,6 @@ Corrida por GPS não se edita: o traço contradiria os números.
 import re
 import uuid
 from datetime import timedelta
-from decimal import Decimal
 from pathlib import Path
 
 from django.conf import settings

@@ -60,7 +60,6 @@ from .models import (
     MealSlot,
     MealStatus,
     NutritionPlan,
-    OptionLabel,
 )
 
 # Homem, 82,4 kg, 1,78 m, 30 anos, rotina leve, 3 treinos de 60 min, emagrecendo.

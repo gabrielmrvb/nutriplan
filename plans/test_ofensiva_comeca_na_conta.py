@@ -22,7 +22,6 @@ from django.test import TestCase
 from django.utils import timezone
 
 from achievements import services as conquistas
-from accounts.models import User
 from plans import services, streaks, weight_trend
 from plans.models import HydrationLog
 from plans.tests import CatalogFixture, create_complete_user

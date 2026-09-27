@@ -28,7 +28,7 @@ from django.utils import timezone
 
 from accounts.models import TrainingDay
 from plans import services as plan_services
-from plans import streaks, weight_trend
+from plans import streaks
 from workouts.models import ExerciseLog, TrainingPlan
 
 from .models import UserAchievement
@@ -276,7 +276,6 @@ def resumo(user, hoje=None, request=None):
     (`test_na_hora`). Com `request`, o que nasce é anunciado na mesma tela.
     """
     from .models import UserAchievement
-    from .regras import CATALOGO
 
     ganhas = list(UserAchievement.objects.filter(user=user))
     conquistados = {c.slug for c in ganhas}

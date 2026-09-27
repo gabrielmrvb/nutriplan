@@ -12,6 +12,16 @@ line-length = 100
 [lint]
 select = ["E", "F", "W"]
 
+# E501 FORA (decisão do dono, 27/09/2026). Eram 1.439 dos 1.656 achados — 87% —,
+# e quase todos em COMENTÁRIO: esta base documenta decisão em prosa dentro do
+# código, e é a mesma razão de o `CLAUDE.md` ter 1.900 linhas. Cobrar 100
+# caracteres disso é pedir reescrita da documentação, não do código, e uma
+# catraca que ninguém pretende zerar deixa de ser catraca.
+#
+# `line-length` FICA em 100 de propósito: ele continua governando o que o
+# formatador faria e serve de referência escrita, mesmo sem a regra reprovar.
+ignore = ["E501"]
+
 # Migração é código GERADO pelo Django; reescrevê-la para agradar linter é
 # mexer em histórico de schema por motivo estético.
 exclude = ["*/migrations/*"]

@@ -17,7 +17,6 @@ prende, cenário a cenário:
   hora; o botão continua sendo a exceção nomeada.
 """
 import io
-import re
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock

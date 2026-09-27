@@ -37,7 +37,6 @@ Nunca imprime valor de variável: só nome, tamanho e prefixo público.
 import json
 import os
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request

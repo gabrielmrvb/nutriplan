@@ -7,7 +7,7 @@ mostrava "Passo 1/6 · 16%" em `/conta/onboarding/1/`, seis rotas e CTA
 corromper, e a conclusão montando cardápio E ficha.
 """
 import re
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.core.management import call_command

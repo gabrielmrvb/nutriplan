@@ -23,7 +23,6 @@ Três correções, uma por frase:
 3. o shell não oferece "Entrar" nem "Criar conta": ele é pré-cacheado sem
    identidade de propósito, e esses dois botões mentem para quem está logado.
 """
-import re
 from pathlib import Path
 
 from django.test import TestCase

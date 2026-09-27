@@ -14,7 +14,7 @@ Bruto vive 90 dias; para períodos além disso o painel lê `DailyAggregate`
 """
 from datetime import timedelta
 
-from django.db.models import CharField, Count, F, Min, Value
+from django.db.models import CharField, Count, F, Min
 from django.db.models.functions import Coalesce, Cast, TruncDate, TruncWeek
 from django.utils import timezone
 

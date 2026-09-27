@@ -33,7 +33,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from accounts import consentimento
-from accounts.models import ONBOARDING_DONE, Consentimento, Profile, User
+from accounts.models import Consentimento, Profile, User
 from accounts.test_tres_etapas import ETAPA1_SEM_CAIXAS as ETAPA1, ETAPA2, ETAPA3, etapa
 
 CAIXAS = {"saude": "on", "transferencia": "on"}

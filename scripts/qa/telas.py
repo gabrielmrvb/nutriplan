@@ -18,9 +18,7 @@ altura da página, rolagem horizontal, alvos de toque abaixo de 44px, textos
 abaixo de 11px e a largura útil do conteúdo — é o número que prova o "depois".
 """
 import json
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent.parent

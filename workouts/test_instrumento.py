@@ -26,14 +26,13 @@ mesma natureza — medir e limpar sem mudar o que a pessoa vê:
   reenviaria.
 """
 import io
-import re
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
 from django.core.management import call_command
 from django.db import connection
-from django.test import SimpleTestCase, TestCase, tag
+from django.test import TestCase, tag
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone

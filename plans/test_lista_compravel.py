@@ -25,7 +25,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from catalog.models import Food, MealTemplateItem
-from plans import compra, services, shopping
+from plans import compra, services
 from plans.tests import create_complete_user
 
 #: "40 g" ou "20 ml" sozinhos — nada de estado, unidade ou embalagem em volta.

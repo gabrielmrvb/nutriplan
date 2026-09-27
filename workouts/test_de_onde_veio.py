@@ -15,7 +15,6 @@ CA-03 / NOVO-06: na ficha, o número da linha ficava fora do link — a
 área tocável da linha (ver + fazer) passa de 90 %.
 """
 
-from django.test import TestCase
 from django.urls import reverse
 
 from . import services

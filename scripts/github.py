@@ -624,7 +624,7 @@ def cmd_segredo(args):
     if len(args) != 2:
         raise SystemExit("uso: segredo <NOME> <arquivo-com-o-valor>")
     nome, caminho = args
-    from base64 import b64decode, b64encode
+    from base64 import b64encode
     from pathlib import Path
 
     try:

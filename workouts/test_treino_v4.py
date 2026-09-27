@@ -18,10 +18,7 @@ número que a tela de treino mostra.
 uma troca que reinicie série, cronômetro ou progresso transformaria uma
 curiosidade ("o que isso trabalha?") em perda de treino.
 """
-import re
-from pathlib import Path
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import TestCase

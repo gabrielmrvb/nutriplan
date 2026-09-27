@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 from accounts.consentimento import ConsentimentoForm
 from django.core.paginator import Paginator
-from django.db.models import Exists, Max, OuterRef, Q
+from django.db.models import Exists, Max, OuterRef
 from django.views.generic import TemplateView
 
-from accounts.models import ClassificacaoDeConta, Pilar, Profile
+from accounts.models import ClassificacaoDeConta, Pilar
 from accounts.templatetags.navegacao import ABAS, endereco_da_area
 from plans.models import MealLog, NutritionPlan
 from workouts.models import ExerciseLog, TrainingPlan
@@ -25,7 +25,7 @@ from .acesso import PainelDeGestaoMixin
 from catalog.ilustracoes import FAMILIAS as FAMILIAS_DE_ILUSTRACAO
 
 from .forms_vitrine import formulario_com_erro, formulario_limpo
-from .metricas import JANELA_CURTA, User, numeros_do_painel
+from .metricas import User, numeros_do_painel
 
 #: `sistema` é o regime que o aparelho prefere (Papel num sistema claro,
 #: Ferro num escuro — CORTE, 16/09/2026); `ferro` força o Ferro por cima.

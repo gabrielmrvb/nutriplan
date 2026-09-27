@@ -16,7 +16,6 @@ O que este arquivo prende:
 * o helper da fila prova o staging depois do merge e nunca promove sozinho
   sem ser pedido (`--promover`); `scripts/github.py promover <sha>` existe.
 """
-import re
 from pathlib import Path
 
 from django.test import SimpleTestCase, TestCase, override_settings

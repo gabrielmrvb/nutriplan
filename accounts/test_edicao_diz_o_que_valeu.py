@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from accounts.models import Equipamento, Profile, User
 from accounts.test_tres_etapas import ETAPA1, ETAPA2, ETAPA3, etapa
-from workouts.models import Exercise, ExerciseLog, SessionExercise, TrainingPlan
+from workouts.models import ExerciseLog, SessionExercise, TrainingPlan
 
 
 class EdicaoDizOQueValeuTests(TestCase):

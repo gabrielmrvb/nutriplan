@@ -30,7 +30,7 @@ esticado por CSS. Isso faz o gráfico escalar de 320 a 1280 px sem recalcular
 nada no servidor — e é por isso que a largura aqui é uma constante e não um
 parâmetro que a tela precise adivinhar.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 #: Unidades de usuário do viewBox. Proporção 2:1, que é a que cabe num cartão
 #: a 390px sem virar faixa fina nem comer meia tela.

@@ -18,11 +18,8 @@ E há um segundo tempo no mesmo POST: `dietary_tags` é ManyToMany, e um
 Quem remontar o cardápio antes disso lê as restrições VELHAS e remonta o
 mesmo cardápio — o defeito de volta, agora com uma consulta a mais.
 """
-from decimal import Decimal
 
-from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
 
 from catalog.models import DietaryTag, MealCategory, MealTemplate, TagKind
 from plans import services

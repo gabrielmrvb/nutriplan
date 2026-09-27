@@ -18,14 +18,13 @@ a doutrina do `TREINO.md`, ela tem 4 de peito e 3 de tríceps POR OPÇÃO — o
 teste dourado (`test_ficha_de_verdade`) é quem cobra a ficha de academia.
 """
 from datetime import timedelta
-from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay, User
+from accounts.models import DuracaoTreino, SplitPreference, TrainingDay
 from plans.tests import create_complete_user
 from workouts import opcoes, services
 from workouts.models import EscolhaDeTreino, ExerciseLog, SessionExercise, TrainingPlan, familia_de_opcoes

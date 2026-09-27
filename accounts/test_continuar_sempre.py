@@ -18,7 +18,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import TestCase
-from django.urls import reverse
 
 from accounts.models import User
 from accounts.test_tres_etapas import ETAPA1, ETAPA2, etapa

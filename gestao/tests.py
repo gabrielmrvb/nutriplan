@@ -6,7 +6,7 @@ o significado dos números, que é onde este tipo de tela mente com mais
 facilidade. Por último o custo, medido desde a primeira versão em vez de
 depois que ficar lento.
 """
-from datetime import date, time, timedelta
+from datetime import date, time
 from decimal import Decimal
 
 from accounts.models import CAMPO_DO_PILAR

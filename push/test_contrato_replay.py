@@ -37,7 +37,6 @@ nº de séries). Isso pega linha duplicada e soma dobrada — não pegaria um ca
 incrementado dentro de uma linha que já existe.
 """
 import re
-from decimal import Decimal
 from pathlib import Path
 
 from django.core.management import call_command

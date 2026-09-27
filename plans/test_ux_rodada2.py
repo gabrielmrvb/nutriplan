@@ -24,9 +24,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import Pilar, TrainingDay
+from accounts.models import Pilar
 from plans import services, streaks
-from plans.models import HydrationLog
 from plans.tests import create_complete_user
 
 

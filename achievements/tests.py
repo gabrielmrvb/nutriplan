@@ -17,7 +17,6 @@ from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
 
-from accounts.models import TrainingDay
 from workouts import services as treino_services
 from workouts.models import Exercise, ExerciseLog
 from workouts.tests import create_user
