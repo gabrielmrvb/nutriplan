@@ -69,8 +69,21 @@
           <span class="legenda-item"><span class="legenda-cor legenda-cor--descanso"></span>{% translate "descanso combinado" %}</span>
           <span class="legenda-item"><span class="legenda-cor legenda-cor--faltou"></span>{% translate "combinado, sem série" %}</span>
         {% else %}
-          <span class="legenda-item"><span class="legenda-cor legenda-cor--n0"></span>{% translate "sem registro" %}</span>
-          <span class="legenda-item"><span class="legenda-cor legenda-cor--n4"></span>{% translate "dia cheio" %}</span>
+          {% comment %}
+            A cor escura quer dizer uma coisa em cada área: aderência cheia no
+            cardápio, meta batida na água e a corrida mais longa do período na
+            corrida. Era "dia cheio" nas três (QA de 27/09/2026, M6).
+          {% endcomment %}
+          {% if area.chave == 'corrida' %}
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n0"></span>{% translate "sem corrida" %}</span>
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n4"></span>{% translate "a mais longa do período" %}</span>
+          {% elif area.chave == 'agua' %}
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n0"></span>{% translate "sem registro" %}</span>
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n4"></span>{% translate "meta batida" %}</span>
+          {% else %}
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n0"></span>{% translate "sem registro" %}</span>
+            <span class="legenda-item"><span class="legenda-cor legenda-cor--n4"></span>{% translate "dia cheio" %}</span>
+          {% endif %}
         {% endif %}
       </p>
     </div>

@@ -7,6 +7,9 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 ## 2026-09-27
 
 - **A última etapa do cadastro respira.** O resumo das suas respostas ganhou espaço antes da primeira pergunta, e "Não quero priorizar agora" deixou de mostrar uma caixa de ícone vazia.
+- **A mesma corrida tem o mesmo número em toda tela.** A lista dizia "5,20 km" e a Home "5,2 km". Agora a distância aparece sempre com até duas casas e sem zero sobrando: 5,2 · 5,23 · 10.
+- **A sequência não pede o que você acabou de fazer.** Com a sequência em zero, a Home convidava a "registrar uma refeição ou um copo d'água" mesmo depois de você registrar. Agora, assim que há registro no dia, ela diz o que ainda falta para o dia contar.
+- **O Progresso conta o seu primeiro dia.** Com refeições marcadas hoje, o cartão do cardápio mostra quantas você já fez ("1/1 · hoje, até agora") em vez de pedir que você marque uma. A água do primeiro dia não ganha mais uma seta de tendência, a legenda da corrida diz "a mais longa do período" e a da água diz "meta batida".
 - **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
 
 ## 2026-09-24

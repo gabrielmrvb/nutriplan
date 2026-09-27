@@ -169,7 +169,7 @@
               Corrida
             </h3>
             {% if ultima_corrida %}
-              <p class="painel__valor num">{{ corrida_km|floatformat:1 }}<span class="painel__de"> km</span></p>
+              <p class="painel__valor num">{{ corrida_m|distancia }}<span class="painel__de"> km</span></p>
               <p class="painel__detalhe">Última corrida em {{ ultima_corrida.comecou_em|date:"d/m" }}</p>
             {% else %}
               <p class="painel__valor painel__valor--palavra">Nenhuma ainda</p>

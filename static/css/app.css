@@ -2927,6 +2927,26 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    margem, "Divisão · 2 grupos por dia" encostava em "Que tipo de cardápio
    você quer?" (QA de 27/09/2026, M7). */
 .resumo-etapas { margin-bottom: var(--espaco-7); }
+/* A MESMA LINHA EM <ul>. O Progresso usa `.data-list` numa lista (melhores
+   cargas, o que mais você registrou), e `__item`, `__nome` e `__valor` não
+   existiam aqui: a lista saía com marcador e com o valor colado no nome
+   (QA de 27/09/2026, M6). */
+ul.data-list { padding: 0; list-style: none; }
+
+.data-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-1) var(--espaco-6);
+  padding: var(--espaco-3) 0;
+  border-bottom: 1px solid var(--fio);
+  font-size: var(--texto-md);
+}
+
+.data-list__item:last-child { border-bottom: 0; padding-bottom: 0; }
+.data-list__nome { flex: 1 1 auto; min-width: 0; }
+.data-list__valor { margin-left: auto; font-weight: 700; text-align: right; }
 
 /* ==========================================================================
    14. Histórico
