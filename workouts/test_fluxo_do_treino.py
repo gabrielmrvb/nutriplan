@@ -66,19 +66,23 @@ class BaseDoFluxo(TestCase):
 
 
 def tornar_hoje(user, letra):
-    """Faz `letra` ser o RECOMENDADO de hoje. Devolve a sessão de `letra`
-    vestida em hoje.
+    """Faz `letra` ser a sessão de HOJE, pela ESCOLHA do dia — sem fabricar
+    treino nenhum. Devolve a sessão de `letra` vestida em hoje.
 
-    SEQUÊNCIA POR PRESENÇA (24/09/2026): "qual treino é hoje" saiu da POSIÇÃO
-    no calendário e passou a ser a letra seguinte à ÚLTIMA FEITA. Então, em vez
-    de mover `weekday` ou `inicio_do_ciclo`, este helper REGISTRA A LETRA
-    ANTERIOR DO CICLO COMO FEITA ONTEM (escolha do dia + uma série) — e a
-    recomendação de hoje passa a ser `letra`. A primeira letra do ciclo já é a
-    recomendada sem histórico, então para ela nada é registrado.
+    SEQUÊNCIA POR PRESENÇA (24/09/2026): "qual treino é hoje" é a escolha do
+    dia, senão a letra seguinte à ÚLTIMA FEITA. Este helper usa a ESCOLHA: a
+    pessoa escolheu `letra` hoje. NÃO registra a letra anterior como feita —
+    inventar um treino que a pessoa não fez sujaria histórico, recordes e a
+    sequência (correção do dono, antes do PR). A escolha do dia (`EscolhaDeTreino`,
+    SEM série) vence a recomendação e NÃO conta como presença: nenhuma série é
+    criada, e amanhã a sequência segue igual.
+
+    A opção pinada é `opcoes[0]`, que é exatamente a variação de uma letra sem
+    histórico (`contagem == 0`) — o mesmo que a recomendação daria.
 
     Cobertura que muda com o calendário é pior que cobertura ausente (o motivo
     original deste helper): aqui o dia de hoje precisa ser dia de treino, e a
-    letra vem da presença — o mesmo em qualquer dia da semana.
+    letra é a escolhida — a mesma em qualquer dia da semana.
     """
     hoje = timezone.localdate()
     plano = user.training_plans.get(is_active=True)
@@ -87,19 +91,31 @@ def tornar_hoje(user, letra):
     assert letra in letras, "a divisão não tem a letra %s" % letra
     dias = services.dias_de_treino_de(linhas)
     assert hoje.weekday() in dias, "hoje precisa ser dia de treino"
-    # Zera qualquer presença deste plano para o resultado ser exato.
-    EscolhaDeTreino.objects.filter(user=user).delete()
-    idx = letras.index(letra)
-    if idx != 0:
-        anterior = letras[(idx - 1) % len(letras)]
-        sessao_ant = next(s for s in linhas if s.label == anterior)
-        ontem = hoje - timedelta(days=1)
-        EscolhaDeTreino.objects.create(user=user, date=ontem, session=sessao_ant, opcao=1)
-        ExerciseLog.objects.create(
-            user=user, exercise=sessao_ant.exercises.all()[0].exercise, date=ontem,
-            set_number=1, weight_kg=Decimal("40"), reps=10,
-        )
+    canonica = next(s for s in sorted(linhas, key=lambda s: s.order) if s.label == letra)
+    services.registrar_escolha(user, canonica, canonica.opcoes[0], dia=hoje)
     return services.sessao_do_dia(plano, hoje, linhas, user=user)
+
+
+class TornarHojeNaoFabricaTreinoTests(BaseDoFluxo):
+    """O helper `tornar_hoje` põe a letra em hoje pela ESCOLHA, sem inventar
+    treino: nenhum `ExerciseLog` novo, e a letra do dia é a pedida (correção
+    do dono, 24/09/2026 — registrar a anterior como feita sujaria histórico,
+    recordes e a sequência)."""
+
+    def test_nenhum_registro_de_execucao_novo_e_a_letra_do_dia_e_a_esperada(self):
+        user = create_user(email="tornar@exemplo.com")
+        services.create_routine(user)
+        antes = ExerciseLog.objects.filter(user=user).count()
+        sessao = tornar_hoje(user, "C")
+        self.assertEqual(sessao.label, "C")
+        plano = services.get_active_routine(user)
+        self.assertEqual(
+            services.sessao_do_dia(plano, timezone.localdate(), user=user).label, "C"
+        )
+        self.assertEqual(
+            ExerciseLog.objects.filter(user=user).count(), antes,
+            "tornar_hoje não pode criar registro de execução",
+        )
 
 
 def sessao_de_hoje(user):

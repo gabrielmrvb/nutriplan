@@ -3741,10 +3741,17 @@ def registrar_escolha(user, sessao, opcao, versao=VersaoDoTreino.COMPLETO, dia=N
         defaults={"session": sessao, "opcao": opcao, "versao": versao},
     )
     if not criada and (escolha.session_id != sessao.pk or escolha.opcao != opcao or escolha.versao != versao):
+        campos = ["session", "opcao", "versao"]
+        # Trocou de LETRA (24/09/2026): o "Encerrar" de uma letra não pode
+        # herdar para outra — senão a nova nasceria "encerrada" (placar em vez
+        # do treino). Limpa o carimbo quando a sessão muda.
+        if escolha.session_id != sessao.pk and escolha.encerrado_em is not None:
+            escolha.encerrado_em = None
+            campos.append("encerrado_em")
         escolha.session = sessao
         escolha.opcao = opcao
         escolha.versao = versao
-        escolha.save(update_fields=["session", "opcao", "versao"])
+        escolha.save(update_fields=campos)
     return escolha
 
 
@@ -3775,13 +3782,13 @@ def registrar_escolha_de_letra(user, plan, letra, dia=None, confirmar=False):
     return escolha, False
 
 
-def aviso_de_treino_repetido(user, plan, letra_escolhida, dia=None, seq=None):
+def aviso_de_treino_repetido(user, plan, letra_escolhida, dia=None, seq=None, sessoes=None):
     """Um aviso — NUNCA um bloqueio (24/09/2026) — quando a pessoa escolhe uma
     letra que não é a recomendada e cujo grupo principal foi treinado nas
     últimas 48h. Devolve a frase, ou `None`. A pessoa faz assim mesmo: o app
-    orienta, não decide por ela."""
+    orienta, não decide por ela. `sessoes` já carregadas evitam uma consulta."""
     dia = dia or timezone.localdate()
-    sessoes = list(plan.sessions.all())
+    sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
     letras = letras_do_ciclo(sessoes)
     if letra_escolhida not in letras:
         return None
