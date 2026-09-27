@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-27
 
+- **A sequência não pede o que você acabou de fazer.** Com a sequência em zero, a Home convidava a "registrar uma refeição ou um copo d'água" mesmo depois de você registrar. Agora, assim que há registro no dia, ela diz o que ainda falta para o dia contar.
 - **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
 
 ## 2026-09-24
