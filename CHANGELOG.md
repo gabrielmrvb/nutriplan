@@ -14,7 +14,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
-- **"Melhores cargas", e recorde é o que você superou.** O Progresso listava a sua maior carga de cada exercício sob o título "Seus recordes" — e as Conquistas, na mesma conta e no mesmo dia, diziam "0 recordes". Agora o título diz o que a lista é, e a palavra "recorde" aparece só na carga que passou de uma anterior.
+- **"Melhores cargas", e recorde é o que você superou.** O Progresso listava a sua maior carga de cada exercício sob o título "Seus recordes" — e as Conquistas, na mesma conta e no mesmo dia, diziam "0 recordes". Agora o título diz o que a lista é, e a palavra "recorde" aparece só na carga que passou do seu melhor anterior.
 - **A lista de compras diz o que cada botão traz.** "Opção A" e "Opção B" viraram "Com a sugestão do dia" e "Com a outra opção" — a letra não aparece mais em tela nenhuma.
 - **Estado vazio não grita.** "Nenhuma ainda", "Sem pesagem", "Sem ficha" e "Descanso" saíram da fonte de número, de 72 px, e viraram texto.
 - **O Progresso fala de dias previstos**, e não de "dias combinados": os dias de treino você declarou no cadastro, não combinou com ninguém.

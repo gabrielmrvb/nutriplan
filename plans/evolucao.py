@@ -25,8 +25,8 @@ acima.
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from django.db.models import BooleanField, Case, F, Max, OuterRef, Subquery, Value, When
 from django.db.models import Count as _Count
-from django.db.models import Exists, OuterRef
 from django.utils import timezone
 
 from plans.streaks import primeiro_dia_da_conta
@@ -466,8 +466,9 @@ def recordes(user, quantos=5) -> list:
     período. Marca que expira com o seletor não é marca; o que o período
     recorta é a evolução.
 
-    `e_recorde` diz se aquela carga SUPEROU uma data anterior, que é a mesma
-    régua de `achievements.services` ("estreia não é recorde", `date__lt`).
+    `e_recorde` diz se aquela carga SUPEROU O MÁXIMO das datas anteriores,
+    que é a régua de `achievements.services` ("estreia não é recorde",
+    `weight_kg > maior anterior`, `date__lt`).
     Sem ela a tela mentia: a varredura de 24/09/2026 mediu uma conta com UMA
     série (40 kg × 6) e viu o Progresso escrever "Seus recordes · 40 kg" ao
     lado das Conquistas dizendo "0 recordes" — as duas certas dentro da
@@ -476,23 +477,47 @@ def recordes(user, quantos=5) -> list:
 
     `DISTINCT ON` é do PostgreSQL, que é o banco deste projeto em dev,
     staging e produção: UMA consulta devolve a linha inteira do máximo de
-    cada exercício, com data — e o `Exists` anotado viaja nela, sem segundo
-    passe (há teste de `assertNumQueries`).
+    cada exercício, com data — e a subconsulta do máximo anterior viaja
+    nela, sem segundo passe (há teste de `assertNumQueries`).
     """
     from workouts.models import ExerciseLog
 
-    # Uma data ANTERIOR com carga menor: é o que transforma "a minha maior
-    # carga" em "eu superei o que eu fazia". Mesmo dia não conta — subir a
-    # anilha entre a primeira e a segunda série é aquecimento, não marca.
-    passou_o_que_fazia = ExerciseLog.objects.filter(
-        user=user,
-        exercise_id=OuterRef("exercise_id"),
-        date__lt=OuterRef("date"),
-        weight_kg__lt=OuterRef("weight_kg"),
+    # O MÁXIMO de todas as datas anteriores, e não "existe alguma menor".
+    #
+    # A primeira versão usava `Exists(... weight_kg__lt ...)`, e a revisão
+    # adversarial desta missão achou o caso em que as duas contas divergem —
+    # um treino comum, não um caso de laboratório: 60 kg em julho (o pico),
+    # 50 em agosto (um deload) e 60 de novo em setembro. O `DISTINCT ON`
+    # escolhe a linha mais RECENTE entre as empatadas em 60, e ali existe SIM
+    # uma data anterior com carga menor (o deload) — então `Exists` dizia
+    # "recorde" para um dia que só EMPATOU com o próprio pico. É o mesmo
+    # defeito que o item 5 veio consertar, com outro gatilho.
+    #
+    # `achievements.services.supera_recorde` compara com o máximo anterior
+    # (`weight_kg > agregado["maior"]`), e esta é a mesma régua. Sem data
+    # anterior a subconsulta é NULL, e `Case` devolve `False`: estreia não é
+    # recorde. Mesmo dia continua fora, pelo `date__lt`.
+    maior_antes = (
+        ExerciseLog.objects.filter(
+            user=user,
+            exercise_id=OuterRef("exercise_id"),
+            date__lt=OuterRef("date"),
+        )
+        .values("exercise_id")
+        .annotate(maior=Max("weight_kg"))
+        .values("maior")[:1]
     )
     melhores = (
         ExerciseLog.objects.filter(user=user, weight_kg__gt=0)
-        .annotate(e_recorde=Exists(passou_o_que_fazia))
+        .annotate(maior_antes=Subquery(maior_antes))
+        .annotate(
+            e_recorde=Case(
+                When(maior_antes__isnull=True, then=Value(False)),
+                When(weight_kg__gt=F("maior_antes"), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        )
         .order_by("exercise_id", "-weight_kg", "-date")
         .distinct("exercise_id")
         .values("exercise__name", "weight_kg", "reps", "date", "e_recorde")

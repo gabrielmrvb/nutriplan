@@ -1499,9 +1499,15 @@ Agachamento livre 40 kg" e "0 recordes". As duas certas dentro da própria
 definição, e a palavra igual nas duas. Decisão do dono: **a primeira série
 não é recorde em lugar nenhum**. A lista virou "Melhores cargas" — título
 que diz o que ela É — e `evolucao.recordes` devolve `e_recorde` por linha,
-um `Exists` de registro anterior do mesmo exercício com carga MENOR e data
-ANTERIOR (`date__lt`: subir a anilha entre a série 1 e a 2 do mesmo treino é
-aquecimento, não marca). O `Exists` viaja no `DISTINCT ON` que já existia —
+comparando com o MÁXIMO das datas anteriores daquele exercício (`date__lt`:
+subir a anilha entre a série 1 e a 2 do mesmo treino é aquecimento, não
+marca). **É o máximo, e não "existe alguma menor"** — a revisão adversarial
+achou onde as duas contas divergem, e não é caso de laboratório: 60 kg em
+julho, 50 em agosto (deload), 60 em setembro; o `DISTINCT ON` fica com a
+linha mais recente das empatadas em 60, e ali existe SIM uma data anterior
+com carga menor, então o `Exists` chamava de recorde um dia que só empatou
+com o próprio pico. `achievements` sempre comparou com o máximo. A
+subconsulta viaja no `DISTINCT ON` que já existia —
 UMA consulta, com teste de `assertNumQueries`, porque `plans:history` tem
 teto medido. Preço na tela, medido a 390: a `pill` de "recorde" empurra o
 valor para a segunda linha nas linhas de nome curto (25 → 52 px); para quem

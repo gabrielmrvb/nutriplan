@@ -122,6 +122,39 @@ class RecordeEUmaMarcaTests(TestCase):
 
         self.assertFalse(evolucao.recordes(self.pessoa)[0]["e_recorde"])
 
+    def test_empatar_o_pico_depois_de_um_deload_nao_e_recorde(self):
+        """Pico, vale, e o pico de novo — o caso que a revisão adversarial
+        desta missão achou, e que é treino comum, não laboratório.
+
+        60 kg em julho, 50 em agosto (deload), 60 em setembro. O
+        `DISTINCT ON` escolhe a linha mais RECENTE entre as empatadas em 60,
+        e ali EXISTE uma data anterior com carga menor (o deload) — a
+        primeira versão marcava "recorde" num dia que só empatou com o
+        próprio pico. A régua é o MÁXIMO anterior, como em `achievements`.
+        """
+        self._serie(self.hoje - timedelta(days=60), "60")
+        self._serie(self.hoje - timedelta(days=30), "50")
+        self._serie(self.hoje, "60")
+
+        linha = evolucao.recordes(self.pessoa)[0]
+        self.assertEqual(linha["weight_kg"], Decimal("60"))
+        self.assertEqual(linha["date"], self.hoje)
+        self.assertFalse(
+            linha["e_recorde"],
+            "empatar o próprio pico depois de um deload não é marca nova",
+        )
+
+    def test_depois_do_deload_superar_o_pico_e_recorde(self):
+        """O contrapeso do teste acima: quem VOLTA e passa do pico tem
+        marca — senão a correção viraria "nunca mais é recorde"."""
+        self._serie(self.hoje - timedelta(days=60), "60")
+        self._serie(self.hoje - timedelta(days=30), "50")
+        self._serie(self.hoje, "62.5")
+
+        linha = evolucao.recordes(self.pessoa)[0]
+        self.assertEqual(linha["weight_kg"], Decimal("62.5"))
+        self.assertTrue(linha["e_recorde"])
+
     def test_duas_series_no_mesmo_dia_nao_viram_recorde(self):
         """A régua é DATA anterior, não série anterior: subir a carga entre a
         primeira e a segunda série do mesmo treino é aquecimento, não marca —
