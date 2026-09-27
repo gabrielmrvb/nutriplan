@@ -2923,6 +2923,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .data-list--recorte > div:first-child { padding-top: 0; }
 
+/* O resumo da etapa 3 do cadastro termina e o próximo campo começa: sem
+   margem, "Divisão · 2 grupos por dia" encostava em "Que tipo de cardápio
+   você quer?" (QA de 27/09/2026, M7). */
+.resumo-etapas { margin-bottom: var(--espaco-7); }
+
 /* ==========================================================================
    14. Histórico
    ========================================================================== */
