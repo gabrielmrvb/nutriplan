@@ -479,6 +479,21 @@
      ver o `body` sem `overflow-x`). Toda âncora precisa pousar ABAIXO dela:
      medido, 60px a 16px de fonte. */
   --appbar-h: 3.75rem;
+  /* A EXECUÇÃO TEM UMA FAIXA LIVRE, e ela tem nome (24/09/2026).
+     `--exec-bloco` é o teto do bloco preso de registro e `--exec-descanso`
+     a altura do relógio de descanso. Os dois existem como token porque
+     TRÊS regras precisam do mesmo número — o teto do bloco, o respiro de
+     rolagem das pastilhas e o `max-height` do vídeo. Escrito em cada uma,
+     o número divergiria na primeira vez que o bloco mudasse de altura, e
+     o vídeo voltaria a ser coberto sem ninguém perceber. */
+  --exec-bloco: 9rem;
+  --exec-descanso: 0rem;
+  /* A CABEÇA DO EXERCÍCIO: nome (44px) + músculos (17px) + respiro. Medida a
+     375 e a 390 em 24/09/2026 — do topo do `h1` ao topo da demonstração dão
+     70px. Ela entra no teto do vídeo porque a pessoa precisa saber DE QUE
+     exercício é o vídeo que está vendo: abrir a demonstração não pode empurrar
+     o nome para trás do cabeçalho. */
+  --exec-cabeca: 4.5rem;
   /* Quanto o `.container` precisa de `padding-bottom` a mais quando o aviso
      de conquista está no ar (seção 40) — o mesmo mecanismo do convite de
      instalação. Entram como TOKEN, e não crus na declaração, para não somar
@@ -6430,13 +6445,17 @@ body.montando { overflow: hidden; }
   font-weight: 700;
 }
 
-/* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
-   eco, o nome do exercício para onde ele leva. O eco existe para o toque não
-   ser às cegas — quem vai "continuar de onde parou" quer saber onde é isso
-   antes de rolar. */
+/* O botão principal ocupa a largura toda. Até 22/09/2026 carregava duas
+   linhas — o verbo e, em eco, o nome do exercício —, e por isso tinha
+   `flex-direction: column`; o eco saiu quando a ficha virou lista (a
+   execução já diz onde a pessoa está). A coluna ficou de sobra e só foi
+   achada em 24/09/2026, medida em produção: `.btn` é `inline-flex`, e cada
+   texto solto do rótulo ("Continuar treino (", o número, " de ", o outro
+   número, ")") virava um item de flex PRÓPRIO — cinco linhas, com o `)`
+   fora do `clip-path` do botão. O template agora entrega UM filho só
+   (`templates/workouts/routine.html`), então a coluna nem seria mais
+   necessária para o eco — mas ela não volta: nada aqui precisa empilhar. */
 .btn--hoje {
-  flex-direction: column;
-  gap: .1rem;
   min-height: 3.4rem;
   font-size: var(--texto-base);
 }
@@ -6792,13 +6811,28 @@ body.montando { overflow: hidden; }
   line-height: 1.4;
 }
 
-/* Aberta: o player ocupa a caixa, presa a 60vh; vertical (Shorts) fica 3/4. */
+/* ABERTA: O PLAYER CABE NA FAIXA LIVRE (24/09/2026).
+
+   Era `60vh` — 506px numa tela de 844 —, um número sem relação com o espaço
+   que sobra. Medido a 390×844: o vídeo vertical saía com 391px de altura numa
+   faixa livre de 355, e o bloco preso cobria o pé dele; a 375×667 nem o botão
+   que o abre era alcançável.
+
+   A conta agora é a faixa: altura VISÍVEL da janela (`100dvh`, que desconta a
+   barra do navegador no celular — `vh` não desconta) menos o cabeçalho, menos
+   o descanso quando ele está na tela, menos o bloco preso, menos um respiro.
+   O fundo preto fica: vídeo vertical em caixa 16/9 mostra tarja, e tarja preta
+   é o que se espera. */
 .demo--aberta {
   display: block;
   aspect-ratio: 16 / 9;
-  max-height: 60vh;
+  max-height: calc(100dvh - var(--appbar-h) - var(--exec-descanso)
+                   - var(--exec-cabeca) - var(--exec-bloco) - var(--espaco-7));
   background: #000;
 }
+/* O relógio de descanso está na tela: 64px a menos de faixa. A classe vem do
+   servidor (`{% if estado.descanso_restante %}`), nunca de `:has()`. */
+.agora--com-descanso { --exec-descanso: 4rem; }
 .demo--aberta.demo--vertical { aspect-ratio: 3 / 4; }
 
 .demo--aberta > iframe,
@@ -7045,6 +7079,10 @@ body.montando { overflow: hidden; }
   z-index: var(--camada-flutuante);
   padding: var(--espaco-2) 0 var(--espaco-2);
   background: var(--surface);
+  /* O TETO. Ele media 335px porque carregava as pastilhas e o "Anotar algo";
+     com só os três controles fica em ~130, e o token é o que impede a próxima
+     linha de conteúdo de devolvê-lo ao tamanho antigo em silêncio. */
+  max-height: var(--exec-bloco);
   /* Alvo de `#registro` depois de cada série (U7): a rolagem para aqui
      deixa "Série N de M" e o relógio do descanso visíveis acima, em vez de
      colar o bloco no topo da tela. */
@@ -7052,11 +7090,19 @@ body.montando { overflow: hidden; }
 }
 /* Foco programático no alvo do fragmento: é caixa, não controle — sem anel. */
 .agora__registro:focus { outline: none; }
-/* Sem barra de abas, o bloco cola no rodapé: reservava 94px para uma barra
-   que a partir daqui é `display: none` (avaliação de 16/09/2026, B32,
-   medido a 1280px). DEPOIS da regra geral, senão o `bottom` dela vence. */
-@media (min-width: 60rem) {
-  .agora__registro { bottom: 0; }
+/* SEM BARRA DE ABAS, O BLOCO COLA NO RODAPÉ — e quem decide é a CLASSE DO
+   SERVIDOR, não a largura (24/09/2026).
+
+   Isto era uma media query de 60rem, escrita quando a tabbar sumia só no
+   desktop. Mas `ModoTreinoView` põe `sem_tabbar = True` desde 20/09/2026: a
+   execução não desenha barra de abas em LARGURA NENHUMA, e no celular o bloco
+   continuou reservando 94px para uma barra que não existe. Medido a 375×667:
+   sobravam 178px de faixa livre, e "ver vídeo" ficava debaixo do bloco.
+
+   `body:not(.tem-tabbar)` é a mesma chave que `.container` e `.fila` já usam.
+   DEPOIS da regra geral, senão o `bottom` dela vence. */
+body:not(.tem-tabbar) .agora__registro {
+  bottom: env(safe-area-inset-bottom);
 }
 /* QUEM É `sticky` É O BLOCO, e as pastilhas estão dentro dele. Só o
    formulário ficava preso, e na primeira abertura do dia — cabeçalho mais
@@ -7065,15 +7111,33 @@ body.montando { overflow: hidden; }
    do toque (avaliação de 16/09/2026, B32; depois da primeira série sobravam
    9–10px). Dentro do bloco, o que se toca e o que muda com o toque ficam na
    mesma caixa, e nada dela cobre a fileira. */
-.agora__registro .series__lista { margin-bottom: var(--espaco-3); }
+/* O RESPIRO DE ROLAGEM, que é o que substitui "engolir a fileira" (B32).
+
+   As pastilhas voltaram para o fluxo e o bloco é `sticky`: rolar até elas as
+   deixaria atrás dele. `scroll-margin-bottom` do tamanho do bloco faz toda
+   rolagem programática parar com a fileira ACIMA dele — é a mesma ideia do
+   `scroll-margin-top` que o cabeçalho já usa, do outro lado.
+
+   E a demonstração desconta também o cabeçalho e o descanso: é para lá que a
+   tela rola quando o vídeo abre. */
+.series__historico,
+.series__lista { scroll-margin-bottom: calc(var(--exec-bloco) + var(--espaco-4)); }
+.agora__topo,
+.demo {
+  scroll-margin-top: calc(var(--appbar-h) + var(--exec-descanso) + var(--espaco-3));
+  scroll-margin-bottom: calc(var(--exec-bloco) + var(--espaco-4));
+}
+.series__historico .series__lista { margin-bottom: var(--espaco-3); }
 .agora__registro .aguardando-rede { margin: 0 0 var(--espaco-3); }
 .agora__registro .agora__extra { margin-top: 0; }
+/* UMA LINHA DE CAMPO, e não duas (24/09/2026). "reps" tinha linha só dela —
+   ~70px que a faixa livre de 178 não tem. A coluna da carga cede o espaço: ela
+   era `1fr` e passa a dividir com reps, que precisa de três dígitos. */
 .registro--agora {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(3.5rem, .6fr);
   grid-template-areas:
-    "menos carga mais"
-    "reps  reps  reps"
-    "cta   cta   cta";
+    "menos carga mais reps"
+    "cta   cta   cta  cta";
   margin-top: 0;
   padding: 0;
   background: var(--surface);
@@ -7755,6 +7819,7 @@ body.montando { overflow: hidden; }
   left: .8rem;
   right: .8rem;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
+  /* (o desconto da barra ausente vem logo abaixo, pela classe do servidor) */
   z-index: var(--camada-aviso);
   padding: var(--espaco-5) var(--espaco-6);
   border: 1px solid var(--fio-forte);
@@ -7762,6 +7827,14 @@ body.montando { overflow: hidden; }
   background: var(--surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
+/* Sem barra de abas (a execução do treino), o aviso desce junto: ele segue
+   `.install`, e `.install` já é `body.tem-tabbar`. Aqui a regra base não
+   podia virar `body.tem-tabbar .conquista` sem reescrever o bloco inteiro,
+   então o desconto vem por classe, como em `.fila`. */
+body:not(.tem-tabbar) .conquista {
+  bottom: calc(env(safe-area-inset-bottom) + .6rem);
+}
+
 
 /* No FLUXO da execução (`conquista.js` move a caixa para baixo do botão
    de concluir, 22/09/2026): nada fixo, nada por cima do botão. */
@@ -10374,3 +10447,48 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .coorte tbody tr:last-child th,
 .coorte tbody tr:last-child td { border-bottom: 0; }
 .coorte .hint { font-size: var(--texto-xs); }
+
+/* ============================================================================
+   SEQUÊNCIA POR PRESENÇA — o treino de hoje se escolhe (24/09/2026)
+   O recomendado é a letra seguinte à última feita; a pessoa pode fazer outro
+   treino, e a tira da semana é uma projeção (feito · pulado · hoje · futuro).
+   Uma seção no fim porque é conteúdo só do painel de treino.
+   ========================================================================== */
+.hoje__recomendado { color: var(--text-dim); font-weight: 600; }
+
+/* Aviso, nunca bloqueio: um grupo repetido em menos de 48h. Informativo,
+   não erro — a cor da carga (`--brasa`), não a de perigo. */
+.hoje__aviso {
+  margin: var(--espaco-2) 0 0;
+  color: var(--brasa);
+  font-size: var(--texto-sm);
+}
+
+.hoje__trocar { margin-top: var(--espaco-3); }
+.hoje__trocar-lista {
+  list-style: none;
+  margin: var(--espaco-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--espaco-2);
+}
+/* O botão de cada letra: badge + nome, alinhados à esquerda. É um `.btn`, e o
+   retorno ao toque vem dele; aqui só o arranjo, casado pelo contexto da lista
+   para não criar uma classe clicável própria. `min-width: 0` para o nome longo
+   não vazar. */
+.hoje__trocar-lista .btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--espaco-3);
+  text-align: left;
+}
+.hoje__trocar-nome { min-width: 0; }
+.hoje__confirmar { margin-top: var(--espaco-3); }
+
+/* A tira por presença: o dia FEITO confirma a letra na cor da marca; o dia
+   PULADO recua para o fundo (não foi feito e não é o de hoje). "hoje" e
+   "futuro" seguem o desenho de `--training`. */
+.day-chip--feito .day-chip__label { color: var(--brand); }
+.day-chip--pulado { opacity: .55; }
+.day-chip--pulado .day-chip__label { color: var(--text-dim); }

@@ -74,24 +74,53 @@ class OCabecalhoDaExecucaoTests(TestCase):
         self.assertNotIn("Opção", html.split("agora__sessao-rotulo", 1)[1].split("</p>", 1)[0])
         self.assertNotIn("agora__opcao-aviso", html)
 
-    def test_as_pastilhas_ficam_dentro_do_bloco_preso(self):
+    def test_as_pastilhas_ficam_FORA_do_bloco_preso_e_acima_dele(self):
+        """INVERTIDO em 24/09/2026, por decisão do dono.
+
+        A versão de 16/09 (B32) engoliu as pastilhas para o `sticky` não as
+        cobrir. O preço foi um bloco de 335px que, a 375×667, cobria os
+        músculos, o "ver vídeo", a dica e o "Série N de M" — e a 390×844
+        cortava o vídeo aberto (391px numa faixa livre de 355). A resposta de
+        hoje é a outra: o bloco encolhe para os três controles que o dedo usa
+        entre duas séries, e a fileira volta ao fluxo, ACIMA dele.
+
+        O que o bloco AINDA tem de ter continua cobrado aqui — senão
+        "encolher" viraria "esvaziar".
+        """
         html = self._html()
         bloco = _bloco(html, '<div class="agora__registro"', "</form>")
-        self.assertIn('<ol class="series__lista">', bloco)
-        self.assertIn("data-aguardando-rede", bloco)
+        self.assertNotIn('<ol class="series__lista">', bloco)
+        self.assertNotIn('class="registro__nota"', bloco)
         self.assertIn('class="registro registro--agora"', bloco)
+        # O selo de "aguardando rede" saiu junto, em 24/09: ele é STATUS, e o
+        # bloco tem teto de altura — medido, com o selo ligado o conteúdo
+        # passava 32px da caixa e o "Concluir série" ficava fora dela.
+        self.assertNotIn("data-aguardando-rede", bloco)
+        self.assertLess(
+            html.index("data-aguardando-rede"),
+            html.index('<div class="agora__registro"'),
+            "o selo fica ACIMA do bloco, com as pastilhas que ele comenta",
+        )
+        self.assertLess(
+            html.index('<ol class="series__lista">'),
+            html.index('<div class="agora__registro"'),
+            "as pastilhas vêm ANTES do bloco: embaixo, ficariam atrás dele",
+        )
 
-    def test_com_o_exercicio_concluido_as_pastilhas_continuam_no_bloco(self):
+    def test_com_o_exercicio_concluido_as_pastilhas_continuam_na_tela(self):
         """O formulário vira "Tudo registrado"; a fileira, que é o histórico
-        da sessão, continua no mesmo lugar."""
+        da sessão, continua na tela — acima do bloco, não dentro dele."""
         sessao = escolher_opcao_de_hoje(self.pessoa)
         item = next(i for i in sessao.da_opcao(1) if i.measure == Measure.REPS)
         for _ in range(item.sets):
             services.append_set(self.pessoa, item.exercise, 40, reps=10, op_id="")
         url = "%s?exercicio=%d" % (reverse("workouts:now"), item.exercise_id)
         html = sem_scripts(self.client.get(url).content.decode())
-        bloco = _bloco(html, '<div class="agora__registro"', "agora__extra")
-        self.assertIn('<ol class="series__lista">', bloco)
+        self.assertIn('<ol class="series__lista">', html)
+        self.assertLess(
+            html.index('<ol class="series__lista">'),
+            html.index('<div class="agora__registro"'),
+        )
 
 
 class OBlocoPresoTests(SimpleTestCase):
@@ -110,18 +139,33 @@ class OBlocoPresoTests(SimpleTestCase):
             self.assertNotIn("sticky", corpo)
 
     def test_sem_barra_de_abas_o_bloco_cola_no_rodape(self):
-        """E a media query vem DEPOIS da regra geral: com a mesma
-        especificidade, quem vence é a última — a primeira versão escreveu
-        o `bottom: 0` na media query geral de 60rem, que fica ANTES da
-        regra do bloco no arquivo, e perdia."""
+        """E quem decide é a CLASSE DO SERVIDOR, não a largura (24/09/2026).
+
+        Era uma media query de 60rem, escrita quando a barra de abas sumia só
+        no desktop. `ModoTreinoView` põe `sem_tabbar = True` desde 20/09/2026 —
+        a execução não desenha barra em largura NENHUMA —, e no celular o bloco
+        seguiu reservando 94px para uma barra inexistente: faixa livre de 178px
+        a 375×667, com "ver vídeo" debaixo dele.
+
+        A regra da classe vem DEPOIS da geral: mesma especificidade de
+        propriedade, quem vence é a última.
+        """
         geral = re.search(r"\.agora__registro\s*\{[^}]*position: sticky", self.css)
         self.assertIsNotNone(geral)
+        porClasse = re.search(
+            r"body:not\(\.tem-tabbar\)\s+\.agora__registro\s*\{([^}]*)\}", self.css
+        )
+        self.assertIsNotNone(porClasse, "sem a regra da classe, o celular fica com o bug")
+        self.assertNotIn("--tabbar-h", porClasse.group(1))
+        self.assertGreater(porClasse.start(), geral.start())
+        # E a media query de 60rem SAIU: ela consertava só o desktop, e com a
+        # regra da classe virou regra sem consumidor — o que este repositório
+        # trata como linguagem morta.
         medias = [
             m for m in re.finditer(r"@media \(min-width: 60rem\) \{(.*?)\n\}", self.css, re.S)
             if re.search(r"\.agora__registro\s*\{[^}]*bottom:\s*0", m.group(1))
         ]
-        self.assertEqual(len(medias), 1)
-        self.assertGreater(medias[0].start(), geral.start())
+        self.assertEqual(medias, [], "a media query de 60rem virou redundante e saiu")
 
     def test_a_frase_da_opcao_saiu_com_o_css_dela(self):
         """Ficha única (17/09/2026): a frase "Opção N, a recomendada de hoje"

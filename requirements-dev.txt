@@ -13,3 +13,7 @@ websocket-client>=1.8,<2
 # de gate lê as tabelas; o app serve os .woff2 sem tocar neles.
 fonttools>=4.60,<5
 brotli>=1.1,<2
+
+# Linter de relatório (26/09/2026). Piso em `ruff-baseline.txt`; o `pre-commit`
+# e o job `ruff (relatório)` do CI só recusam quando a contagem SOBE.
+ruff==0.16.9
