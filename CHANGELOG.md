@@ -6,6 +6,8 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **Nada mais cobre o exercício durante o treino.** O bloco de registro preso no rodapé ocupava quase metade da tela: num iPhone SE ele tapava os músculos, o "ver vídeo" e a dica, e com o descanso rodando não sobrava nada. Agora ele tem só a carga, as repetições e o "Concluir série"; as bolinhas das séries e o "Anotar algo" voltaram para a página, logo acima. O vídeo abre do tamanho do espaço que sobra e sobe junto com o nome do exercício.
+- **"Ver vídeo" volta a funcionar depois da primeira série.** Ao concluir uma série, os botões da tela de treino paravam de responder até a página recarregar sozinha: o vídeo não abria, o −2,5/+2,5 não mexia na carga e o relógio de descanso ficava parado no mesmo número.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
 - **Um clique para treinar.** O botão do painel de Treino — e o cartão do treino na Home — leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
 - **O botão "Continuar treino" voltou a caber numa linha.** Com série registrada, ele quebrava em cinco linhas e o parêntese final ficava fora do botão.
@@ -14,7 +16,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
+- **O painel e a ficha param de discordar sobre o treino de hoje.** No dia em que a sua letra cai na segunda versão, o cartão do painel dizia "~57 min · 24 séries" e a ficha do mesmo dia dizia "~60 min" — os dois falam do mesmo treino agora.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
+- **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
+- **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
 
 *(gerência, não aparece para quem usa)*
 

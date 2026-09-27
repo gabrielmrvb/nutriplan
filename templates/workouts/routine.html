@@ -167,10 +167,20 @@
                   do treino; apagar a coluna mudaria o cardápio de quem já usa
                   o app. O que saiu é a exibição e o controle, não o dado.
                 {% endcomment %}
+                {% comment %}
+                  OS TRÊS NÚMEROS SÃO DA OPÇÃO DO DIA (24/09/2026), e não da
+                  referência da semana. `total_sets` e `estimated_minutes` são
+                  da opção 1 — o retrato da LETRA, que é o que os cartões das
+                  outras mostram —, e num dia de variação 2 eles falavam de
+                  outro treino: o painel dizia "~57 min" e a ficha do mesmo dia,
+                  "~60". `preparar_dia` já calculava `minutos`; `series_do_dia`
+                  entrou ao lado, e `total_exercicios` já vinha de
+                  `itens_do_dia`.
+                {% endcomment %}
                 <ul class="hoje__meta hoje__meta--linha">
                   <li><b class="num">{{ hoje.total_exercicios }}</b> exercícios</li>
-                  <li><b class="num">{{ hoje.total_sets }}</b> séries</li>
-                  <li>~<b class="num">{{ hoje.estimated_minutes }}</b> min</li>
+                  <li><b class="num">{{ hoje.series_do_dia }}</b> séries</li>
+                  <li>~<b class="num">{{ hoje.minutos }}</b> min</li>
                 </ul>
               </div>
             </div>
@@ -395,7 +405,18 @@
           agora".
         {% endcomment %}
         <section class="card programa">
-          <div class="card__head"><h2>Seu programa</h2></div>
+          {% comment %}
+            "Exercícios que já fiz" (24/09/2026) mora no cabeçalho de "Seu
+            programa" porque é a mesma pergunta de consulta que o cartão
+            responde — e porque `.card__head a` já é o link de 44px desta
+            tela (o mesmo "Editar" dos outros cartões). É a maçaneta da
+            porta que a leitura do exercício abriu: o que a remontagem da
+            ficha tirou de lá não aparece em tela nenhuma sem ela.
+          {% endcomment %}
+          <div class="card__head">
+            <h2>Seu programa</h2>
+            <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
+          </div>
           <p class="programa__resumo">
             {% comment %}
               O NOME DA DIVISÃO PODE QUEBRAR LINHA; os dois números, não.

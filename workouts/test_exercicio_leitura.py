@@ -185,7 +185,10 @@ class ALeituraDoExercicioTests(TestCase):
         html = self._html(self.item_outro)
         bloco = html.split('class="data-list historico"', 1)[1].split("</dl>", 1)[0]
         self.assertEqual(bloco.count("<dt class=\"num\">"), 12)
-        self.assertIn("60 × 10, 10, 9", " ".join(bloco.split()))
+        # SÉRIE A SÉRIE desde 24/09/2026: a linha era "60 × 10, 10, 9" —
+        # uma carga (o máximo do dia) para as três séries. Ver
+        # `test_historico_serie_a_serie.py`.
+        self.assertIn("60 × 10 · 60 × 10 · 60 × 9", " ".join(bloco.split()))
         ontem = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m")
         decima_terceira = (timezone.localdate() - timedelta(days=13)).strftime("%d/%m")
         self.assertIn(ontem, bloco)
