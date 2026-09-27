@@ -660,6 +660,25 @@ class TrainingForm(forms.Form):
         # é tocado — ver `0026_duracao_padrao_para_quem_nao_respondeu`.
         faixa = getattr(perfil, "duracao_treino", "") or DuracaoTreino.PADRAO
 
+        # A PRIMEIRA FICHA DE QUEM ESTÁ COMEÇANDO NASCE NA FAIXA RÁPIDO
+        # (decisão do dono, 24/09/2026).
+        #
+        # O corpo inteiro do iniciante tem OITO exercícios e ~60 minutos no
+        # Padrão (medido); em Rápido ele fecha em quatro — agachar, empurrar,
+        # puxar e dobrar o quadril — e 28 minutos. Para quem nunca treinou,
+        # meia hora três vezes por semana é o programa que se cumpre, e os
+        # quatro movimentos são os que importam.
+        #
+        # Só na PRIMEIRA: quem já tem ficha ativa já viu a área de Treino e
+        # pode ter escolhido a faixa lá — sobrescrever a escolha dela seria o
+        # app declarando uma resposta que ela deu ao contrário. E a faixa
+        # continua a um toque de distância, com o teto escrito ao lado.
+        if self.cleaned_data.get("experiencia") == Experiencia.INICIANTE:
+            from workouts.models import TrainingPlan
+
+            if not TrainingPlan.objects.filter(user=self.user, is_active=True).exists():
+                faixa = DuracaoTreino.RAPIDO
+
         # O INTEIRO CONTINUA SENDO GRAVADO, e não é resíduo.
         #
         # `plans/meal_planner.py` soma `start_time + duration_min` para não

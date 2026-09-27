@@ -352,6 +352,44 @@ PODE usar.
 | casa_halteres | dumbbell, bodyweight |
 | peso_corporal | bodyweight |
 
+## Mapa de aparelho — o que a casa tem além do corpo (24/09/2026)
+
+O mapa acima responde "que CARGA esta pessoa tem". Faltava a outra pergunta:
+**que APARELHO ela tem**. `Exercise.equipment` chama de `bodyweight` tanto a
+flexão de braço quanto a barra fixa pronada, e por isso a ficha de quem
+respondeu "só o peso do corpo" saía com a letra "Costas e bíceps" INTEIRA em
+barra fixa — cinco exercícios, quinze séries, nenhum possível naquela casa
+(medido em 24/09/2026 com a persona 1 do relatório de experiência).
+
+A chave é o `Exercise.aparelho` do catálogo (`workouts.models.Aparelho`); a
+coluna lista o que o perfil PODE usar, e o vazio ("nada além do corpo") vale
+sempre e por isso não aparece na lista.
+
+| perfil | aparelhos |
+|---|---|
+| completa | barra_fixa, paralelas, inversao, barra_baixa |
+| basica | barra_fixa, paralelas, inversao, barra_baixa |
+| casa_halteres | barra_baixa |
+| peso_corporal | barra_baixa |
+
+**A barra baixa FICA em casa, e é decisão, não descuido**: a remada invertida
+se faz sob a mesa da cozinha, e sem ela o perfil de peso do corpo fica com
+ZERO exercício de costas — não há como puxar sem alguma coisa para puxar.
+Exigir uma mesa é menos pior que entregar uma ficha sem costas. Se um dia o
+dono vetar, é esta célula que muda.
+
+**Banco, cadeira e parede não viraram valor**: todo perfil os tem, então
+marcá-los não mudaria ficha nenhuma — e classificar "a flexão inclinada é no
+banco ou na parede?" seria pôr no catálogo uma curadoria que ninguém
+conferiu.
+
+O motor obedece pelo MESMO caminho do equipamento
+(`services.substituir_por_equipamento`): o item cujo aparelho está fora do
+perfil é SUBSTITUÍDO por exercício ativo do mesmo padrão e grupo dentro do
+perfil, e só sai quando não há substituto. É por isso que a letra que era
+cinco barras fixas vira cinco exercícios de verdade em vez de virar uma
+letra vazia.
+
 Como o filtro obedece, e por que ele não é um `filter()`: a prescrição não
 SELECIONA exercícios — copia MODELOS curados de `splits.json` —, então tirar
 o que o perfil não tem abriria buraco no modelo (medido em 10/09/2026: oito

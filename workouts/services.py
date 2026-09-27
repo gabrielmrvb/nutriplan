@@ -40,6 +40,7 @@ from accounts.models import (
     TETO_POR_DURACAO,
     TETO_POR_EXPERIENCIA,
     DuracaoTreino,
+    Equipamento,
     Experiencia,
     SplitPreference,
 )
@@ -48,11 +49,13 @@ from . import adaptacao
 from .models import (
     SEGUNDOS_ENTRE_EXERCICIOS,
     SEGUNDOS_POR_SERIE,
+    Aparelho,
     Equipment,
     Exercise,
     ExerciseLog,
     Measure,
     MuscleGroup,
+    PADROES_COMPOSTOS,
     familia_de_opcoes,
     SessionExercise,
     Split,
@@ -202,12 +205,49 @@ def _preferencia_de(user) -> str:
     return getattr(profile, "split_preference", None)
 
 
-def split_for(days_per_week: int, preference: str = None) -> str:
-    """A divisão que faz sentido para essa frequência e essa preferência.
+#: ATÉ QUANTOS DIAS O INICIANTE EM CASA TREINA O CORPO INTEIRO (24/09/2026).
+#:
+#: Decisão do dono, e a razão é de dose, não de gosto: com três sessões por
+#: semana, `abc2` dá UM estímulo por grupo na semana e o corpo inteiro dá
+#: três. A persona 1 do relatório de experiência recebia "Costas e bíceps"
+#: como um dia inteiro da semana dela — e, em casa sem barra, esse dia tinha
+#: DOIS exercícios e dezessete minutos (medido em 24/09/2026).
+#:
+#: Quatro dias ou mais já comporta a divisão, e aí a tabela de sempre manda:
+#: o corpo inteiro quatro vezes na semana é volume que um iniciante não
+#: recupera.
+DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE = 3
 
-    Sem preferência, cai na tabela por frequência — é o caminho de quem tem
-    plano anterior à pergunta existir, e devolve exatamente o que devolvia.
+#: E É "EM CASA", NÃO "INICIANTE". O pedido do dono tem as duas palavras, e
+#: a diferença é medida: numa academia completa a letra de "Costas e bíceps"
+#: do iniciante tem quatro exercícios de verdade, e o teste DOURADO
+#: (`test_ficha_de_verdade`) cobra exatamente essa ficha. O que quebra em
+#: casa é o catálogo — sem barra fixa, um dia inteiro da semana fica com
+#: dois exercícios —, e é lá que o corpo inteiro conserta.
+PERFIS_DE_CASA = frozenset({Equipamento.PESO_CORPORAL, Equipamento.CASA_HALTERES})
+
+
+def split_for(days_per_week: int, preference: str = None, nivel: str = None,
+              equipamento: str = None) -> str:
+    """A divisão que faz sentido para essa frequência, essa preferência, esse
+    nível e esse lugar de treino.
+
+    O INICIANTE EM CASA VEM PRIMEIRO: até
+    `DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE` dias ele recebe corpo inteiro,
+    qualquer que seja a preferência — inclusive porque a preferência não é
+    perguntada a ele (a pergunta "quantos grupos por dia?" é de quem já
+    treina; `preferencia_muda_a_divisao`).
+
+    Sem nível e sem preferência, cai na tabela por frequência — é o caminho
+    de quem tem plano anterior às perguntas existirem, e devolve exatamente
+    o que devolvia.
     """
+    if (
+        nivel == Experiencia.INICIANTE
+        and equipamento in PERFIS_DE_CASA
+        and 1 <= days_per_week <= DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE
+    ):
+        return Split.FULL
     if not preference:
         return SPLIT_BY_FREQUENCY.get(days_per_week, DEFAULT_SPLIT)
 
@@ -266,7 +306,7 @@ def divisao_explicada(user, dias=None) -> dict:
     """
     preferencia = _preferencia_de(user)
     dias = user.training_days.count() if dias is None else dias
-    aplicada = split_for(dias, preferencia)
+    aplicada = split_for(dias, preferencia, nivel_de(user), equipamento_de(user))
 
     cheia, minimo = _divisao_cheia(preferencia)
     cedeu = bool(preferencia) and cheia is not None and aplicada != cheia
@@ -727,7 +767,22 @@ def _quem_cede(elegiveis, itens, vivos_por_grupo) -> int:
     )
 
 
-def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
+def piso_de_serie(nivel=None) -> int:
+    """O piso de séries de um composto para este nível, lido do `TREINO.md`.
+
+    `PISO_COMPOSTO` continua sendo a resposta de quem não declarou nível (e
+    é o mesmo número do intermediário e do avançado). O iniciante tem 2 na
+    tabela A, e é por isso que o relógio pode descer até lá para ele: é
+    decisão escrita, não sobra de conta.
+    """
+    from . import doutrina
+
+    if not nivel:
+        return PISO_COMPOSTO
+    return min(PISO_COMPOSTO, doutrina.series_por_exercicio(nivel)[0])
+
+
+def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None, nivel=None) -> list:
     """Quais exercícios da sessão ficam, dado o tempo que a pessoa tem.
 
     `itens` são tuplas (grupo_muscular, séries, descanso, grau) NA ORDEM DA
@@ -916,9 +971,10 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         # Medido no dia de puxar a 60 minutos com três dias: quatro costas,
         # três bíceps, trapézio e antebraço cabem em 60 exatos, com as roscas
         # em duas séries e as costas intactas.
+        piso = piso_de_serie(nivel)
         reduziveis = [
             i for i in ficam
-            if series[i] > (PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 2)
+            if series[i] > (piso if itens[i][3] >= ACESSORIO else 2)
         ]
         if reduziveis:
             alvo = min(reduziveis, key=lambda i: (itens[i][3], -series[i], i))
@@ -1057,12 +1113,21 @@ def equipamento_de(user) -> str:
     return getattr(perfil, "equipamento", None) or doutrina.COMPLETA
 
 
-def permitidos_de(user) -> frozenset:
-    """O que o perfil de equipamento da pessoa pode usar (chaves de
-    `Exercise.equipment`), pelo mapa do `TREINO.md`."""
+def permitidos_do_perfil(equipamento) -> frozenset:
+    """A SACOLA de um perfil de equipamento: o que ele tem de carga E o que
+    tem de aparelho, pelos DOIS mapas do `TREINO.md`.
+
+    Um conjunto só porque os dois vocabulários não colidem — ver o bloco "A
+    sacola do perfil", em `catalogo_filtrado` e vizinhas.
+    """
     from . import doutrina
 
-    return doutrina.equipamentos_de(equipamento_de(user))
+    return doutrina.equipamentos_de(equipamento) | doutrina.aparelhos_de(equipamento)
+
+
+def permitidos_de(user) -> frozenset:
+    """A sacola do perfil desta pessoa."""
+    return permitidos_do_perfil(equipamento_de(user))
 
 
 #: O equipamento mais PRÓXIMO do item trocado vem primeiro (17/09/2026): o
@@ -1137,9 +1202,8 @@ def alternativas_de(user, exercicio, fora=(), permitidos=None) -> list:
     if permitidos is None:
         permitidos = permitidos_de(user)
     excluidos = {exercicio.pk, *fora}
-    candidatos = Exercise.objects.filter(
-        is_active=True, padrao=exercicio.padrao, muscle_group=exercicio.muscle_group,
-        equipment__in=list(permitidos),
+    candidatos = catalogo_filtrado(
+        permitidos, padrao=exercicio.padrao, muscle_group=exercicio.muscle_group,
     ).exclude(pk__in=excluidos)
     return sorted(candidatos, key=lambda e: (_distancia_de_equipamento(exercicio.equipment, e.equipment), e.name, e.id))
 
@@ -1187,9 +1251,9 @@ def contar_outras_formas(user, itens, permitidos=None) -> None:
         permitidos = permitidos_de(user)
     na_lista = {item.exercise_id for item in itens}
     por_padrao = {}
-    for pk, padrao, grupo in Exercise.objects.filter(
-        is_active=True, equipment__in=list(permitidos),
-    ).values_list("pk", "padrao", "muscle_group"):
+    for pk, padrao, grupo in catalogo_filtrado(permitidos).values_list(
+        "pk", "padrao", "muscle_group"
+    ):
         por_padrao.setdefault((padrao, grupo), set()).add(pk)
     for item in itens:
         exercicio = item.exercise
@@ -1230,13 +1294,78 @@ def desfazer_troca(user, original) -> bool:
     return bool(apagadas)
 
 
+# ---------------------------------------------------------------------------
+# A SACOLA DO PERFIL: equipamento E aparelho no mesmo conjunto (24/09/2026)
+#
+# `permitidos` carregava só `Exercise.equipment`, e `equipment` não distingue
+# a flexão de braço da barra fixa — as duas são `bodyweight`. A ficha de quem
+# treina em casa vinha com a letra "Costas e bíceps" inteira pendurada numa
+# barra que aquela casa não tem (medido em 24/09/2026, persona 1).
+#
+# Os dois vocabulários cabem no mesmo conjunto porque não colidem, e é por
+# isso que nenhuma assinatura do motor mudou. Quem lê separa com as três
+# funções abaixo — nunca com `in permitidos` cru, que passaria a responder
+# "sim" para um aparelho quando a pergunta era sobre equipamento.
+# ---------------------------------------------------------------------------
+
+
+def equipamentos_do_perfil(permitidos) -> frozenset:
+    """Só a metade de `Exercise.equipment` da sacola."""
+    return frozenset(permitidos) & frozenset(Equipment.values)
+
+
+def aparelhos_fora_do_perfil(permitidos) -> frozenset:
+    """Os `Exercise.aparelho` que a sacola NÃO tem. O vazio nunca entra: ele
+    é "nada além do corpo", e isso todo perfil tem.
+
+    UMA SACOLA QUE NÃO FALA DE APARELHO NÃO RESTRINGE APARELHO NENHUM. Quem
+    passa só valores de `Equipment` — um teste, um chamador anterior a
+    26/09/2026 — está dizendo "este é o equipamento", e não "e ela não tem
+    barra fixa". Inferir a segunda coisa do silêncio mudaria o significado
+    de toda chamada antiga; o mapa do `TREINO.md` sempre diz alguma coisa
+    (todo perfil tem ao menos a barra baixa), então o caminho real nunca cai
+    aqui.
+    """
+    permitidos = frozenset(permitidos)
+    if not (permitidos & frozenset(Aparelho.values) - {Aparelho.NADA}):
+        return frozenset()
+    return frozenset(Aparelho.values) - permitidos - {Aparelho.NADA}
+
+
+def perfil_inteiro(permitidos) -> bool:
+    """A academia completa — nada a filtrar, nada a consultar."""
+    return (
+        frozenset(Equipment.values) <= frozenset(permitidos)
+        and not aparelhos_fora_do_perfil(permitidos)
+    )
+
+
+def dentro_do_perfil(exercicio, permitidos) -> bool:
+    """Esta pessoa consegue fazer este exercício com o que ela tem?"""
+    return exercicio.equipment in permitidos and (
+        not exercicio.aparelho or exercicio.aparelho in permitidos
+    )
+
+
+def catalogo_filtrado(permitidos, **extra):
+    """A consulta do catálogo ATIVO dentro da sacola, com o filtro extra que
+    o chamador pedir. Uma consulta, duas condições."""
+    consulta = Exercise.objects.filter(
+        is_active=True, equipment__in=sorted(equipamentos_do_perfil(permitidos)), **extra
+    )
+    fora = aparelhos_fora_do_perfil(permitidos)
+    if fora:
+        consulta = consulta.exclude(aparelho__in=sorted(fora))
+    return consulta
+
+
 def catalogo_permitido(permitidos):
     """Os exercícios ativos que o perfil pode usar, em ordem determinística —
     UMA consulta, compartilhada por todos os modelos de uma prescrição. `None`
     quando o perfil é o catálogo inteiro (nada a substituir, nada a consultar)."""
-    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+    if permitidos is None or perfil_inteiro(permitidos):
         return None
-    return list(Exercise.objects.filter(is_active=True, equipment__in=list(permitidos)).order_by("name", "id"))
+    return list(catalogo_filtrado(permitidos).order_by("name", "id"))
 
 
 def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
@@ -1260,16 +1389,16 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
     porque a conferência (`_prescricao_confere`) refaz esta conta.
     """
     itens = list(itens)
-    if permitidos is None or frozenset(Equipment.values) <= frozenset(permitidos):
+    if permitidos is None or perfil_inteiro(permitidos):
         return itens
-    if all(item.exercise.equipment in permitidos for item in itens):
+    if all(dentro_do_perfil(item.exercise, permitidos) for item in itens):
         return itens
     if catalogo is None:
         catalogo = catalogo_permitido(permitidos)
     usados = {item.exercise_id for item in itens}
     resultado = []
     for item in itens:
-        if item.exercise.equipment in permitidos:
+        if dentro_do_perfil(item.exercise, permitidos):
             resultado.append(item)
             continue
         candidatos = [
@@ -1290,6 +1419,27 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
                 and familia_de_opcoes(e.muscle_group) == familia_de_opcoes(item.exercise.muscle_group)
                 and e.id not in usados
             ]
+        if not candidatos and item.exercise.padrao in PADROES_COMPOSTOS:
+            # ÚLTIMO RECURSO: OUTRO COMPOSTO DO MESMO GRUPO (26/09/2026).
+            #
+            # Um composto que não tem versão nenhuma dentro do perfil deixa o
+            # GRUPO sem nada, e um grupo anunciado sem nada é pior que um
+            # movimento diferente do mesmo grupo. Medido: em "só o peso do
+            # corpo" as duas puxadas do corpo inteiro são VERTICAIS (puxada
+            # na polia e barra fixa assistida), e a única puxada de uma casa
+            # é HORIZONTAL (remada invertida, sob a mesa) — sem este ramo a
+            # ficha de corpo inteiro em casa saía literalmente SEM COSTAS.
+            #
+            # Só para COMPOSTO, e só depois de o padrão e a família falharem:
+            # trocar um isolador por outro padrão mudaria o que a pessoa
+            # treina sem necessidade, e a régua de `equivalentes` continua
+            # satisfeita porque as duas opções trocam pelo mesmo caminho.
+            candidatos = [
+                e for e in catalogo
+                if e.padrao in PADROES_COMPOSTOS
+                and e.muscle_group == item.exercise.muscle_group
+                and e.id not in usados
+            ]
         substituto = min(
             candidatos,
             key=lambda e: (_distancia_de_equipamento(item.exercise.equipment, e.equipment), e.name, e.id),
@@ -1306,12 +1456,23 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
 
 
 #: Até que degrau da escada um iniciante recebe de saída. As escadas do
-#: peso do corpo vão de 1 (mais fácil) a 5 (`Exercise.progressao`); 3 é a
-#: versão "padrão" do movimento (flexão de braço, barra fixa negativa,
-#: afundo) — com 2 a letra A da persona ficava em duas opções de dois
-#: exercícios (medido em 22/09/2026); com 3 fica em 3 + 3, sem paralelas,
-#: sem parada de mão, sem arqueiro.
-DEGRAU_DO_INICIANTE = 3
+#: peso do corpo vão de 1 (mais fácil) a 5 (`Exercise.progressao`).
+#:
+#: FOI 3 ENTRE 22 E 24/09/2026 — a versão "padrão" do movimento (flexão de
+#: braço, afundo, barra fixa negativa) —, e o dono baixou para 1 em
+#: 24/09: quem está começando começa no degrau MAIS FÁCIL da escada que o
+#: app já mostra. A flexão com joelhos apoiados é o primeiro degrau de
+#: quem nunca fez uma flexão, e subir é um toque em "Trocar" na leitura do
+#: exercício, que mostra a escada inteira com "você está aqui".
+#:
+#: Com 3, a persona 1 (78 kg, primeira semana) abria o treino com flexão de
+#: braço completa e afundo — os dois no meio da escada, e os dois o motivo
+#: de ela fechar o app no primeiro treino.
+#:
+#: O degrau alto continua entrando quando não há mais fácil LIVRE do mesmo
+#: movimento e o exercício é o último do grupo: um grupo anunciado não fica
+#: sem nada.
+DEGRAU_DO_INICIANTE = 1
 
 
 def ajustar_degrau_do_iniciante(itens, nivel, permitidos, catalogo=None) -> list:
@@ -1338,7 +1499,7 @@ def ajustar_degrau_do_iniciante(itens, nivel, permitidos, catalogo=None) -> list
     itens = list(itens)
     if nivel != Experiencia.INICIANTE or permitidos is None:
         return itens
-    if frozenset(permitidos) != frozenset({Equipment.BODYWEIGHT}):
+    if equipamentos_do_perfil(permitidos) != frozenset({Equipment.BODYWEIGHT}):
         return itens
     if catalogo is None:
         catalogo = catalogo_permitido(permitidos)
@@ -1350,11 +1511,20 @@ def ajustar_degrau_do_iniciante(itens, nivel, permitidos, catalogo=None) -> list
         if nivel_do_item <= DEGRAU_DO_INICIANTE:
             resultado.append(item)
             continue
+        # O DEGRAU MAIS BAIXO LIVRE DO MOVIMENTO, e não "um degrau abaixo do
+        # teto" (24/09/2026).
+        #
+        # O filtro era `nivel <= DEGRAU_DO_INICIANTE`, e com o teto em 1 ele
+        # deixava de achar substituto para toda escada que não tem degrau 1:
+        # o mergulho vai de 2 (no banco) a 4 (nas paralelas), e as paralelas
+        # PARARAM de ser trocadas — o defeito que a régua existe para
+        # impedir, de volta pela porta do teto. O que importa é descer, e o
+        # destino é o degrau mais fácil que ainda não está na lista.
         candidatos = [
             e for e in catalogo
             if (e.progressao or {}).get("movimento") == escada.get("movimento")
             and e.muscle_group == item.exercise.muscle_group
-            and (e.progressao or {}).get("nivel", 99) <= DEGRAU_DO_INICIANTE
+            and (e.progressao or {}).get("nivel", 99) < nivel_do_item
             and e.id not in usados
         ]
         mais_facil = min(candidatos, key=lambda e: ((e.progressao or {}).get("nivel", 99), e.name, e.id), default=None)
@@ -1820,9 +1990,9 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
 
     ocorrencias = ocorrencias_das_letras(sessoes)
     catalogo = None
-    if permitidos is not None and not frozenset(Equipment.values) <= frozenset(permitidos):
+    if permitidos is not None and not perfil_inteiro(permitidos):
         if any(
-            item.exercise.equipment not in permitidos
+            not dentro_do_perfil(item.exercise, permitidos)
             for label in ocorrencias if modelos.get(label) is not None
             for item in modelos[label].items.all() if item.exercise.is_active
         ):
@@ -1936,6 +2106,7 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                      for item, series, grau in linhas],
                     teto_completo,
                     principais=principais,
+                    nivel=nivel,
                 )
                 ficaram = {i for i, _ in ficam}
                 prontas.append([(linhas[i][0], series, linhas[i][2]) for i, series in ficam])
@@ -2133,6 +2304,7 @@ def _prescrever_por_ocorrencia(sessoes, modelos, teto=_NAO_INFORMADO,
             ],
             teto,
             principais=principais,
+            nivel=nivel,
         )
         ficaram = {i for i, _series in ficam}
         for i, series_finais in ficam:
@@ -2531,7 +2703,7 @@ def create_routine(user) -> TrainingPlan:
     if not training_days:
         raise NoTrainingDays("Nenhum dia de treino cadastrado.")
 
-    split = split_for(len(training_days), _preferencia_de(user))
+    split = split_for(len(training_days), _preferencia_de(user), nivel_de(user), equipamento_de(user))
     templates = templates_for(split)
     if not templates:
         raise NoTrainingDays(f"A divisão {split} não está no catálogo.")
@@ -2758,7 +2930,19 @@ def rotina_invalida(plan, user) -> bool:
     # lados): mudou no perfil, remonta.
     if plan.equipamento != equipamento_de(user):
         return True
-    if plan.split != split_for(user.training_days.count(), _preferencia_de(user)):
+    # A DIVISÃO COMPARA COM AS DUAS RÉGUAS, e isso é o que impede um deploy
+    # de remontar a ficha de quem já treinava. O corpo inteiro do iniciante
+    # nasceu em 24/09/2026; quem tinha `abc2` montado pela régua anterior
+    # continua VÁLIDO — "plano ativo antigo nunca remonta sozinho". Ele
+    # recebe a régua nova quando mexer numa entrada de verdade (dias, nível,
+    # equipamento, faixa de duração), que é quando a ficha é remontada de
+    # qualquer jeito.
+    dias = user.training_days.count()
+    preferencia = _preferencia_de(user)
+    if plan.split not in (
+        split_for(dias, preferencia, nivel_de(user), equipamento_de(user)),
+        split_for(dias, preferencia),
+    ):
         return True
     sessoes = plan.sessions.all()
     atual = {

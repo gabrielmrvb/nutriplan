@@ -113,6 +113,11 @@ class Command(BaseCommand):
                     "animation_url": animacoes.get(row["name"], ""),
                     "video_url": row.get("video", ""),
                     "equipment": row["equipment"],
+                    # O que ele exige ALÉM do corpo (`Aparelho`). Com
+                    # `.get`, porque a ausência é a resposta da grande
+                    # maioria — e é o que faz a barra fixa sair da ficha
+                    # de quem treina em casa sem sair do catálogo.
+                    "aparelho": row.get("aparelho", ""),
                     # Sem `.get`: linha sem padrão derruba o build, que é
                     # onde um catálogo pela metade tem de parar — o banco
                     # recusaria de qualquer jeito (`padrao_nao_vazio`).

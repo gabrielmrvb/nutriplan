@@ -3360,6 +3360,20 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .ficha__progresso { margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 
+/* A LEGENDA DA NOTAÇÃO (24/09/2026): "3 × 6-10" por extenso, uma vez, para
+   quem está lendo a primeira ficha da vida. Fica sobre a superfície de
+   apoio, como as notas explicativas do resto do app — não é aviso nem
+   erro, é a frase que falta à primeira leitura. */
+.ficha__legenda {
+  margin: 0 0 var(--espaco-3);
+  padding: var(--espaco-3);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.5;
+}
+.ficha__legenda b { color: var(--text); }
+
 /* -- A ficha como tela de pré-treino (22/09/2026) -------------------------- */
 
 /* O equipamento no cabeçalho é um checklist de quem está saindo de casa. */

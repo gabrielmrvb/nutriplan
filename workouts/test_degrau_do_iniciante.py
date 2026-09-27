@@ -48,17 +48,38 @@ class DegrauDoInicianteTests(TestCase):
         return [i.exercise.name for i in SessionExercise.objects.filter(session__plan=plano).select_related("exercise")]
 
     def test_a_iniciante_de_peso_do_corpo_nao_recebe_as_paralelas(self):
+        """O DEGRAU VIROU 1 EM 24/09/2026 (missão "quem entra não desiste").
+
+        Era 3 — a versão "padrão" do movimento —, e a ficha abria com flexão
+        de braço completa e afundo. Com 1, o tríceps dela é a flexão fechada
+        com joelhos apoiados, e o "Mergulho no banco" (degrau 2) que este
+        teste cobrava deixou de ser o destino: o substituto é o degrau mais
+        BAIXO livre do movimento, não um degrau fixo.
+        """
         plano, user = _plano("iniciante")
         nomes = self._nomes(plano)
         self.assertNotIn("Mergulho nas paralelas", nomes)
-        self.assertIn("Mergulho no banco", nomes)
         self.assertTrue(any("joelhos apoiados" in n for n in nomes), nomes)
+        # O degrau ALTO que sobra é o caso escrito na régua — movimento sem
+        # degrau mais fácil LIVRE, e último do grupo na lista. Quem cobra
+        # isso exercício por exercício, com a justificativa de cada um, é
+        # `workouts/test_ficha_de_casa.py`; repetir aqui uma varredura sem
+        # essa ressalva seria um teste que reprova o comportamento certo.
+        self.assertNotIn("Flexão de braço arqueiro", nomes)
         # e a ficha que acabou de nascer é a que o motor produziria hoje
         self.assertFalse(services.rotina_desatualizada(plano, user))
 
     def test_o_intermediario_continua_no_degrau_do_modelo(self):
+        """O mergulho NAS PARALELAS saiu daqui por outra régua, não por esta:
+        desde 24/09/2026 o catálogo diz que ele exige paralelas
+        (`Exercise.aparelho`), e uma casa não tem. O que este teste mede
+        continua sendo o degrau: o intermediário recebe o alto da escada —
+        a flexão arqueiro, degrau 5 — em vez da versão de joelhos.
+        """
         plano, _ = _plano("intermediario")
-        self.assertIn("Mergulho nas paralelas", self._nomes(plano))
+        nomes = self._nomes(plano)
+        self.assertIn("Flexão de braço arqueiro", nomes)
+        self.assertNotIn("Mergulho nas paralelas", nomes)
 
     def test_na_academia_completa_o_iniciante_nao_e_mexido(self):
         plano, _ = _plano("iniciante", equipamento="completa")

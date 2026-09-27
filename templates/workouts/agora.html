@@ -538,6 +538,18 @@
             <span class="registro__ultima-data">{{ atual.ultima_vez.data|date:"d/m" }}</span>
           </p>
         {% endif %}
+        {% comment %}
+          SEM ANILHA, SEM CAMPO DE CARGA (24/09/2026).
+
+          Ele já nascia vazio, sem `required` e sem os botões de ±2,5 — e
+          ainda assim era um campo rotulado "Carga" numa flexão de braço. A
+          persona 1 digitou zero nele e o treino fechou em "0 kg
+          levantados"; o placar já conta repetições desde 22/09, e agora a
+          pergunta some junto. O servidor continua gravando 0 sozinho aqui
+          (`ConcluirSerieView`), e num supino o campo esquecido continua
+          sendo erro.
+        {% endcomment %}
+        {% if not atual.exercise.sem_carga %}
         <label class="registro__campo">
           <span class="registro__rotulo">Carga</span>
           {% comment %}
@@ -551,19 +563,18 @@
             faria a pessoa registrar um peso que não levantou.
           {% endcomment %}
           {% comment %}
-            PESO DO CORPO NÃO PEDE ANILHA. Flexão, mergulho, prancha e
-            abdominal não recebem carga, e o campo obrigatório fazia a pessoa
-            digitar um número para um peso que não levantou — o oposto do que
-            este comentário defende. Ali o campo abre em branco, sem
-            `required`, e o servidor grava 0 SÓ nesse caso; num supino, campo
-            esquecido continua sendo erro.
+            AQUI SÓ ENTRA QUEM TEM ANILHA — o `{% if %}` acima já tirou o
+            peso do corpo —, então o campo volta a ser obrigatório sem
+            ressalva: num supino, campo esquecido é erro, e gravar 0 em
+            silêncio seria pior que barrar.
           {% endcomment %}
           <input class="registro__carga num" type="text" name="weight_kg"
-                 maxlength="6" inputmode="decimal"{% if not atual.exercise.sem_carga %} required{% endif %}
-                 value="{% if atual.sugestao_carga != None and not atual.exercise.sem_carga %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
-                 placeholder="{% if atual.exercise.sem_carga %}peso do corpo{% else %}kg{% endif %}"
+                 maxlength="6" inputmode="decimal" required
+                 value="{% if atual.sugestao_carga != None %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
+                 placeholder="kg"
                  aria-label="Carga da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
+        {% endif %}
 
         {% comment %}
           SEGUNDOS SÃO SEGUNDOS. A prancha tem `measure == seconds`, e a tela

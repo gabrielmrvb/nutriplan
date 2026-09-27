@@ -39,30 +39,77 @@ class VolumeComparavelTests(TestCase):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
+    #: A letra que o catálogo de casa NÃO enche, e por quê.
+    #:
+    #: "Costas e bíceps" sem barra fixa tem, no catálogo inteiro, DOIS
+    #: exercícios possíveis: a remada invertida (sob a mesa) e a rosca
+    #: invertida na mesma barra baixa. Não há como puxar sem alguma coisa
+    #: para puxar, e desde 26/09/2026 o app não finge que há — a barra fixa
+    #: saiu da ficha de casa (`Exercise.aparelho`).
+    #:
+    #: O número fica preso AQUI, e não afrouxado: se a letra B cair para 1
+    #: exercício, ou se alguma outra letra encolher, o teste reprova.
+    LETRA_MAGRA_SEM_BARRA = {"B": 2}
+
     def test_cada_letra_vira_uma_sessao_cheia(self):
-        """Nenhuma letra sai magra: cada opção tem pelo menos 5 exercícios e
-        cabe numa sessão de academia (45–65 min no Padrão). Antes da decisão a
-        letra B tinha 1 exercício e a C, dois."""
+        """Nenhuma letra sai magra — exceto a que o catálogo de casa não tem
+        como encher, e essa está NOMEADA.
+
+        Antes da decisão de 20/09/2026 a letra B tinha 1 exercício e a C,
+        dois; o catálogo de peso do corpo encheu as três. Em 26/09/2026 a
+        barra fixa saiu da ficha de casa (ela não é "peso do corpo", é
+        aparelho), e a letra B voltou a ter o que uma casa tem: duas
+        remadas invertidas e uma rosca invertida, repartidas entre as duas
+        opções. A lista do que falta ao catálogo está no `BACKLOG.md`.
+        """
         plano = _plano("peso_corporal")
         for s in plano.sessions.prefetch_related("exercises__exercise").order_by("order"):
             for k in s.opcoes:
                 itens = s.da_opcao(k)
                 retrato = "%s opção %d: %d ex, %d min" % (
                     s.label, k, len(itens), s.minutos_da_opcao(k))
+                magra = self.LETRA_MAGRA_SEM_BARRA.get(s.label)
                 with self.subTest(retrato=retrato):
+                    if magra:
+                        self.assertEqual(len(itens), magra, retrato)
+                        continue
                     self.assertGreaterEqual(len(itens), 5, retrato)
                     self.assertGreaterEqual(s.minutos_da_opcao(k), 45, retrato)
                     self.assertLessEqual(s.minutos_da_opcao(k), 65, retrato)
 
+    def test_casa_com_halteres_continua_com_todas_as_letras_cheias(self):
+        """CONTROLE POSITIVO da régua de cima: o que a barra fixa tirou foi
+        do perfil que não tem NADA — quem tem halteres rema e faz rosca, e
+        as três letras continuam entre 5 e 9 exercícios."""
+        plano = _plano("casa_halteres")
+        for s in plano.sessions.prefetch_related("exercises__exercise").order_by("order"):
+            for k in s.opcoes:
+                with self.subTest(letra=s.label, opcao=k):
+                    self.assertGreaterEqual(len(s.da_opcao(k)), 5)
+
     def test_o_volume_semanal_e_comparavel_ao_da_academia(self):
-        """O volume efetivo da semana inteira fica em pelo menos 80% do da
-        completa — "comparável", que é o que a decisão pediu. MEDIDO em
-        20/09/2026: ~94% (255 contra 272 séries efetivas)."""
+        """O volume efetivo da semana contra o da academia completa.
+
+        MEDIDO em 20/09/2026: 94% — com a barra fixa dentro do catálogo de
+        "peso do corpo". MEDIDO em 26/09/2026, com ela fora: **77% para só o
+        peso do corpo e 100% para casa com halteres** (218 e 281 contra
+        282 séries efetivas).
+
+        O piso de 70% guarda o que sobrou e reprova uma queda nova; os 80%
+        de antes contavam um exercício que aquela casa não tem. Subir de
+        volta é trabalho de CATÁLOGO (remada e rosca sem barra), não de
+        motor — está no `BACKLOG.md`.
+        """
         peso = sum(services.volume_da_semana(_plano("peso_corporal")).values())
+        halteres = sum(services.volume_da_semana(_plano("casa_halteres")).values())
         cheia = sum(services.volume_da_semana(_plano("completa")).values())
         self.assertGreaterEqual(
-            peso, cheia * 8 / 10,
+            peso, cheia * 7 / 10,
             "o volume do peso do corpo caiu demais: %s contra %s" % (peso, cheia),
+        )
+        self.assertGreaterEqual(
+            halteres, cheia * 95 / 100,
+            "casa com halteres tem substituto para tudo: %s contra %s" % (halteres, cheia),
         )
 
     def test_os_grupos_que_faltavam_agora_tem_exercicio_sem_aparelho(self):
