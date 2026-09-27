@@ -14,6 +14,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
+- **Os números do gráfico de peso ficaram legíveis no celular.** Os valores do eixo e as datas saíam pequenos demais para ler (9px, abaixo do piso do app); agora saem no mesmo tamanho mínimo do resto da interface.
 
 *(gerência, não aparece para quem usa)*
 

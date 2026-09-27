@@ -48,9 +48,12 @@ nela para de olhar:
   determinado — e a diferença aparece na revisão do commit, não aqui.
 """
 import re
+import tempfile
 from pathlib import Path
 
 from django.test import SimpleTestCase
+
+from plans import graficos
 
 CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 
@@ -190,6 +193,32 @@ def espacos_crus(css):
             r"(?:padding|margin|gap|row-gap|column-gap)[a-z-]*:\s*([^;{}]+)[;}]", css
         )
     )
+
+
+def valores_crus_de_text_svg(raiz_templates):
+    """`font-size="N"` escrito à mão num `<text>` de template de SVG.
+
+    Devolve `(caminho, valor_float)` para todo valor LITERAL — ignora o que
+    vem do servidor (`{{ tamanho_rotulo }}`), que é `graficos.TAMANHO_ROTULO`
+    e tem o teste ao lado. Varre TODO template, não só os dois que usam
+    `<text>` hoje (`_peso.html`, `_progresso_area.html`): a régua existe para
+    o PRÓXIMO `<text>` escrito à mão nascer coberto, não para os dois atuais.
+    """
+    achados = []
+    for caminho in sorted(Path(raiz_templates).rglob("*.html")):
+        texto = caminho.read_text(encoding="utf-8")
+        for tag in re.findall(r"<text\b[^>]*>", texto):
+            casou = re.search(r'font-size="([^"]*)"', tag)
+            if not casou:
+                continue
+            valor = casou.group(1)
+            if "{{" in valor or "{%" in valor:
+                continue
+            try:
+                achados.append((caminho, float(valor)))
+            except ValueError:
+                continue
+    return achados
 
 
 class ACatracaDoSistemaVisualTests(SimpleTestCase):
@@ -921,3 +950,65 @@ class LinkBotaoAvisaQueEstaIndoTests(SimpleTestCase):
         ]
         self.assertEqual(len(lista), 1, "a lista única de :active deixou de ser única")
         self.assertIn(".mapa__area:active", lista[0])
+
+
+class ORotuloDoGraficoDeSvgRespeitaOPisoDeOnzePixelsTests(SimpleTestCase):
+    """`test_o_piso_de_onze_pixels_continua_no_menor_degrau` só varre CSS
+    (`--texto-xs`) — e o rótulo de eixo do gráfico SVG (o peso, o volume por
+    semana em Progresso) nunca passou por ali: o tamanho sai como ATRIBUTO
+    `font-size` do `<text>`, em `plans/graficos.py` (`TAMANHO_ROTULO`), não
+    como regra de CSS. Com o valor antigo (9) o rótulo do peso ("83,4") e a
+    data liam 9px de DECLARADO e 8,2px de PINTADO no celular — os dois abaixo
+    do piso do `CLAUDE.md`, "texto de interface nunca abaixo de 11px".
+
+    Esta régua mede o DECLARADO, e o `graficos.py` explica por quê, com a
+    tabela medida no navegador: `getComputedStyle(text).fontSize` devolve a
+    constante sem desconto, mas o glifo na tela é `declarado × largura/320`,
+    porque o `viewBox` tem 320 unidades. Com 12, o celular chega a 11,0px
+    pintados (era 8,2) e os gráficos de coluna do desktop ficam em 9,8 — o
+    que sobra é geometria de `viewBox`, não tamanho de fonte, e está no
+    relatório da missão. Um teste sem navegador não vê a escala; o que ele
+    pode garantir é que a fonte de verdade da tela não volte abaixo do piso.
+    """
+
+    TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+
+    def test_o_tamanho_do_modulo_de_graficos_atinge_o_piso(self):
+        """`graficos.TAMANHO_ROTULO` é a fonte de TODO `<text>` de gráfico
+        hoje (`_peso.html`, `_progresso_area.html`) — subir só ele já cobre
+        as duas telas, porque as duas leem a mesma constante. A comparação é
+        direta contra 11 porque é o DECLARADO que esta régua alcança; o
+        pintado depende da caixa e está medido no `graficos.py`."""
+        self.assertGreaterEqual(
+            graficos.TAMANHO_ROTULO,
+            11,
+            f"TAMANHO_ROTULO={graficos.TAMANHO_ROTULO} — abaixo do piso de 11px",
+        )
+
+    def test_nenhum_text_de_template_escreve_valor_cru_abaixo_do_piso(self):
+        """O módulo de gráficos é a única fonte de `<text>` hoje, mas a
+        régua varre TODO template — para o PRÓXIMO `<text>` escrito à mão
+        (sem passar por `graficos.py`) nascer coberto, e não descoberto até
+        alguém medir de novo na tela."""
+        culpados = [
+            f'{caminho.name}: font-size="{valor:g}"'
+            for caminho, valor in valores_crus_de_text_svg(self.TEMPLATES)
+            if valor < 11.0
+        ]
+
+        self.assertEqual(culpados, [], "rótulo de <text> abaixo do piso de 11px")
+
+    def test_o_scanner_pega_valor_cru_e_ignora_variavel_do_servidor(self):
+        """Controle positivo: sem ele, um regex quebrado — ou o filtro de
+        `{{ }}` engolindo o que não devia — deixaria o teste acima verde
+        para sempre, do jeito que o 9px do peso passou despercebido."""
+        with tempfile.TemporaryDirectory() as raiz:
+            (Path(raiz) / "x.html").write_text(
+                '<text font-size="8">baixo</text>'
+                '<text font-size="12">ok</text>'
+                '<text font-size="{{ tamanho_rotulo }}">variável do servidor</text>',
+                encoding="utf-8",
+            )
+            achados = sorted(valor for _, valor in valores_crus_de_text_svg(Path(raiz)))
+
+        self.assertEqual(achados, [8.0, 12.0], "o scanner parou de achar valor cru, ou parou de ignorar a variável")

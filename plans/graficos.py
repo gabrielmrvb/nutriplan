@@ -39,15 +39,53 @@ ALTURA = 160
 
 #: O corpo do rótulo de eixo, em unidades de usuário. Ele sai como ATRIBUTO
 #: do `<text>` e não como regra de CSS: é geometria do viewBox — escala junto
-#: com o gráfico —, e não um degrau da escala tipográfica do app, que tem piso
-#: de 11px para TEXTO DE INTERFACE.
-TAMANHO_ROTULO = 9
+#: com o gráfico —, e não um degrau da escala tipográfica do app.
+#:
+#: Isso não isenta o rótulo do piso de 11px do `CLAUDE.md` ("texto de
+#: interface nunca abaixo de 11px"): a FORMA como o tamanho chega ao `<text>`
+#: não muda o tamanho que a pessoa lê.
+#:
+#: E o tamanho que ela lê tem DUAS medidas, as duas tiradas no navegador
+#: (agent-browser) em `/historico/`, em 24/09/2026 — é a parte desta decisão
+#: que precisa ficar escrita, porque a primeira sozinha engana:
+#:
+#:   DECLARADO  `getComputedStyle(text).fontSize` devolve esta constante em
+#:              px, sem desconto — a transformação do `viewBox` não muda o
+#:              que o CSS relata (o mesmo por que o `font-size` de um filho
+#:              não muda sob um ancestral com `transform: scale()`).
+#:   PINTADO    o glifo na tela é `declarado × largura_do_svg / 320`, porque
+#:              o `viewBox` tem 320 unidades e o `<svg>` é desenhado na
+#:              largura que o container der.
+#:
+#: Medido, com 9 e com 12:
+#:
+#:   recorte                          largura   escala   9 ->   12 ->
+#:   390px, qualquer gráfico            293      0,916    8,2    11,0
+#:   1280px, o peso (duas colunas)      590      1,844   16,6    22,1
+#:   1280px, as colunas (uma coluna)    262      0,819    7,4     9,8
+#:
+#: 12 é o valor que faz o CELULAR — onde este app é usado — chegar ao piso:
+#: 8,2px viram 11,0. Os gráficos de coluna do DESKTOP continuam pintando
+#: abaixo dele (9,8px), e isso não se resolve com o tamanho do rótulo: o
+#: `viewBox` de 320 unidades desenhado numa caixa de 262px encolhe TUDO na
+#: mesma proporção, então subir a constante até 14 (11,1px pintados na
+#: coluna) levaria o rótulo do peso a 25,8px no mesmo monitor. A saída de
+#: verdade é dar a cada gráfico um `viewBox` proporcional à caixa dele — é
+#: geometria do gráfico, não tamanho de fonte, e está no relatório da missão
+#: como recomendação. `config/test_design_system.py` prende o piso do
+#: DECLARADO, que é o que um teste sem navegador consegue medir.
+TAMANHO_ROTULO = 12
 
 #: Respiro para os rótulos dos eixos. O de baixo é maior porque leva data.
-MARGEM_ESQ = 34
+#: Recalculado junto com `TAMANHO_ROTULO` (24/09/2026): rótulo maior pede
+#: mais respiro — MARGEM_ESQ para o valor de até 5 caracteres do eixo y
+#: ("120,5") não estourar x=0 (o rótulo é ancorado à direita, em
+#: `recuo_eixo`), e MARGEM_BASE para a área de desenho (`util_y`) não chegar
+#: perto o bastante da data no rodapé para a curva encostar nela.
+MARGEM_ESQ = 40
 MARGEM_DIR = 6
-MARGEM_TOPO = 10
-MARGEM_BASE = 20
+MARGEM_TOPO = 12
+MARGEM_BASE = 24
 
 
 @dataclass(frozen=True)
