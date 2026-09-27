@@ -207,17 +207,25 @@ def valores_crus_de_text_svg(raiz_templates):
     achados = []
     for caminho in sorted(Path(raiz_templates).rglob("*.html")):
         texto = caminho.read_text(encoding="utf-8")
-        for tag in re.findall(r"<text\b[^>]*>", texto):
-            casou = re.search(r'font-size="([^"]*)"', tag)
+        for tag in re.findall(r"<(?:text|tspan)\b[^>]*>", texto):
+            casou = re.search(r"""font-size=["']([^"']*)["']""", tag)
             if not casou:
                 continue
-            valor = casou.group(1)
+            valor = casou.group(1).strip()
             if "{{" in valor or "{%" in valor:
                 continue
             try:
                 achados.append((caminho, float(valor)))
             except ValueError:
-                continue
+                # VALOR QUE NÃO É NÚMERO VIRA ACHADO, e não silêncio. Era
+                # `continue`, e `font-size="9px"` — o hábito de quem vem do
+                # CSS — saía do radar: um rótulo ABAIXO do piso passava pela
+                # régua sem sinal nenhum. Aqui ele vira `float("-inf")`, que
+                # é menor que qualquer piso e aparece com o valor cru na
+                # mensagem. Unidade em atributo de SVG também não é o que o
+                # módulo de gráficos escreve; se um dia for, o teste é o
+                # lugar de decidir isso em voz alta.
+                achados.append((caminho, float("-inf")))
     return achados
 
 
@@ -991,7 +999,7 @@ class ORotuloDoGraficoDeSvgRespeitaOPisoDeOnzePixelsTests(SimpleTestCase):
         (sem passar por `graficos.py`) nascer coberto, e não descoberto até
         alguém medir de novo na tela."""
         culpados = [
-            f'{caminho.name}: font-size="{valor:g}"'
+            "%s: font-size=%s" % (caminho.name, "ilegível" if valor == float("-inf") else "%g" % valor)
             for caminho, valor in valores_crus_de_text_svg(self.TEMPLATES)
             if valor < 11.0
         ]
@@ -1001,14 +1009,25 @@ class ORotuloDoGraficoDeSvgRespeitaOPisoDeOnzePixelsTests(SimpleTestCase):
     def test_o_scanner_pega_valor_cru_e_ignora_variavel_do_servidor(self):
         """Controle positivo: sem ele, um regex quebrado — ou o filtro de
         `{{ }}` engolindo o que não devia — deixaria o teste acima verde
-        para sempre, do jeito que o 9px do peso passou despercebido."""
+        para sempre, do jeito que o 9px do peso passou despercebido.
+
+        As quatro formas que a revisão adversarial cobrou estão aqui: valor
+        cru, aspas simples, `<tspan>` aninhado e valor com unidade — este
+        último vira `-inf`, porque "não consigo ler" não pode ser o mesmo
+        que "está acima do piso"."""
         with tempfile.TemporaryDirectory() as raiz:
             (Path(raiz) / "x.html").write_text(
                 '<text font-size="8">baixo</text>'
                 '<text font-size="12">ok</text>'
-                '<text font-size="{{ tamanho_rotulo }}">variável do servidor</text>',
+                "<text font-size='10'>aspas simples</text>"
+                '<text font-size="{{ tamanho_rotulo }}">variável do servidor'
+                '<tspan font-size="7">aninhado</tspan></text>'
+                '<text font-size="9px">com unidade</text>',
                 encoding="utf-8",
             )
             achados = sorted(valor for _, valor in valores_crus_de_text_svg(Path(raiz)))
 
-        self.assertEqual(achados, [8.0, 12.0], "o scanner parou de achar valor cru, ou parou de ignorar a variável")
+        self.assertEqual(
+            achados, [float("-inf"), 7.0, 8.0, 10.0, 12.0],
+            "o scanner parou de achar valor cru, de ler aspas simples/tspan, ou passou a engolir unidade",
+        )

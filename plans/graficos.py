@@ -68,8 +68,10 @@ ALTURA = 160
 #: 8,2px viram 11,0. Os gráficos de coluna do DESKTOP continuam pintando
 #: abaixo dele (9,8px), e isso não se resolve com o tamanho do rótulo: o
 #: `viewBox` de 320 unidades desenhado numa caixa de 262px encolhe TUDO na
-#: mesma proporção, então subir a constante até 14 (11,1px pintados na
-#: coluna) levaria o rótulo do peso a 25,8px no mesmo monitor. A saída de
+#: mesma proporção, então subir a constante até 14 (11,5px pintados na
+#: coluna: 14 × 0,819) levaria o rótulo do peso a 25,8px no mesmo monitor
+#: (14 × 1,844) — e o gráfico de colunas do trimestre, que já desenha uma
+#: data por semana, ficaria com os rótulos ainda mais perto. A saída de
 #: verdade é dar a cada gráfico um `viewBox` proporcional à caixa dele — é
 #: geometria do gráfico, não tamanho de fonte, e está no relatório da missão
 #: como recomendação. `config/test_design_system.py` prende o piso do
