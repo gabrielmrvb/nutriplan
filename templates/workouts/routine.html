@@ -278,11 +278,18 @@
               como estado no banco, e inventar um registro para acender um
               botão seria criar dado que nada lê. Abrir a execução também não
               muda progresso — ela só grava quando a série é concluída.
+
+              O RÓTULO É UM `<span>` SÓ (24/09/2026): `.btn` é `inline-flex`,
+              e cada texto solto entre os `<span class="num">` virava um
+              item de flex PRÓPRIO — "Continuar treino (1 de 7)" quebrava em
+              cinco linhas em produção, com o `)` caindo fora do botão. Com
+              um único filho de primeiro nível, o `<a>` só tem UM item para o
+              flexbox posicionar, não importa a direção.
             {% endcomment %}
             <a class="btn btn--primary btn--block btn--hoje"
                href="{% url 'workouts:now' %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</a>
+               data-hoje-cta><span>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</span></a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.
