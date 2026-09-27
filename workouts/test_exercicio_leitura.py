@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from workouts import services
+from workouts.test_sequencia import fazer
 from workouts.tests import (
     create_user, dias_incluindo_hoje, dias_sem_hoje, escolher_opcao_de_hoje, sem_scripts,
 )
@@ -227,19 +228,21 @@ class ALeituraDoExercicioTests(TestCase):
 #: linhas da semana passaram a vir SEM o exercício (`prefetch("exercises")`),
 #: que a leitura não lia — `aplicar_trocas` busca o exercício só das linhas
 #: trocadas. Constante com o histórico.
-CONSULTAS_DA_LEITURA = 11
+#: 12 em 24/09/2026 (sequência por presença): mais UMA — a leitura da
+#: sequência feita (`sequencia_do_treino`) que `sessoes_da_semana` faz para
+#: projetar a semana e para o "Quando". UMA consulta, constante com o
+#: histórico (não cresce com o número de dias registrados).
+CONSULTAS_DA_LEITURA = 12
 
 
-class AFichaDeOutroDiaSegueOCicloTests(TestCase):
-    """A ficha de OUTRO dia mostra a variação da PRÓXIMA ocorrência da letra,
-    e QUAL opção é a do CALENDÁRIO (`variacao_do_dia`: bloco par da posição no
-    ciclo → opção 1, ímpar → opção 2). O teste anterior checava a opção 1 fixa
-    e NÃO congelava a data — passava numa quinta e caía numa sexta, achado ao
-    FATIAR a suíte (PR #33). Aqui a data é congelada e as DUAS paridades são
-    cobradas.
+class AFichaDeOutraLetraSegueAPresencaTests(TestCase):
+    """A ficha de OUTRA letra (não a de hoje) mostra a variação da PRÓXIMA vez
+    que ela cai — `opcoes[contagem(letra) % nº de opções]`, por PRESENÇA
+    (24/09/2026). Substitui a paridade do bloco de posição: a variação não
+    depende mais do dia do calendário, e sim de quantas vezes a letra já foi
+    feita. E a ficha de outra letra não executa (a execução é só a de hoje).
     """
 
-    #: Uma segunda-feira: a posição zero do ciclo é o dia em que o plano nasce.
     SEGUNDA = date(2026, 9, 14)
 
     @classmethod
@@ -267,69 +270,34 @@ class AFichaDeOutroDiaSegueOCicloTests(TestCase):
                 break
         self.assertIsNotNone(self.sessao, "o fixture precisa de uma letra com duas opções distinguíveis")
 
-    def _opcao_da_ficha(self, hoje):
-        relogio = _congelar(hoje)
-        try:
-            ficha = sem_scripts(self.client.get(
-                reverse("workouts:ficha", args=[self.sessao.pk])
-            ).content.decode())
-        finally:
-            relogio.stop()
-        self.assertNotIn("?exercicio=", ficha)  # a ficha de outro dia não executa
+    def _variacao(self):
+        return services.variacao_do_dia(
+            self.plano, self.SEGUNDA, self.sessao, self.sessoes, user=self.pessoa
+        )
+
+    def test_sem_historico_a_variacao_e_a_primeira_opcao(self):
+        self.assertEqual(self._variacao(), self.sessao.opcoes[0])
+
+    def test_com_a_letra_feita_uma_vez_a_variacao_e_a_segunda_opcao(self):
+        fazer(self.pessoa, self.plano, self.sessao.label, self.SEGUNDA - timedelta(days=1))
+        self.assertEqual(self._variacao(), self.sessao.opcoes[1])
+
+    def test_a_ficha_de_outra_letra_mostra_a_variacao_e_nao_executa(self):
+        """Feita a própria letra ONTEM, o recomendado de hoje é a SEGUINTE —
+        então esta letra é 'outra', a ficha não executa, e mostra a 2ª
+        variação (contagem 1). Sabotagem: com a variação fixa em 1, o
+        exercício exclusivo da 2 some da lista de leitura."""
+        fazer(self.pessoa, self.plano, self.sessao.label, self.SEGUNDA - timedelta(days=1))
+        ficha = sem_scripts(
+            self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode()
+        )
+        self.assertNotIn("?exercicio=", ficha, "a ficha de outra letra não executa")
         lidos = {int(pk) for pk in re.findall(r"/treino/exercicio/(\d+)/\?de=ficha&amp;", ficha)}
-        em_1, em_2 = bool(lidos & self.so_de[1]), bool(lidos & self.so_de[2])
-        self.assertNotEqual(em_1, em_2, "a ficha renderizou exatamente uma opção")
-        return 1 if em_1 else 2
+        opt1, opt2 = self.sessao.opcoes[0], self.sessao.opcoes[1]
+        self.assertTrue(lidos & self.so_de[opt2], "a ficha mostra a 2ª variação (contagem 1)")
+        self.assertFalse(lidos & self.so_de[opt1], "não mostra o exclusivo da 1ª variação")
 
-    def _um_dia_de_bloco(self, par):
-        """Uma data cujo bloco (posição no ciclo // nº de letras) tem a
-        paridade pedida — varre a partir da posição zero."""
-        dias = services.dias_de_treino_de(self.sessoes)
-        letras = services.letras_do_ciclo(self.sessoes)
-        inicio = self.plano.inicio_do_ciclo
-        for delta in range(0, 7 * len(letras) * 2):
-            dia = inicio + timedelta(days=delta)
-            bloco = services.posicao_no_ciclo(inicio, dia, dias) // len(letras)
-            if bloco % 2 == (0 if par else 1):
-                return dia
-        self.fail("não achei um dia de bloco %s" % ("par" if par else "ímpar"))
 
-    def test_bloco_par_da_a_opcao_1(self):
-        """Caso explícito, data congelada por construção: numa data de bloco
-        PAR, `variacao_do_dia` devolve a opção 1."""
-        dia = self._um_dia_de_bloco(par=True)
-        self.assertEqual(
-            services.variacao_do_dia(self.plano, dia, self.sessao, self.sessoes),
-            self.sessao.opcoes[0],
-        )
-
-    def test_bloco_impar_da_a_opcao_2(self):
-        """Caso explícito: numa data de bloco ÍMPAR, `variacao_do_dia`
-        devolve a opção 2."""
-        dia = self._um_dia_de_bloco(par=False)
-        self.assertEqual(
-            services.variacao_do_dia(self.plano, dia, self.sessao, self.sessoes),
-            self.sessao.opcoes[1],
-        )
-
-    def test_a_ficha_de_outro_dia_congelada_e_mostra_as_duas_opcoes(self):
-        """A ficha (integração) com a data CONGELADA: é determinística — o
-        MESMO dia dá sempre a mesma opção — e ao longo do ciclo mostra ora a
-        opção 1, ora a 2. O velho teste, sem congelar, assumia a opção 1 e
-        caía conforme o dia em que a suíte rodava."""
-        vistas = {}
-        for delta in range(0, 7 * 8):
-            hoje = self.SEGUNDA + timedelta(days=delta)
-            # OUTRO dia: com a rotação a letra da sessão pode cair hoje por
-            # outro dia da semana; o que marca "hoje" (ficha executável, com
-            # `?exercicio=`) é a letra da POSIÇÃO de hoje ser esta.
-            de_hoje = services.sessao_do_dia(self.plano, hoje)
-            if de_hoje is not None and de_hoje.label == self.sessao.label:
-                continue
-            opcao = self._opcao_da_ficha(hoje)
-            self.assertEqual(self._opcao_da_ficha(hoje), opcao, "mesmo dia, mesma opção")
-            vistas.setdefault(opcao, hoje)
-        self.assertEqual(set(vistas), {1, 2}, "a ficha mostra a opção 1 em uns dias e a 2 em outros")
 class OsDiasDaLeituraSaoOsDaSemanaTests(TestCase):
     """"Quando" lista CADA dia da semana em que a letra cai — e não o mesmo
     dia duas vezes.

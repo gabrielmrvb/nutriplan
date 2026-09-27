@@ -48,7 +48,14 @@ from plans.test_stress import PopulatedAccountMixin
 #: registros` continua verde), e a alternativa para devolver o número seria
 #: denormalizar os slugs numa coluna do perfil — uma segunda cópia da
 #: verdade, que é o defeito que este repositório recusa em outro lugar.
-TETO = 18
+#: A +1 de 24/09/2026 é `sequencia_do_treino`: a sequência-por-presença
+#: resolve "qual treino é hoje" pela ÚLTIMA letra FEITA, e o cartão AGORA da
+#: Home precisa dela para nomear o recomendado. É UMA consulta sobre o
+#: histórico de escolhas (`EscolhaDeTreino` com `Exists(ExerciseLog)`),
+#: constante e não por linha (`test_o_custo_da_tela_nao_cresce_com_os_
+#: registros` segue verde) — não cabe no JOIN da rotina porque pergunta
+#: outra coisa: o que já foi feito, não o que a semana prevê.
+TETO = 19
 
 RAIZ = "nutriplan"
 
