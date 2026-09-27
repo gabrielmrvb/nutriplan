@@ -468,7 +468,7 @@ def _letra_resolvida(plan, dia, sessoes, user, seq=None, escolha=_NAO_INFORMADO)
     return seq.recomendada()
 
 
-def letra_do_dia(plan, dia, sessoes=None, user=None, seq=None):
+def letra_do_dia(plan, dia, sessoes=None, user=None, seq=None, escolha=_NAO_INFORMADO):
     """A letra que cai em `dia`, ou `None` se não é dia de treino.
 
     Plano por presença (`usa_presenca`): a letra ESCOLHIDA do dia, senão a
@@ -484,7 +484,7 @@ def letra_do_dia(plan, dia, sessoes=None, user=None, seq=None):
         return None
     if not usa_presenca(plan):
         return next(s.label for s in sessoes if s.weekday == dia.weekday())
-    return _letra_resolvida(plan, dia, sessoes, user, seq)
+    return _letra_resolvida(plan, dia, sessoes, user, seq, escolha)
 
 
 def _no_dia(sessao, molde, dia=None):
@@ -575,6 +575,7 @@ def sessoes_da_semana(plan, hoje, sessoes=None, user=None, seq=None, escolha_hoj
             else:
                 pulado = _no_dia(molde, molde, dia)
                 pulado.projecao = "pulado"
+                pulado.eh_hoje = False
                 semana.append(pulado)
                 continue
         elif dia == hoje:
@@ -587,6 +588,7 @@ def sessoes_da_semana(plan, hoje, sessoes=None, user=None, seq=None, escolha_hoj
         da_letra = next((s for s in ordenadas if s.label == letra), molde)
         sess = _no_dia(da_letra, molde, dia)
         sess.projecao = estado
+        sess.eh_hoje = estado == "hoje"
         semana.append(sess)
     return semana
 

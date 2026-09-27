@@ -10374,3 +10374,46 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .coorte tbody tr:last-child th,
 .coorte tbody tr:last-child td { border-bottom: 0; }
 .coorte .hint { font-size: var(--texto-xs); }
+
+/* ============================================================================
+   SEQUÊNCIA POR PRESENÇA — o treino de hoje se escolhe (24/09/2026)
+   O recomendado é a letra seguinte à última feita; a pessoa pode fazer outro
+   treino, e a tira da semana é uma projeção (feito · pulado · hoje · futuro).
+   Uma seção no fim porque é conteúdo só do painel de treino.
+   ========================================================================== */
+.hoje__recomendado { color: var(--text-dim); font-weight: 600; }
+
+/* Aviso, nunca bloqueio: um grupo repetido em menos de 48h. Informativo,
+   não erro — a cor da carga (`--brasa`), não a de perigo. */
+.hoje__aviso {
+  margin: var(--espaco-2) 0 0;
+  color: var(--brasa);
+  font-size: var(--texto-sm);
+}
+
+.hoje__trocar { margin-top: var(--espaco-3); }
+.hoje__trocar-lista {
+  list-style: none;
+  margin: var(--espaco-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--espaco-2);
+}
+/* O botão de cada letra: badge + nome, alinhados à esquerda, altura de toque
+   herdada de `.btn`. `min-width: 0` para o nome longo não vazar. */
+.hoje__trocar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--espaco-3);
+  text-align: left;
+}
+.hoje__trocar-nome { min-width: 0; }
+.hoje__confirmar { margin-top: var(--espaco-3); }
+
+/* A tira por presença: o dia FEITO confirma a letra na cor da marca; o dia
+   PULADO recua para o fundo (não foi feito e não é o de hoje). "hoje" e
+   "futuro" seguem o desenho de `--training`. */
+.day-chip--feito .day-chip__label { color: var(--brand); }
+.day-chip--pulado { opacity: .55; }
+.day-chip--pulado .day-chip__label { color: var(--text-dim); }

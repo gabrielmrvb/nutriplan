@@ -180,8 +180,12 @@ class OPainelMostraORecomendadoTests(TestCase):
             fazer(self.user, self.plan, "B", SEGUNDA + timedelta(days=1))
             resposta = self.client.get(reverse("workouts:routine"))
             self.assertEqual(resposta.context["hoje"].label, "C")
-            # a quarta pulada aparece marcada na projeção da semana
-            projs = {s.weekday: s.projecao for s in resposta.context["sessions"]}
+            # a quarta pulada aparece marcada na projeção da semana (a tira,
+            # via `week`); `sessions` é a ESTRUTURA e não carrega projeção.
+            projs = {
+                d["session"].weekday: d["session"].projecao
+                for d in resposta.context["week"] if d["session"]
+            }
             self.assertEqual(projs[SEGUNDA.weekday()], "feito")           # segunda A
             self.assertEqual(projs[(SEGUNDA + timedelta(days=2)).weekday()], "pulado")  # quarta
             self.assertEqual(projs[(SEGUNDA + timedelta(days=3)).weekday()], "hoje")    # quinta C

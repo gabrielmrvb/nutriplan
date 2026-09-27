@@ -136,43 +136,80 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # letra da posição dele (`sessoes_da_semana`). No plano antigo são as
         # próprias linhas, presas ao dia da semana.
         hoje_data = timezone.localdate()
-        # A sequência por presença (24/09/2026), lida UMA vez: dela saem a
-        # projeção da semana, o próximo treino e a letra recomendada de hoje.
+        # SEQUÊNCIA POR PRESENÇA (24/09/2026), lida UMA vez: dela saem a letra
+        # recomendada de hoje, a projeção da semana (a tira) e o próximo treino.
         seq = services.sequencia_do_treino(user, plan, ate=hoje_data, sessoes=linhas)
-        sessions = services.sessoes_da_semana(plan, hoje_data, linhas, user=user, seq=seq)
+        # A escolha do dia, lida UMA vez e passada adiante — sem ela cada uma
+        # de `letra_do_dia`, `sessao_do_dia` e `sessoes_da_semana` a consultaria.
+        escolha_hoje = services.escolha_do_dia(user, hoje_data)
+        letras_ciclo = services.letras_do_ciclo(linhas)
+        letra_escolhida = (
+            escolha_hoje.session.label
+            if escolha_hoje is not None
+            and escolha_hoje.session.plan_id == plan.pk
+            and escolha_hoje.session.label in letras_ciclo
+            else None
+        )
 
-        # O histórico é anexado ao item por `anexar_historico`, que faz UMA
-        # consulta para a página inteira. A tela principal já não desenha os
-        # formulários, mas o resumo de cada sessão continua lendo `feitas`
-        # para dizer quanto do dia já saiu.
-        anexar_historico(user, sessions)
+        # O PROGRAMA e o VOLUME saem da ESTRUTURA (as linhas, o retrato dos
+        # dias), NÃO da projeção: a projeção reordena as letras por presença e
+        # contaria a letra de hoje duas vezes e omitiria a que ainda não caiu —
+        # "séries por semana" e o volume têm de ser da semana inteira.
+        sessions = sorted(linhas, key=lambda s: s.order)
         nomear_ocorrencias(sessions)
+        recomendada = services.letra_do_dia(
+            plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
+        )
+        for s in sessions:
+            s.eh_hoje = recomendada is not None and s.label == recomendada
+        letras_cartoes = agrupar_por_letra(sessions)
 
-        marcar_ficha_aberta(sessions)
-
-        # O treino de hoje sai da lista de fichas e passa a ser a tela.
-        #
-        # Antes ele era a terceira sanfona de uma pilha, e a pessoa rolava
-        # 897px — medido a 390x844 — passando por dois treinos que não vai
-        # fazer para chegar no que vai. `outras` é o programa: continua
-        # inteiro, em sanfona, embaixo.
-        hoje = next((s for s in sessions if s.eh_hoje), None)
+        # O treino de HOJE é a letra RECOMENDADA (ou a escolhida) vestida em
+        # hoje. `anexar_historico` decide o balde "hoje" pelo weekday, e é por
+        # isso que ele recebe a sessão JÁ vestida no dia — o histórico de hoje
+        # cai na letra certa (o mesmo cuidado da ficha).
+        hoje = services.sessao_do_dia(
+            plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
+        )
         if hoje is not None:
+            anexar_historico(user, [hoje])
             preparar_dia(user, hoje, linhas)
             progresso_do_dia(hoje)
+            # "recomendado" (sem escolha) ou a escolha da pessoa — muda o selo.
+            hoje.recomendado = letra_escolhida is None
+            # "Fazer outro treino": as OUTRAS letras do programa.
+            hoje.outras_letras = [
+                {"letra": c["label"], "nome": c["name"]}
+                for c in letras_cartoes if c["label"] != hoje.label
+            ]
+            # Aviso, nunca bloqueio: escolheu uma letra cujo grupo caiu <48h.
+            aviso_treino = services.aviso_de_treino_repetido(
+                user, plan, hoje.label, hoje_data, seq=seq
+            )
+        else:
+            aviso_treino = None
+
+        # A TIRA é a PROJEÇÃO da semana (feito/pulado/hoje/futuro).
+        tira = services.sessoes_da_semana(
+            plan, hoje_data, linhas, user=user, seq=seq, escolha_hoje=letra_escolhida
+        )
 
         context.update(
             {
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
-                "letras": agrupar_por_letra(sessions),
+                "letras": letras_cartoes,
                 "hoje": hoje,
-                "outras": [s for s in sessions if s is not hoje],
+                # A letra a confirmar quando a troca depois de treinar precisa
+                # de confirmação (`EscolherLetraView` redireciona com `?trocar=`).
+                "trocar_pendente": self.request.GET.get("trocar", ""),
+                "aviso_treino": aviso_treino,
+                "outras": [s for s in sessions if not s.eh_hoje],
                 # Só faz sentido perguntar "e quando é o próximo?" no dia em
                 # que não há treino. Com treino hoje, o próximo é ruído.
-                "proximo": proximo_treino(sessions, plan, hoje_data, linhas, user=user, seq=seq) if hoje is None else None,
-                "week": week_overview(sessions),
+                "proximo": proximo_treino(tira, plan, hoje_data, linhas, user=user, seq=seq) if hoje is None else None,
+                "week": week_overview(tira),
                 # A tira mostra a rotação da SEMANA CORRENTE (as cópias vestidas
                 # de `sessoes_da_semana`), mas sem dizer que ela GIRA a pessoa
                 # lê a tira como fixa e estranha o "próximo treino" da semana que
