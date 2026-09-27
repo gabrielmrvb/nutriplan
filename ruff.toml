@@ -1,0 +1,17 @@
+# ruff — LINTER DE RELATÓRIO, não portão (decisão do dono, 26/09/2026).
+#
+# O CI só REPORTA; quem bloqueia continua sendo a "suíte rápida". O piso é
+# `docs/quality-baseline.md`: nenhuma contagem pode subir. Portão bloqueante só
+# quando o burndown zerar.
+#
+# `E,F,W` e nada além: este repositório nunca teve linter, e ligar o conjunto
+# inteiro no dia um produz uma lista que ninguém lê. Regra nova entra quando a
+# anterior zerar.
+line-length = 100
+
+[lint]
+select = ["E", "F", "W"]
+
+# Migração é código GERADO pelo Django; reescrevê-la para agradar linter é
+# mexer em histórico de schema por motivo estético.
+exclude = ["*/migrations/*"]

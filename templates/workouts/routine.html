@@ -96,7 +96,13 @@
         {% endcomment %}
         {% if hoje %}
           <section class="card hoje" data-dia="{{ hoje.label }}">
-            <p class="hoje__etiqueta">Treino de hoje</p>
+            {% comment %}
+              SEQUÊNCIA POR PRESENÇA (24/09/2026): "Treino de hoje" é a letra
+              seguinte à última FEITA. O selo "recomendado" só aparece quando
+              é sugestão (a pessoa ainda não escolheu); escolhida, ela é a dela.
+            {% endcomment %}
+            <p class="hoje__etiqueta">Treino de hoje{% if hoje.recomendado %} · <span class="hoje__recomendado">recomendado</span>{% endif %}</p>
+            {% if aviso_treino %}<p class="hoje__aviso" role="note">{{ aviso_treino }}</p>{% endif %}
 
             {% comment %}
               O PROGRESSO VIRA ANEL, e o anel vira o assunto do bloco.
@@ -167,10 +173,20 @@
                   do treino; apagar a coluna mudaria o cardápio de quem já usa
                   o app. O que saiu é a exibição e o controle, não o dado.
                 {% endcomment %}
+                {% comment %}
+                  OS TRÊS NÚMEROS SÃO DA OPÇÃO DO DIA (24/09/2026), e não da
+                  referência da semana. `total_sets` e `estimated_minutes` são
+                  da opção 1 — o retrato da LETRA, que é o que os cartões das
+                  outras mostram —, e num dia de variação 2 eles falavam de
+                  outro treino: o painel dizia "~57 min" e a ficha do mesmo dia,
+                  "~60". `preparar_dia` já calculava `minutos`; `series_do_dia`
+                  entrou ao lado, e `total_exercicios` já vinha de
+                  `itens_do_dia`.
+                {% endcomment %}
                 <ul class="hoje__meta hoje__meta--linha">
                   <li><b class="num">{{ hoje.total_exercicios }}</b> exercícios</li>
-                  <li><b class="num">{{ hoje.total_sets }}</b> séries</li>
-                  <li>~<b class="num">{{ hoje.estimated_minutes }}</b> min</li>
+                  <li><b class="num">{{ hoje.series_do_dia }}</b> séries</li>
+                  <li>~<b class="num">{{ hoje.minutos }}</b> min</li>
                 </ul>
               </div>
             </div>
@@ -268,11 +284,18 @@
               como estado no banco, e inventar um registro para acender um
               botão seria criar dado que nada lê. Abrir a execução também não
               muda progresso — ela só grava quando a série é concluída.
+
+              O RÓTULO É UM `<span>` SÓ (24/09/2026): `.btn` é `inline-flex`,
+              e cada texto solto entre os `<span class="num">` virava um
+              item de flex PRÓPRIO — "Continuar treino (1 de 7)" quebrava em
+              cinco linhas em produção, com o `)` caindo fora do botão. Com
+              um único filho de primeiro nível, o `<a>` só tem UM item para o
+              flexbox posicionar, não importa a direção.
             {% endcomment %}
             <a class="btn btn--primary btn--block btn--hoje"
                href="{% url 'workouts:now' %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</a>
+               data-hoje-cta><span>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</span></a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.
@@ -299,6 +322,42 @@
                   <button type="submit" class="btn-link">Menos tempo hoje? Versão rápida em ~{{ hoje.rapida_minutos }} min</button>
                 {% endif %}
               </form>
+            {% endif %}
+
+            {% comment %}
+              FAZER OUTRO TREINO (24/09/2026): o recomendado é sugestão, não
+              imposição. Cada letra é um POST de UM toque; trocar DEPOIS de já
+              ter registrado série hoje pede confirmação — o servidor volta com
+              `?trocar=<letra>` e o bloco de confirmar aparece —, e nada é
+              apagado (`ExerciseLog` é por exercício e data).
+            {% endcomment %}
+            {% if trocar_pendente %}
+              <form method="post" action="{% url 'workouts:escolher_letra' %}" class="hoje__confirmar">
+                {% csrf_token %}
+                <input type="hidden" name="letra" value="{{ trocar_pendente }}">
+                <input type="hidden" name="confirmar" value="1">
+                <p class="hint">Você já registrou séries hoje. Trocar para o Treino {{ trocar_pendente }}? As séries de hoje continuam registradas.</p>
+                <button type="submit" class="btn btn--ghost btn--block">Sim, fazer o Treino {{ trocar_pendente }}</button>
+              </form>
+            {% endif %}
+            {% if hoje.outras_letras %}
+              <details class="fora hoje__trocar">
+                <summary>Fazer outro treino</summary>
+                <ul class="hoje__trocar-lista">
+                  {% for outra in hoje.outras_letras %}
+                    <li>
+                      <form method="post" action="{% url 'workouts:escolher_letra' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="letra" value="{{ outra.letra }}">
+                        <button type="submit" class="btn btn--quiet btn--block">
+                          <span class="session__badge" data-dia="{{ outra.letra }}">{{ outra.letra }}</span>
+                          <span class="hoje__trocar-nome">{{ outra.nome }}</span>
+                        </button>
+                      </form>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
             {% endif %}
           </section>
 
@@ -388,7 +447,18 @@
           agora".
         {% endcomment %}
         <section class="card programa">
-          <div class="card__head"><h2>Seu programa</h2></div>
+          {% comment %}
+            "Exercícios que já fiz" (24/09/2026) mora no cabeçalho de "Seu
+            programa" porque é a mesma pergunta de consulta que o cartão
+            responde — e porque `.card__head a` já é o link de 44px desta
+            tela (o mesmo "Editar" dos outros cartões). É a maçaneta da
+            porta que a leitura do exercício abriu: o que a remontagem da
+            ficha tirou de lá não aparece em tela nenhuma sem ela.
+          {% endcomment %}
+          <div class="card__head">
+            <h2>Seu programa</h2>
+            <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
+          </div>
           <p class="programa__resumo">
             {% comment %}
               O NOME DA DIVISÃO PODE QUEBRAR LINHA; os dois números, não.
@@ -491,11 +561,18 @@
           </details>
           <ol class="week-strip">
             {% for day in week %}
-              <li class="day-chip {% if day.session %}day-chip--training{% endif %}{% if day.session and day.session.eh_hoje %} day-chip--hoje{% endif %}"
-                  {% if day.session %}data-dia="{{ day.session.label }}"{% endif %}>
+              {% comment %}
+                A TIRA É A PROJEÇÃO POR PRESENÇA (24/09/2026): `.projecao` é
+                `feito` (dia passado com série, na letra feita), `pulado` (dia
+                de treino sem série — sem letra comprometida, mostra "·"),
+                `hoje` (o recomendado/escolhido) ou `futuro` (o ciclo a partir
+                daí). O estado vem do servidor; a tira não recalcula nada.
+              {% endcomment %}
+              <li class="day-chip{% if day.session %} day-chip--training day-chip--{{ day.session.projecao }}{% endif %}{% if day.session and day.session.eh_hoje %} day-chip--hoje{% endif %}"
+                  {% if day.session and day.session.projecao != 'pulado' %}data-dia="{{ day.session.label }}"{% endif %}>
                 <span class="day-chip__name">{{ day.short }}</span>
                 <span class="day-chip__label">
-                  {% if day.session %}{{ day.session.label }}{% else %}·{% endif %}
+                  {% if day.session and day.session.projecao != 'pulado' %}{{ day.session.label }}{% else %}·{% endif %}
                 </span>
                 {% comment %}
                   O músculo do dia saiu daqui, e não é economia de espaço: é
@@ -529,8 +606,8 @@
               já acabou.
             {% endcomment %}
             <p class="hint week-strip__ciclo">
-              O ciclo gira: a cada semana as letras avançam, então a mesma letra
-              cai em dias diferentes. A tira mostra a sua semana de treino.
+              A tira mostra os treinos que você fez e o que vem a seguir.
+              Faltou um dia? O próximo treino continua de onde você parou.
             </p>
           {% endif %}
         </section>

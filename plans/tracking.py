@@ -391,15 +391,33 @@ def _desde(user, hoje):
 
 
 def adherence(rows) -> dict:
-    """Consolidado do período: média de kcal e aderência das refeições marcadas.
+    """Consolidado do período: média de kcal e aderência, dos DIAS FECHADOS.
 
-    A PORCENTAGEM É DOS DIAS FECHADOS (22/09/2026): hoje ainda está
+    A PORCENTAGEM É DOS DIAS FECHADOS desde 22/09/2026: hoje ainda está
     acontecendo e entra só como "N de M até agora". No primeiro dia de uso
     não há dia fechado — `adherence_pct` é `None`, e a tela mostra o
     progresso de hoje em vez de uma nota.
+
+    A MÉDIA PASSOU A LER O MESMO RECORTE (24/09/2026), e isso é a correção
+    de um número que não correspondia a nada. `avg_kcal` dividia a soma de
+    TODOS os dias — hoje incluído — pelo número deles, e ao lado imprimia
+    "meta: 2 161", que é a meta de um dia INTEIRO. O resultado: a média caía
+    toda manhã (um dia novo entra com o café), subia durante o dia, e quem
+    abria a tela três vezes via três médias sem ter mudado nada de
+    propósito. Dois números na mesma caixa com denominadores diferentes é a
+    doença; um recorte só é a cura — a mesma lição de
+    `previstas_por_plano`.
+
+    Sem dia fechado, `avg_kcal` é `None` como a porcentagem: no primeiro dia
+    não existe média, e imprimir o café da manhã no lugar dela seria chamar
+    de "kcal/dia" o que é "kcal até agora". `hoje_kcal` vai junto para a
+    tela poder dizer o que ela TEM.
     """
     if not rows:
-        return {"days": 0, "avg_kcal": 0, "adherence_pct": None, "hoje_feitas": 0, "hoje_previstas": 0}
+        return {
+            "days": 0, "avg_kcal": None, "adherence_pct": None,
+            "hoje_feitas": 0, "hoje_previstas": 0, "hoje_kcal": 0,
+        }
     fechados = [row for row in rows if not row.get("is_today")]
     hoje = next((row for row in rows if row.get("is_today")), None)
     done = sum(row["done"] for row in fechados)
@@ -408,10 +426,14 @@ def adherence(rows) -> dict:
     previstas = sum(row.get("previstas", 0) for row in fechados)
     return {
         "days": len(rows),
-        "avg_kcal": arredondar(Decimal(sum(row["kcal"] for row in rows)) / len(rows)),
+        "avg_kcal": (
+            arredondar(Decimal(sum(row["kcal"] for row in fechados)) / len(fechados))
+            if fechados else None
+        ),
         "adherence_pct": (int(done * 100 / previstas) if previstas else 0) if fechados else None,
         "hoje_feitas": hoje["done"] if hoje else 0,
         "hoje_previstas": hoje["previstas"] if hoje else 0,
+        "hoje_kcal": hoje["kcal"] if hoje else 0,
     }
 
 

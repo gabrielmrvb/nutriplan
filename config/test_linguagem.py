@@ -229,6 +229,39 @@ class NenhumaTelaDizComiEstaTests(ComCadastroCompleto):
                 if regua.search(sem_comentario):
                     achados.append("%s: %s" % (caminho, nome))
         self.assertEqual(achados, [])
+class NenhumaTelaLogadaDaAlimentacaoFalaEmOpcaoAOuBTests(ComCadastroCompleto):
+    """O rótulo A/B saiu da INTERFACE em 23/09/2026 — o card de receita não
+    escreve mais "A" nem "B"; `plans.models.OptionLabel` continua existindo,
+    mas só no banco e na lista de compras (rótulo de outra tarefa, por isso
+    `/lista-de-compras/` fica de fora daqui de propósito). A frase abaixo do
+    cardápio e a pergunta da FAQ tinham ficado para trás: diziam "escolher
+    entre A e B" para uma pessoa que nunca vê essas letras na tela."""
+
+    #: Palavra inteira, para não casar com nomes que têm "a" ou "b" soltos no
+    #: meio ("proteína", "abaixo"...). E a LETRA é maiúscula de propósito: com
+    #: `IGNORECASE` no grupo todo, uma frase futura como "não há opção a
+    #: perder" reprovaria o CI sem ter nada a ver com o rótulo das opções — e
+    #: régua de nomenclatura não pode virar censura de vocabulário, que é o
+    #: contrapeso já escrito no `CLAUDE.md`. "A e B" fica insensível, porque
+    #: ali as duas letras juntas só podem ser o rótulo.
+    OPCAO_AB = re.compile(r"(?i:\bA e B\b)|\b[Oo]p[cç][aã]o\s+[AB]\b")
+
+    def test_as_telas_da_alimentacao_nao_citam_a_letra_das_opcoes(self):
+        self.pessoa_completa()
+        for rota in (reverse("plans:today"), reverse("plans:alimentacao")):
+            with self.subTest(rota=rota):
+                texto = texto_visivel(apenas_o_main(self.client.get(rota).content.decode()))
+                self.assertIsNone(self.OPCAO_AB.search(texto), texto[:400])
+
+    def test_a_regua_pega_o_rotulo_e_deixa_a_prosa_em_paz(self):
+        """Controle positivo E contrapeso no mesmo teste: ela tem de achar o
+        rótulo escrito de qualquer jeito, e NÃO pode achar a preposição."""
+        for frase in ("Opção A", "opção B", "A e B fecham a mesma caloria", "a e b"):
+            with self.subTest(acha=frase):
+                self.assertIsNotNone(self.OPCAO_AB.search(frase))
+        for frase in ("não há opção a perder", "cada opção básica", "uma opção boa"):
+            with self.subTest(ignora=frase):
+                self.assertIsNone(self.OPCAO_AB.search(frase))
 
 
 class ALandingEAsDescricoesNaoPrometemDietaTests(TestCase):

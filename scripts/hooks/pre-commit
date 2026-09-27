@@ -44,6 +44,30 @@ fi
 echo "→ migrações pendentes"
 "$PY" manage.py makemigrations --check --dry-run --no-input >/dev/null
 
+echo "-> ruff (catraca de contagem, nao portao)"
+# O piso e `ruff-baseline.txt`, e a regra do dono e: nenhum numero pode subir.
+# Contagem, e nao "arquivo tocado fica limpo": 87% dos achados de hoje sao
+# E501 em comentario de prosa deliberada, e cobrar limpeza de quem encosta num
+# arquivo desses transforma um commit de uma linha numa reforma.
+# Sem o ruff instalado o hook AVISA e segue -- ele e de desenvolvimento
+# (`requirements-dev.txt`), e travar o commit de quem nao instalou seria punir
+# pela ausencia de uma ferramenta que nao e de producao.
+if "$PY" -m ruff --version >/dev/null 2>&1; then
+  # `|| true` nas DUAS pontas: o hook roda com `pipefail` e o ruff sai 1 quando
+  # acha algo (sempre, hoje), entao o pipeline inteiro reprovaria aqui em vez de
+  # na comparacao com o piso. O `grep -c` tambem sai 1 quando conta zero.
+  ATUAL=$( { "$PY" -m ruff check . --quiet --output-format concise 2>/dev/null || true; } | grep -c ":" || true)
+  PISO=$(tr -d '[:space:]' < ruff-baseline.txt)
+  if [ "$ATUAL" -gt "$PISO" ]; then
+    echo "  x ruff subiu de $PISO para $ATUAL"
+    echo "    Conserte o que voce acrescentou, ou justifique e atualize ruff-baseline.txt."
+    exit 1
+  fi
+  [ "$ATUAL" -lt "$PISO" ] && echo "  desceu para $ATUAL (piso $PISO) -- atualize ruff-baseline.txt"
+else
+  echo "  ruff ausente; pulando (pip install -r requirements-dev.txt)"
+fi
+
 echo "→ alvos de toque e regras de estilo"
 "$PY" manage.py test \
   config.tests.TouchTargetTests \

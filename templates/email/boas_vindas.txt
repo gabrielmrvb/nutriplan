@@ -7,7 +7,7 @@ O que fazer primeiro:
 
 1. Termine as 3 etapas do cadastro — no fim delas, sua estimativa de
    calorias e sua ficha de treino aparecem.
-2. Na tela Hoje, registre a próxima refeição (opção A ou B).
+2. Na tela Hoje, registre a próxima refeição — escolha uma das duas opções.
 3. Na área Treino, abra a ficha de hoje e comece pelo primeiro exercício:
    cada série que você fecha fica anotada, com a carga.
 

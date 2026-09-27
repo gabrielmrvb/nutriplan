@@ -124,7 +124,17 @@ class OfensivaComecaNaContaTests(TestCase):
         # terminar nela também. Zero convida; cobrar duas vezes pela mesma
         # coisa era o que fazia a primeira aparição do treino na Home ser
         # uma bronca num cartão de zero dias.
-        self.assertEqual(ofensiva.falta_ontem, ["dieta ou água"])
+        # O NÚMERO, e não o rótulo: "faltou dieta ou água" era dito a quem
+        # tinha registrado as duas coisas e só não chegado na meta. Esta
+        # linha é o que sobrou provando a `pendencias_medidas` depois que a
+        # FRASE deixou de citar ontem — as duas mudanças são de 24/09 e se
+        # completam.
+        #
+        # LITERAL, e não o formatador da produção: um teste que calcula a
+        # expectativa com o código sob teste concorda com ele por
+        # construção. `meta` é conferida logo acima para a literal valer.
+        self.assertEqual(meta, 3000)
+        self.assertEqual(ofensiva.falta_ontem, ["água 1,5 de 3 L"])
         self.assertNotIn("faltou", ofensiva.mensagem)
         # E aqui o verbo é RECOMEÇA: a conta existia ontem.
         self.assertEqual(
