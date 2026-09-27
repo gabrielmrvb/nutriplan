@@ -486,7 +486,7 @@
      rolagem das pastilhas e o `max-height` do vídeo. Escrito em cada uma,
      o número divergiria na primeira vez que o bloco mudasse de altura, e
      o vídeo voltaria a ser coberto sem ninguém perceber. */
-  --exec-bloco: 8.5rem;
+  --exec-bloco: 9rem;
   --exec-descanso: 0rem;
   /* A CABEÇA DO EXERCÍCIO: nome (44px) + músculos (17px) + respiro. Medida a
      375 e a 390 em 24/09/2026 — do topo do `h1` ao topo da demonstração dão

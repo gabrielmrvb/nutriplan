@@ -91,8 +91,16 @@ class OCabecalhoDaExecucaoTests(TestCase):
         bloco = _bloco(html, '<div class="agora__registro"', "</form>")
         self.assertNotIn('<ol class="series__lista">', bloco)
         self.assertNotIn('class="registro__nota"', bloco)
-        self.assertIn("data-aguardando-rede", bloco)
         self.assertIn('class="registro registro--agora"', bloco)
+        # O selo de "aguardando rede" saiu junto, em 24/09: ele é STATUS, e o
+        # bloco tem teto de altura — medido, com o selo ligado o conteúdo
+        # passava 32px da caixa e o "Concluir série" ficava fora dela.
+        self.assertNotIn("data-aguardando-rede", bloco)
+        self.assertLess(
+            html.index("data-aguardando-rede"),
+            html.index('<div class="agora__registro"'),
+            "o selo fica ACIMA do bloco, com as pastilhas que ele comenta",
+        )
         self.assertLess(
             html.index('<ol class="series__lista">'),
             html.index('<div class="agora__registro"'),

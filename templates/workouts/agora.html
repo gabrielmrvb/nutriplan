@@ -416,6 +416,13 @@
         (avaliação de 16/09/2026, B32). O que a pessoa toca e o que muda com
         o toque ficam juntos, e nada da caixa cobre a fileira.
       {% endcomment %}
+      {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta
+         nota aparece. Ele mora AQUI, e não dentro do bloco preso: é status, não
+         controle, e o bloco tem teto de altura — MEDIDO em 24/09/2026, com o
+         selo ligado o conteúdo passava 32px da caixa (`overflow: visible`) e o
+         "Concluir série" saía dela, sem o fundo do bloco por baixo. #}
+      <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
+
       <div class="series__historico">
           {% comment %}
             Uma pastilha por série prescrita, e o texto dentro dela é a carga.
@@ -525,8 +532,6 @@
       {% endif %}
 
       <div class="agora__registro" id="registro" tabindex="-1">
-      {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta nota aparece. #}
-      <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
       {# ---- Registrar a série: dois campos e um botão ---- #}
       {% if concluido and not extra %}
@@ -535,7 +540,8 @@
         <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
       </p>
       {% else %}
-      <form class="registro registro--agora" id="registro-serie" method="post" data-sem-recarga
+      <form class="registro registro--agora" method="post" data-sem-recarga
+            id="registro-serie"
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">

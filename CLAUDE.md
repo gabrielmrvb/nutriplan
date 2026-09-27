@@ -598,17 +598,29 @@ treino:
 | 375×667 | 178 px | músculos, **"ver vídeo"**, a dica e "Série N de M" |
 | 375×667 + descanso | **25 px** | tudo acima do bloco |
 
-Depois, com o mesmo instrumento: **495 px**, **471** e **408**. O bloco foi
-a 136 px.
+Depois, com o mesmo instrumento: **640 px**, **463** e **400** (e 728 a
+430×932). O bloco fechou em **144 px**.
+
+A faixa livre é aritmética da JANELA e do bloco preso, e não do exercício:
+`janela − bottom − bloco − cabeçalho − descanso`. Antes eram
+`844 − 94 − 335 − 60 = 355`; hoje, `844 − 0 − 144 − 60 = 640`. É isso que
+torna a comparação antes/depois legítima mesmo quando a ficha usada na
+medição não é a mesma.
 
 A resposta não é engolir conteúdo, é encolher o bloco e devolver o espaço:
 
 - **o preso só tem o que o dedo usa ENTRE duas séries** — uma linha de carga
   com as reps ao lado e "Concluir série". As pastilhas (histórico) e "Anotar
   algo desta série" (opcional, recolhido) voltaram ao fluxo, ACIMA dele, com
-  `scroll-margin-bottom` do tamanho do bloco. O teto é o token `--exec-bloco`,
-  e ele existe para a próxima linha de conteúdo não devolver os 335 px sem
-  ninguém perceber;
+  `scroll-margin-bottom` do tamanho do bloco. O teto é o token `--exec-bloco`
+  (9rem = 144 px), e ele existe para a próxima linha de conteúdo não devolver
+  os 335 px sem ninguém perceber. **O teto tem de ficar ACIMA do conteúdo
+  real**, e a primeira versão desta missão errou nisso: com 8.5rem (136) o
+  conteúdo media 140 e TRANSBORDAVA — `max-height` prende a caixa, não o
+  conteúdo, e com `overflow: visible` o "Concluir série" saía dela sem o
+  fundo do bloco por baixo. Com o selo "aguardando rede" ligado o transbordo
+  ia a 32 px; o selo saiu do bloco por isso — ele é STATUS, não controle, e
+  mora com as pastilhas que ele comenta;
 - **`bottom` responde à CLASSE DO SERVIDOR, nunca à largura**:
   `body:not(.tem-tabbar)` cola o bloco no rodapé. A regra vem DEPOIS da
   geral (mesma especificidade: vence a última) e a media query de 60rem
@@ -627,7 +639,10 @@ A resposta não é engolir conteúdo, é encolher o bloco e devolver o espaço:
 
 A régua é GEOMÉTRICA e mora em dois lugares: `scratchpad/medir_execucao.py`
 (`elementFromPoint` no centro de cada elemento, 3 larguras × 2 temas × vídeo
-aberto/fechado, mais o descanso) e o passo `video` do E2E noturno. "O
+aberto/fechado, mais o descanso) e o passo `video` do E2E noturno. **E ela
+espera a ROLAGEM ASSENTAR antes de medir**: abrir o vídeo rola com
+`behavior: smooth`, e com espera de tempo fixo o CTA saiu uma vez como
+"coberto em qualquer posição" — irreprodutível numa medição dirigida. "O
 elemento existe no DOM" não prova nada — o que prova é o ponto que o dedo
 acerta. E a sonda faz DUAS perguntas: coberto ali, ou coberto em qualquer
 rolagem? Conteúdo do fluxo que cai atrás de um `sticky` só naquela posição é

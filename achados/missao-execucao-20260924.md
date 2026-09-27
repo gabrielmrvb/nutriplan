@@ -17,13 +17,19 @@ até o topo do bloco preso de registro.
 
 | vista | faixa livre antes | depois | bloco antes → depois |
 |---|---:|---:|---|
-| 390×844 | 355 px | **495 px** | 335 → **136 px** |
-| 375×667 | 178 px | **471 px** | 335 → **136 px** |
-| 375×667 + descanso | **25 px** | **408 px** | 335 → **136 px** |
-| 430×932 | 355 px | **495 px** | 335 → **136 px** |
+| 390×844 | 355 px | **640 px** | 335 → **144 px** |
+| 375×667 | 178 px | **463 px** | 335 → **144 px** |
+| 375×667 + descanso | **25 px** | **400 px** | 335 → **144 px** |
+| 430×932 | 355 px | **717–728 px** | 335 → **144 px** |
 
-Com o vídeo aberto a 390×844 a faixa vai a 648 px e o player mede 391 —
-antes ele era cortado pelo bloco (`coberto por agora__registro`, medido).
+**A comparação é legítima mesmo com a ficha remontada no meio**, e isso é
+aritmética, não sorte: a faixa livre é `janela − bottom − bloco − cabeçalho
+− descanso`, e nada nela depende de QUAL exercício está na tela. Antes,
+`844 − 94 − 335 − 60 = 355`; hoje, `844 − 0 − 144 − 60 = 640`. Os dois
+valores medidos batem com a conta na casa do pixel.
+
+O player vertical mede 391 px e cabe; antes ele era cortado pelo bloco
+(`coberto por agora__registro`, medido).
 
 **A guarda do dono, nas 12 combinações + 4 com descanso `[EXECUTADA]`:**
 `.agora__nome`, `.agora__meta`, `.demo__abrir`, `.demo__cue` e o player
@@ -58,6 +64,29 @@ nenhuma combinação. `button.demo__abrir` é clicado sem `force`.
    um vídeo sem o nome por cima é vídeo de que exercício? A rota de leitura
    divide o mesmo script e não tem `.agora__topo`; lá o alvo continua sendo a
    demonstração.
+
+## Dois defeitos que eu mesmo introduzi, e a medição pegou
+
+Registrados porque a missão é sobre medir, e o instrumento também erra.
+
+1. **O bloco transbordava o próprio teto.** `max-height: var(--exec-bloco)`
+   prende a CAIXA, não o conteúdo, e o `overflow` é `visible`. Medido depois
+   da primeira correção: caixa 136 px com 140 de conteúdo (transborda 4), e
+   **168 com o selo "aguardando rede" ligado** (transborda 32) — o "Concluir
+   série" saía da caixa e ficava sem o fundo `--surface` por baixo. Eu tinha
+   escrito que o token "impede a próxima linha de conteúdo de devolver o
+   bloco aos 335 px sem ninguém perceber", e do jeito que estava a linha nova
+   passaria por cima sem a caixa mudar de tamanho: guarda que não confere.
+   Correções: o selo saiu do bloco (é STATUS, não controle) e o teto foi a
+   9rem = 144, acima do conteúdo real. Depois: **transbordo 0 nos quatro
+   casos, com o selo ligado, e o CTA dentro da caixa** `[EXECUTADA]`.
+2. **A sonda media durante uma rolagem animada.** Abrir o vídeo rola com
+   `behavior: smooth` e a espera era de 2 200 ms fixos; numa execução o CTA
+   saiu "coberto em qualquer posição", e a medição dirigida não reproduziu
+   (bloco preso em 523–667, CTA 610–663, `elementFromPoint` devolvendo o
+   próprio botão). Tempo fixo não é sincronia: a sonda agora espera o
+   `scrollY` PARAR de mudar. Depois disso, **zero "coberto em qualquer
+   posição" nas 12 combinações**.
 
 ## O achado que não estava na missão, e é de produção
 
