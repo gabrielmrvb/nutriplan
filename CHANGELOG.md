@@ -20,6 +20,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 - **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
 - **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
+- **A dica da Alimentação parou de falar em "A e B".** O rótulo das opções saiu da tela em 23/09; a frase abaixo do cardápio, a pergunta da Ajuda e o e-mail de boas-vindas ainda citavam as letras. Agora dizem "as duas opções", sem mudar o sentido.
 
 *(gerência, não aparece para quem usa)*
 
