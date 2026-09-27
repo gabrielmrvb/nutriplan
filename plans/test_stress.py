@@ -165,7 +165,11 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # em `plan_is_current` (zero a mais).
         # 44 → 17 em 21/09/2026 (uma leitura por tabela; `test_orcamento_da_home`);
         # 17 → 18 em 24/09 pela consulta das restrições — a razão está lá.
-        "plans:today": 18,
+        # 18 → 19 em 24/09 (sequência por presença): `estado_do_treino` do card
+        # de Treino lê a SEQUÊNCIA FEITA (`sequencia_do_treino`) para saber a
+        # letra recomendada de hoje — UMA consulta, constante (não cresce com o
+        # histórico).
+        "plans:today": 19,
         # A ALIMENTAÇÃO ENTRA NA TABELA em 23/09/2026, com 18.
         #
         # Ela nasceu da separação de 22/09 e ficou sem orçamento próprio: o
@@ -182,7 +186,10 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         #
         # E os cards de receita não custam nada: os ingredientes e a medida
         # caseira saem do `prefetch_related` que a tela já fazia.
-        "plans:alimentacao": 19,  # 18 → 19 em 24/09: a mesma consulta das restrições
+        # 18 → 19 em 24/09: a mesma consulta das restrições.
+        # 19 → 20 em 24/09 (presença): o card de Treino da Alimentação lê a
+        # sequência feita, como a Home — UMA consulta constante.
+        "plans:alimentacao": 20,
         "workouts:routine": 25,
         # 15 -> 26: o Progresso passou a mostrar o bloco de Conquistas, e ele
         # custa NOVE consultas constantes — medido, com `reunir` respondendo por
@@ -278,7 +285,12 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
     #: ficha inteira) e a contagem de alternativas por linha
     #: (`contar_outras_formas`, uma consulta para o catálogo permitido) —,
     #: nenhuma por exercício; medido em 16 no pior caso com o histórico cheio.
-    TETO_DA_FICHA = 17
+    #: 17 -> 18 (24/09/2026, sequência por presença): UMA consulta a mais, a
+    #: SEQUÊNCIA FEITA (`sequencia_do_treino`), lida uma vez e passada a todas
+    #: as resoluções de letra/opção da ficha (`seq`/`escolha` compartilhados) —
+    #: é o que decide se esta ficha é a letra recomendada de hoje. Constante,
+    #: não cresce com os exercícios.
+    TETO_DA_FICHA = 18
 
     def test_a_ficha_tem_teto_proprio_e_nao_cresce_com_os_exercicios(self):
         """A tela nova é a que mais convida a um laço com consulta dentro.

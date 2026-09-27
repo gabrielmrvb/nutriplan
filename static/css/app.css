@@ -5266,7 +5266,18 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      `align-items: start` porque cartão não se estica para acompanhar o
      vizinho: "Conquistas" tem 188px de conteúdo e esticá-lo até os 1.094 do
      Peso abriria exatamente o buraco que P2-4 veio fechar. */
-  .container.largo .split__main.stack--duas-colunas {
+  /* O SELETOR PERDEU O `.split__main` EM 24/09/2026, e a razão é medida.
+     As Conquistas são três cartões soltos no `.container`, sem lado de
+     consulta nenhum — e pô-las num `.split__main` só para casar com o
+     seletor mudava o CELULAR: `.split__main` é flex com `gap: var(--gap)` E
+     os cartões dentro ainda pegam `.card + .card`, então o espaço entre eles
+     ia de 16px para 32 (medido a 390: a página crescia 32px). Com
+     `.stack stack--duas-colunas` direto no container, o celular fica byte a
+     byte igual — `.stack > * + *` e `.card + .card` declaram o MESMO
+     `var(--gap)` — e o desktop ganha a grade. Quem já usava a classe
+     (Progresso, e desde hoje Treino e Lista de compras) continua casando:
+     `.split__main` é um `.stack` também. */
+  .container.largo .stack--duas-colunas {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -5274,7 +5285,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   }
   /* A faixa de três números atravessa as duas colunas: ela é o resumo da
      tela, e meia largura a apertaria de volta para 2+1. */
-  .container.largo .split__main.stack--duas-colunas > :first-child { grid-column: 1 / -1; }
+  .container.largo .stack--duas-colunas > :first-child { grid-column: 1 / -1; }
 
   .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
@@ -6459,13 +6470,17 @@ body.montando { overflow: hidden; }
   font-weight: 700;
 }
 
-/* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
-   eco, o nome do exercício para onde ele leva. O eco existe para o toque não
-   ser às cegas — quem vai "continuar de onde parou" quer saber onde é isso
-   antes de rolar. */
+/* O botão principal ocupa a largura toda. Até 22/09/2026 carregava duas
+   linhas — o verbo e, em eco, o nome do exercício —, e por isso tinha
+   `flex-direction: column`; o eco saiu quando a ficha virou lista (a
+   execução já diz onde a pessoa está). A coluna ficou de sobra e só foi
+   achada em 24/09/2026, medida em produção: `.btn` é `inline-flex`, e cada
+   texto solto do rótulo ("Continuar treino (", o número, " de ", o outro
+   número, ")") virava um item de flex PRÓPRIO — cinco linhas, com o `)`
+   fora do `clip-path` do botão. O template agora entrega UM filho só
+   (`templates/workouts/routine.html`), então a coluna nem seria mais
+   necessária para o eco — mas ela não volta: nada aqui precisa empilhar. */
 .btn--hoje {
-  flex-direction: column;
-  gap: .1rem;
   min-height: 3.4rem;
   font-size: var(--texto-base);
 }
@@ -9425,6 +9440,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   letter-spacing: -.02em;
 }
 
+/* O valor que é uma PALAVRA ("Dia de descanso", "Sem ficha") não usa a
+   display: ela é a fonte dos números deste app — caixa alta, 900, tracking
+   negativo — e uma frase nela lê como manchete de jornal dentro de um
+   cartão. Mesmo degrau de hierarquia, outra família. */
+.painel__valor--palavra {
+  font-family: var(--font);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
 .painel__de {
   font-family: var(--font);
@@ -10466,6 +10493,51 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .coorte tbody tr:last-child th,
 .coorte tbody tr:last-child td { border-bottom: 0; }
 .coorte .hint { font-size: var(--texto-xs); }
+
+/* ============================================================================
+   SEQUÊNCIA POR PRESENÇA — o treino de hoje se escolhe (24/09/2026)
+   O recomendado é a letra seguinte à última feita; a pessoa pode fazer outro
+   treino, e a tira da semana é uma projeção (feito · pulado · hoje · futuro).
+   Uma seção no fim porque é conteúdo só do painel de treino.
+   ========================================================================== */
+.hoje__recomendado { color: var(--text-dim); font-weight: 600; }
+
+/* Aviso, nunca bloqueio: um grupo repetido em menos de 48h. Informativo,
+   não erro — a cor da carga (`--brasa`), não a de perigo. */
+.hoje__aviso {
+  margin: var(--espaco-2) 0 0;
+  color: var(--brasa);
+  font-size: var(--texto-sm);
+}
+
+.hoje__trocar { margin-top: var(--espaco-3); }
+.hoje__trocar-lista {
+  list-style: none;
+  margin: var(--espaco-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--espaco-2);
+}
+/* O botão de cada letra: badge + nome, alinhados à esquerda. É um `.btn`, e o
+   retorno ao toque vem dele; aqui só o arranjo, casado pelo contexto da lista
+   para não criar uma classe clicável própria. `min-width: 0` para o nome longo
+   não vazar. */
+.hoje__trocar-lista .btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--espaco-3);
+  text-align: left;
+}
+.hoje__trocar-nome { min-width: 0; }
+.hoje__confirmar { margin-top: var(--espaco-3); }
+
+/* A tira por presença: o dia FEITO confirma a letra na cor da marca; o dia
+   PULADO recua para o fundo (não foi feito e não é o de hoje). "hoje" e
+   "futuro" seguem o desenho de `--training`. */
+.day-chip--feito .day-chip__label { color: var(--brand); }
+.day-chip--pulado { opacity: .55; }
+.day-chip--pulado .day-chip__label { color: var(--text-dim); }
 
 /* ==========================================================================
    55. A BUSCA DE ALIMENTO — "comi outra coisa" que acha (26/09/2026)

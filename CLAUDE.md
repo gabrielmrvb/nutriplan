@@ -114,7 +114,57 @@ fora de qualquer worktree, uma linha por aviso (`data hora · sessão · arquivo
 · o que vai fazer`), lido antes de editar e escrito antes de commitar. Conflito
 de merge é resolvido por quem faz o rebase.
 
+## Planejar, delegar e lembrar (27/09/2026)
+
+Do `soumatheusgomes/vibe-coding-toolkit`, complementando o PR #150.
+
+**A sessão principal planeja e delega; subagentes implementam.** Ela lê,
+decide, escreve o plano, despacha, integra, revisa e commita. Subagente
+recebe a tarefa com `Files:` e `Depends-on:` explícitos, **não commita**, e
+devolve os arquivos que tocou.
+
+**Ondas paralelas.** Duas tarefas entram na mesma onda só se nenhuma depende
+da outra (nem transitivamente) E os conjuntos de arquivos são disjuntos.
+Tarefa sem `Files:` ou `Depends-on:` claro depende de tudo antes dela — cai
+para serial, nunca para paralelo. A sessão principal commita tarefa a tarefa
+depois da onda e escreve UMA linha no ledger por onda. Colisão inevitável de
+arquivo: cada subagente num worktree próprio.
+
+**Memória do projeto:** @.claude/memory/MEMORY.md — regras em
+`.claude/memory/INSTRUCTIONS.md` (teto de 130 linhas; o tier 2 é este
+arquivo; o repositório é público: nada de segredo, dado pessoal ou
+estratégia). Desligar: apagar a linha com `@` acima.
+
 ## Rodar
+
+**Os comandos canônicos são estes. Não invente variação** — a suíte, o hook e o
+CI concordam porque usam a mesma linha, e uma invocação improvisada mede outra
+coisa.
+
+| o quê | comando |
+|---|---|
+| instalar | `.venv/Scripts/python.exe -m pip install -r requirements.txt` |
+| instalar (dev) | `.venv/Scripts/python.exe -m pip install -r requirements-dev.txt` |
+| lint | `.venv/Scripts/python.exe -m ruff check .` |
+| teste (suíte) | `.venv/Scripts/python.exe manage.py test` |
+| teste (dirigido) | `.venv/Scripts/python.exe manage.py test <modulo>` |
+| migrar | `.venv/Scripts/python.exe manage.py migrate` |
+| build | `scripts/build.sh` (é o do Render; não se roda à mão aqui) |
+| rodar | `preview_start` com o nome `nutriplan` de `.claude/launch.json` |
+| hooks | `bash scripts/instalar_hooks.sh` |
+
+**Não há typecheck.** O projeto não usa mypy nem pyright, e a linha do template
+que pediria um fica vazia de propósito em vez de apontar para nada.
+
+**`ruff` é relatório, não portão** (decisão do dono, 26/09/2026): o piso é
+`ruff-baseline.txt` e a regra é que a contagem **não sobe**. O `pre-commit` e o
+job `ruff (relatório)` do CI comparam contra esse número; o check que barra o
+merge continua sendo só a "suíte rápida". Portão bloqueante quando o burndown
+zerar. Hoje são 1.656 achados, e **1.439 são `E501`** — linha longa em
+comentário de prosa deliberada, que é o estilo desta base; o alvo que interessa
+são os 217 restantes. `docs/quality-baseline.md` tem a tabela.
+
+**Nunca rode servidor pelo Bash** — `preview_start`, sempre.
 
 ```bash
 .venv/Scripts/python.exe manage.py test          # suíte completa (~20 min)
@@ -1013,30 +1063,69 @@ toda ficha antiga em toda visita à Home, para sempre. Prescrição divergente
 NÃO carimba: o aviso continua até a pessoa decidir. O demo é fixture de que
 o seed é dono: `seed_demo` regenera sozinho quando a prescrição mudou.
 
-**O CICLO DA DIVISÃO RODA CONTÍNUO, e a letra de hoje sai da POSIÇÃO, não
-do dia da semana (17/09/2026).** Em 5 dias com ABC o ciclo fixo A B C A B
-recomeçava toda segunda, peito e costas caíam 2× e "Pernas e ombros" 1× —
-quadríceps em 7 diretas por semana, para sempre. O desequilíbrio era do
-calendário. Hoje a semana seguinte continua de onde a anterior parou (C A B
-C A, depois B C A B C; em 3 semanas cada letra cai 5 vezes), e a média do
-ciclo está medida no `TREINO.md` — peito 25,0 no Padrão contra o alvo de
-24, ACEITO pelo dono em 17/09 com tolerância de ± 2 (26 é o teto da média;
-ficha real de academia faz 26–28), lida do documento pelo teste. O golden
-não baixa. Como funciona: `TrainingPlan.
-inicio_do_ciclo` é a posição zero (o primeiro dia de treino da semana em que
-o plano nasce — a primeira semana é a de sempre, a rotação começa na
-segunda); as linhas de `sessions` continuam UMA POR DIA DA SEMANA, com a
-letra da primeira semana — são o retrato de dias, horários e durações que
-`rotina_invalida` compara —; `services.sessao_do_dia(plan, dia)` devolve a
-linha da LETRA da posição vestindo o dia da semana (`_no_dia`: horário,
-duração e `weekday` do dia, `pk` da letra — a escolha e a ficha apontam
-para a letra); `sessoes_da_semana` é a semana de hoje que o painel, a ficha
-e a leitura desenham. A posição é do CALENDÁRIO: treino pulado conta, como
-o quadro da academia. Toda letra recebe o teto e o número de opções da PIOR
-semana (`ocorrencias_das_letras`: 2× para A, B e C em 5 dias). Plano de
-antes da rotação (`inicio_do_ciclo` em branco) segue preso ao dia da semana,
-não é remontado, e a Home pergunta. NUNCA volte a resolver "a sessão de hoje"
-por `weekday=hoje.weekday()`: era isso que prendia o ciclo.
+**SEQUÊNCIA POR PRESENÇA: "qual treino é hoje" é a letra seguinte à ÚLTIMA
+FEITA, e a pessoa escolhe (decisão do dono, 24/09/2026).** Isto SUBSTITUI a
+doutrina de 17/09 onde as duas conflitam — ~~"a letra de hoje sai da POSIÇÃO,
+não do dia da semana; a posição é do CALENDÁRIO, treino pulado conta como o
+quadro da academia; NUNCA resolva a sessão de hoje por presença"~~. O motivo
+da troca: o dono usou o app e viu o defeito. ABC em 5 dias, fez A na segunda e
+B na terça, pulou a quarta — e na quinta o app abriu com A (a POSIÇÃO avançou
+pelo calendário, o C sumiu). Ninguém na academia faz assim: quem pulou faz C
+no dia seguinte. O ciclo dá a DIREÇÃO (A→B→C→A); QUAL letra é hoje pertence à
+pessoa.
+
+- **RECOMENDADO = a letra seguinte à última FEITA.** "Feito" é ter série
+  registrada (`ExerciseLog`) num dia com escolha daquela letra —
+  `services.sequencia_do_treino` lê tudo numa CONSULTA (`SequenciaDoTreino`,
+  com `recomendada()` e `contagem(letra)`). Encerrar com zero série NÃO conta.
+  Sem histórico no plano, o recomendado é a PRIMEIRA letra do ciclo. Pular não
+  avança nada. `TrainingDay` continua dizendo QUAIS dias são de treino e a
+  FREQUÊNCIA — deixou só de dizer a letra.
+- **A PESSOA ESCOLHE.** Painel e execução mostram o recomendado como "Treino
+  de hoje" com o selo "recomendado" e "Fazer outro treino" (`EscolherLetraView`,
+  `POST /treino/letra/`, `registrar_escolha_de_letra`); a escolha vale para o
+  dia (`EscolhaDeTreino`, uma por dia — a letra escolhida mora em
+  `escolha.session.label`, SEM coluna nova). A primeira série grava a escolha.
+  Trocar de letra DEPOIS de já ter registrado série hoje pede confirmação
+  (redirect `?trocar=<letra>`, e o POST com `confirmar=1` confirma) e NÃO apaga
+  nada — `ExerciseLog` é por exercício e data.
+- **AVISO, NUNCA BLOQUEIO.** Escolher uma letra cujo grupo principal foi
+  treinado nas últimas 48h mostra uma linha (`aviso_de_treino_repetido`:
+  "Peito foi treinado ontem; o recomendado hoje é Costas e bíceps."), e a
+  pessoa faz assim mesmo. O teto semanal por grupo continua regra do GERADOR
+  (pior caso por letra, `ocorrencias_das_letras`: 2× para A, B e C em 5 dias),
+  nunca da pessoa.
+- **A TIRA DA SEMANA É PROJEÇÃO** (`sessoes_da_semana`, atributo `.projecao`):
+  dia passado feito mostra a letra FEITA; hoje mostra o recomendado (ou o
+  escolhido); o futuro segue o ciclo a partir daí; dia de treino pulado fica
+  marcado (`pulado`). Sem histórico, a semana 1 e a semana 2 são as duas
+  A B C A B — o calendário não gira mais o ciclo sozinho.
+- **A OPÇÃO (1/2) DA LETRA também é por presença**: `opcoes[(nº de vezes que a
+  letra já foi feita) % nº de opções]` (`variacao_do_dia`). Coincide com o
+  antigo ciclo por posição quando nada é pulado — por isso o dourado, as
+  médias do `TREINO.md` (peito 25,0 no Padrão, alvo 24 ± 2, lido do documento)
+  e o teto por letra ficam INTACTOS; o golden não baixa.
+- **`inicio_do_ciclo` fica no banco como HISTÓRICO**, mas não decide mais a
+  letra; `posicao_no_ciclo` saiu da resolução do dia. As linhas de `sessions`
+  continuam UMA POR DIA DA SEMANA (o retrato de dias, horários e durações que
+  `rotina_invalida` compara), e `services.sessao_do_dia(plan, dia, user=…)`
+  veste a letra recomendada/escolhida no dia (`_no_dia`: horário, duração e
+  `weekday` do dia, `pk` da letra). `user`/`seq`/`escolha` atravessam
+  `sessao_do_dia`/`variacao_do_dia`/`sessoes_da_semana` para a leitura da
+  sequência ser UMA consulta por tela. Plano de antes da rotação
+  (`inicio_do_ciclo` em branco) ENTRA na regra nova sem ser remontado; só o
+  plano CUSTOMIZADO à mão (`is_customized`) fica preso ao dia da semana — quem
+  arranjou os dias mandou (`usa_presenca`). NENHUMA ficha existente é remontada:
+  a presença é LEITURA (`test_sequencia.ApresencaNaoRemontaAFichaTests`, o
+  retrato das linhas antes/depois).
+- **Ofensiva e "dia mensurável" não mudam**: dia previsto sem série continua
+  não fechando.
+
+`workouts/test_sequencia.py`, `test_rotacao.py`, `test_escolher_letra.py`,
+`test_aviso_repetido.py` e o `tornar_hoje` reescrito (registra a letra anterior
+como feita ontem — não mexe em `weekday` nem `inicio_do_ciclo`) prendem tudo
+isto. A tela do dia (o selo "recomendado", "Fazer outro treino" e o aviso) está
+na seção "A área de Treino são TRÊS telas".
 
 **A ofensiva mede aderência AO PLANO, e o denominador vem do plano.** Não do
 que a pessoa marcou — essa era a regra antiga, e ela invertia o incentivo do
@@ -1644,6 +1733,47 @@ ficha do mesmo dia — nunca um número escrito à mão, que envelhece com o
 catálogo — e o teste que protege o significado da referência tem controle
 positivo: a letra A dá 59 min nas duas opções, e sem uma letra que as
 distinga a sabotagem passava verde.
+**RECORDE É O QUE SUPEROU UMA DATA ANTERIOR — NAS DUAS TELAS (24/09/2026).**
+O Progresso listava a maior carga de cada exercício sob o título "Seus
+recordes"; `achievements` só chama de recorde o que passou de uma data
+anterior ("estreia não é recorde"). A varredura de 24/09 mediu uma conta com
+UMA série (40 kg × 6) e viu as duas telas juntas: "Seus recordes ·
+Agachamento livre 40 kg" e "0 recordes". As duas certas dentro da própria
+definição, e a palavra igual nas duas. Decisão do dono: **a primeira série
+não é recorde em lugar nenhum**. A lista virou "Melhores cargas" — título
+que diz o que ela É — e `evolucao.recordes` devolve `e_recorde` por linha,
+comparando com o MÁXIMO das datas anteriores daquele exercício (`date__lt`:
+subir a anilha entre a série 1 e a 2 do mesmo treino é aquecimento, não
+marca). **É o máximo, e não "existe alguma menor"** — a revisão adversarial
+achou onde as duas contas divergem, e não é caso de laboratório: 60 kg em
+julho, 50 em agosto (deload), 60 em setembro; o `DISTINCT ON` fica com a
+linha mais recente das empatadas em 60, e ali existe SIM uma data anterior
+com carga menor, então o `Exists` chamava de recorde um dia que só empatou
+com o próprio pico. `achievements` sempre comparou com o máximo. A
+subconsulta viaja no `DISTINCT ON` que já existia —
+UMA consulta, com teste de `assertNumQueries`, porque `plans:history` tem
+teto medido. Preço na tela, medido a 390: a `pill` de "recorde" empurra o
+valor para a segunda linha nas linhas de nome curto (25 → 52 px); para quem
+já treina há semanas quase toda linha tem a marca, e é verdade que tem —
+quem estreia é que precisa ver a ausência dela.
+
+**A LISTA DE COMPRAS NÃO FALA "OPÇÃO A" (24/09/2026).** Era o último lugar
+do app que pedia para a pessoa escolher entre duas coisas cujo nome ela
+nunca viu — o card de receita parou de escrever a letra em 23/09. Os chips
+viraram "Com a sugestão do dia" e "Com a outra opção"
+(`plans.models.ROTULOS_DA_LISTA_DE_COMPRAS`), porque a primeira opção
+projetada do dia é a que o cardápio sugere. A LETRA continua sendo
+identidade — banco, `?opcao=`, rodízio — e é isso que `OptionLabel` sempre
+disse que era: rótulo de tela de um lado, identidade de dado do outro.
+
+**VALOR QUE É PALAVRA NÃO USA A FONTE DO NÚMERO (24/09/2026).** Os quatro
+`painel__valor` de palavra da Home ("Descanso", "Sem ficha", "Nenhuma
+ainda", "Sem pesagem") saíam em display 900 a 28 px — estado vazio em
+manchete, contra os outros 16 do app. Eles ganharam
+`painel__valor--palavra` (mesmo degrau, outra família: `var(--font)`, 700,
+`--texto-lg`), e a regra é **a mesma, copiada verbatim** da branch da Home
+(#138), para as duas mergearem sem briga. Medido depois: 18 px em Archivo na
+palavra, 28 px em Big Shoulders no número.
 
 **A FICHA DE QUEM COMEÇA EM CASA (missão "quem entra não desiste", item 1,
 24–26/09/2026).** A persona 1 do relatório de experiência — iniciante, 78 kg,
@@ -2778,6 +2908,28 @@ dela ANTES do merge, na própria branch — e uma linha só entra quando a
 mudança que ela descreve está na mesma branch ou já em `main` (a linha
 do placar saiu deste PR por isso e entra no dele).
 
+**E O ARQUIVO É APPEND DE VÁRIAS SESSÕES AO MESMO TEMPO, ENTÃO A REGRA É DO
+GIT E NÃO DA DISCIPLINA (27/09/2026).** Com sessões em paralelo, duas
+branches escrevem embaixo do mesmo `## AAAA-MM-DD` no mesmo dia; o git vê
+duas inserções no mesmo lugar e chama de conflito, e em 27/09 isso
+aconteceu DUAS vezes em poucas horas — nas duas o "conflito" era só as
+duas linhas querendo existir. Combinar quem escreve quando é pedir
+sincronização a quem trabalha em paralelo de propósito, então o arquivo
+ganhou `CHANGELOG.md merge=union` no `.gitattributes`: no trecho em
+conflito o git fica com OS DOIS LADOS, sem marcador. Medido em três
+cenários com `git merge` de verdade (a tabela está no próprio
+`.gitattributes`): seção que já existe, seção nova nas duas branches, e
+blocos de tamanhos diferentes — nos três, merge limpo e nenhum cabeçalho
+`## data` duplicado.
+
+O que o union NÃO faz é julgar conteúdo, e é daí que sai a regra de mão:
+**cada sessão só ACRESCENTA linha sob a data do dia — nunca reordena a
+lista, nunca reescreve a linha de outra sessão, nunca move item entre
+dias.** Editar a mesma linha em duas branches continua produzindo merge
+errado e SILENCIOSO (o union não avisa), e reordenar vira duplicata. A
+rede de segurança do cabeçalho duplicado é `ajuda.tests` ("uma seção por
+dia"), que roda no gate de todo PR; para o resto, a régua é esta frase.
+
 **O GLÚTEO É GRUPO PRÓPRIO DESDE 21/09/2026 (`MuscleGroup.GLUTES`), E
 NENHUMA FICHA MUDOU POR ISSO.** A elevação pélvica, a elevação pélvica no
 banco e as duas pontes de glúteo saíram de "posterior de coxa e glúteo"
@@ -3248,6 +3400,18 @@ Armadilha recorrente neste repositório: **o seletor do JavaScript e o marcador
 do HTML são a mesma string.** `assertNotIn("data-x", html)` passa por acidente
 porque `data-x` também está dentro do `<script>`. Ancore na classe
 (`class="card resumo"`) ou no texto visível.
+
+**Régua de varredura recorta caminho RELATIVO À RAIZ (24/09/2026).** A
+checagem de classe órfã (`config.tests`) lê os `.py` do projeto e descarta
+`artifacts/` e `scratchpad/` — e fazia isso com `caminho.parts`, que olha o
+caminho ABSOLUTO. O worktree de uma sessão do Claude Code mora dentro de um
+diretório chamado `scratchpad`, então ali o filtro descartava TODOS os
+arquivos do repositório: zero `.py` lidos, e as duas classes que
+`accounts/forms.py` escreve com `mark_safe` (`senha__regras`,
+`senha__titulo`) viravam órfãs. Verde no CI, vermelho na máquina, e uma hora
+procurando o defeito no app. Quem escrever a próxima varredura recorta por
+`caminho.relative_to(RAIZ).parts`: régua que muda de veredito com o lugar do
+checkout não é régua.
 
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).

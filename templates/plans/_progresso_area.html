@@ -109,20 +109,29 @@
     {% endif %}
 
     {% if area.chave == 'treino' %}
+      {% comment %}
+        MELHORES CARGAS, E RECORDE É O QUE SUPEROU O MELHOR ANTERIOR
+        (24/09/2026). Esta lista mostrava a maior carga de cada exercício sob
+        o título "Seus recordes" — e as Conquistas, que só chamam de recorde
+        o que passou do MÁXIMO de todas as datas anteriores, diziam
+        "0 recordes" na mesma conta, no mesmo dia. O título passou a dizer o que a lista É; a
+        palavra "recorde" ficou para a linha que tem marca, com a régua de
+        `achievements` (`evolucao.recordes`, campo `e_recorde`).
+      {% endcomment %}
       <ul class="data-list recordes">
         <li class="data-list__item recordes__titulo">
-          <span>{% translate "Seus recordes" %}</span>
+          <span>{% translate "Melhores cargas" %}</span>
           {% if area.extra.sequencia %}
             <span class="pill pill--brand">{% blocktranslate count dias=area.extra.sequencia %}{{ dias }} dia seguido{% plural %}{{ dias }} dias seguidos{% endblocktranslate %}</span>
           {% endif %}
         </li>
         {% for recorde in area.extra.recordes %}
           <li class="data-list__item">
-            <span class="data-list__nome">{{ recorde.exercise__name }}</span>
+            <span class="data-list__nome">{{ recorde.exercise__name }}{% if recorde.e_recorde %} <span class="pill pill--brand">{% translate "recorde" %}</span>{% endif %}</span>
             <span class="data-list__valor num">{{ recorde.weight_kg|floatformat:"-2" }} kg<span class="data-list__meta"> × {{ recorde.reps }} · {{ recorde.date|date:"d/m" }}</span></span>
           </li>
         {% empty %}
-          <li class="data-list__item hint">{% translate "Os recordes aparecem a partir do segundo treino com carga." %}</li>
+          <li class="data-list__item hint">{% translate "A sua maior carga em cada exercício aparece aqui assim que você registrar peso." %}</li>
         {% endfor %}
       </ul>
     {% elif area.chave == 'dieta' and area.extra.receitas %}

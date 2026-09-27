@@ -4,6 +4,16 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-27
+
+- **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
+- **"Comi outra coisa" acha o que você digita.** A busca conhecia 102 alimentos — os do cardápio — e exigia o acento no lugar certo: pão de queijo, açaí, cuscuz, coxinha e mortadela não existiam, e "feijao" sem acento não achava "Feijão". A refeição ficava registrada com zero caloria. Agora são quase setecentos alimentos (a Tabela TACO, a oficial brasileira), a busca ignora acento e maiúscula, e as sugestões aparecem a partir da segunda letra com a caloria de cada um ao lado.
+- **E quando o alimento não existe, o app diz ali mesmo.** O aviso nasce ao lado do campo, no card da refeição, e oferece a saída: registrar assim mesmo — a refeição fica salva, sem contar a caloria daquele item.
+- **Quem não faz musculação usa um app que não fala de ficha.** A terceira aba agora diz **Corrida** e leva às corridas; a etapa 3 não oferece mais "Treino" como área para acompanhar; o fim do cadastro para de anunciar "ficha montada" para quem não tem ficha; e o Progresso abre com a corrida em vez de "Treinos 0".
+- **Quatro conquistas de corrida, para todo mundo.** Primeira corrida, 5 km de uma vez, 10 km de uma vez e 100 km somados. Antes, quem só corria não tinha conquista nenhuma para ganhar — nem a primeira.
+- **O e-mail de boas-vindas deixou de mandar todo mundo abrir a ficha de hoje.** Ele sai antes de você dizer se faz musculação, então agora explica o que vai acontecer em cada caso, em vez de prometer um treino que talvez não exista.
+- **A porta das corridas voltou para a tela de Treino.** Quem tem ficha E corre não tinha caminho dali para as corridas: ficou uma linha no fim da semana, "Corri hoje — registrar corrida".
+
 ## 2026-09-26
 
 - **A ficha de quem treina em casa não pede mais barra fixa.** Quem respondeu "só o peso do corpo" ou "em casa, com halteres" recebia barra fixa, mergulho nas paralelas e parada de mão na parede — um dia inteiro da semana podia ser cinco exercícios pendurados numa barra que não existe naquela casa. Agora o catálogo sabe o que cada exercício exige, e a ficha usa só o que cabe (a remada invertida fica: ela se faz sob a mesa, e é a única forma de treinar costas em casa).
@@ -17,12 +27,6 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O cadastro não marca mais o equipamento por você.** A pergunta "o que você tem para treinar?" abria com "academia completa" já marcada, e quem passasse batido saía com uma resposta que não deu. Agora ela abre em branco — e o Perfil de quem nunca respondeu diz qual é o padrão que está valendo.
 - **"Quantos grupos musculares por dia?" só aparece para quem já treina.** Quem marca "iniciante" não vê mais a pergunta: a divisão de quem está começando é decidida pelo app (corpo inteiro em casa, e a divisão por frequência na academia).
 - **A ficha explica "3 × 6-10" na primeira vez.** Uma linha no topo, enquanto você ainda não registrou carga em nenhum daqueles exercícios: "3 séries de 6 a 10 repetições — faça, descanse o tempo indicado, e repita."
-- **"Comi outra coisa" acha o que você digita.** A busca conhecia 102 alimentos — os do cardápio — e exigia o acento no lugar certo: pão de queijo, açaí, cuscuz, coxinha e mortadela não existiam, e "feijao" sem acento não achava "Feijão". A refeição ficava registrada com zero caloria. Agora são quase setecentos alimentos (a Tabela TACO, a oficial brasileira), a busca ignora acento e maiúscula, e as sugestões aparecem a partir da segunda letra com a caloria de cada um ao lado.
-- **E quando o alimento não existe, o app diz ali mesmo.** O aviso nasce ao lado do campo, no card da refeição, e oferece a saída: registrar assim mesmo — a refeição fica salva, sem contar a caloria daquele item.
-- **Quem não faz musculação usa um app que não fala de ficha.** A terceira aba agora diz **Corrida** e leva às corridas; a etapa 3 não oferece mais "Treino" como área para acompanhar; o fim do cadastro para de anunciar "ficha montada" para quem não tem ficha; e o Progresso abre com a corrida em vez de "Treinos 0".
-- **Quatro conquistas de corrida, para todo mundo.** Primeira corrida, 5 km de uma vez, 10 km de uma vez e 100 km somados. Antes, quem só corria não tinha conquista nenhuma para ganhar — nem a primeira.
-- **O e-mail de boas-vindas deixou de mandar todo mundo abrir a ficha de hoje.** Ele sai antes de você dizer se faz musculação, então agora explica o que vai acontecer em cada caso, em vez de prometer um treino que talvez não exista.
-- **A porta das corridas voltou para a tela de Treino.** Quem tem ficha E corre não tinha caminho dali para as corridas: ficou uma linha no fim da semana, "Corri hoje — registrar corrida".
 
 ## 2026-09-24
 
@@ -30,15 +34,23 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **"Ver vídeo" volta a funcionar depois da primeira série.** Ao concluir uma série, os botões da tela de treino paravam de responder até a página recarregar sozinha: o vídeo não abria, o −2,5/+2,5 não mexia na carga e o relógio de descanso ficava parado no mesmo número.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
 - **Um clique para treinar.** O botão do painel de Treino — e o cartão do treino na Home — leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
+- **O botão "Continuar treino" voltou a caber numa linha.** Com série registrada, ele quebrava em cinco linhas e o parêntese final ficava fora do botão.
 - **O placar diz quanto tempo você treinou.** Era "1 min entre o primeiro e o último registro"; agora é o tempo da primeira série até você tocar em "Encerrar treino". E ele conta: "5 de 8 exercícios feitos", com os que ficaram de fora na ordem da ficha.
 - **A sequência em zero convida em vez de cobrar.** "Recomeça hoje: treino no dia de treino, mais dieta ou água. Ontem faltou dieta ou água." virou "Recomeça hoje: registre uma refeição ou um copo d'água." — e "Comece hoje", com as mesmas palavras, para quem criou a conta hoje.
 - **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **O painel e a ficha param de discordar sobre o treino de hoje.** No dia em que a sua letra cai na segunda versão, o cartão do painel dizia "~57 min · 24 séries" e a ficha do mesmo dia dizia "~60 min" — os dois falam do mesmo treino agora.
+- **Treino, Hidratação, Conquistas e Lista de compras também usam a largura do monitor.** Eram as quatro telas que sobravam numa coluna de 440 px no meio de um monitor de 1280, com a lista de compras pedindo quatro rolagens de tela para ser lida inteira.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 - **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
 - **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
+- **A dica da Alimentação parou de falar em "A e B".** O rótulo das opções saiu da tela em 23/09; a frase abaixo do cardápio, a pergunta da Ajuda e o e-mail de boas-vindas ainda citavam as letras. Agora dizem "as duas opções", sem mudar o sentido.
+- **Os números do gráfico de peso ficaram legíveis no celular.** Os valores do eixo e as datas saíam pequenos demais para ler (9px, abaixo do piso do app); agora saem no mesmo tamanho mínimo do resto da interface.
+- **"Melhores cargas", e recorde é o que você superou.** O Progresso listava a sua maior carga de cada exercício sob o título "Seus recordes" — e as Conquistas, na mesma conta e no mesmo dia, diziam "0 recordes". Agora o título diz o que a lista é, e a palavra "recorde" aparece só na carga que passou do seu melhor anterior.
+- **A lista de compras diz o que cada botão traz.** "Opção A" e "Opção B" viraram "Com a sugestão do dia" e "Com a outra opção" — a letra não aparece mais em tela nenhuma.
+- **Estado vazio não grita.** "Nenhuma ainda", "Sem pesagem", "Sem ficha" e "Descanso" saíram da fonte de número, de 72 px, e viraram texto.
+- **O Progresso fala de dias previstos**, e não de "dias combinados": os dias de treino você declarou no cadastro, não combinou com ninguém.
 
 *(gerência, não aparece para quem usa)*
 

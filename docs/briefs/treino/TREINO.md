@@ -208,16 +208,28 @@ deixou de ser a letra de 1×.
 | avancado | 2 | 18–26 | 45 |
 | avancado | 3 | 22–30 | 50 |
 
-### A rotação contínua do ciclo, e a média medida em 3 semanas
+### A rotação do ciclo, e a média medida em 3 semanas
+
+**SEQUÊNCIA POR PRESENÇA (decisão do dono, 24/09/2026).** "Qual letra é hoje"
+sai da SEQUÊNCIA REALIZADA — a letra seguinte à última FEITA —, não da posição
+no calendário. Isto SUBSTITUI a rotação por posição de 17/09 (~~a semana
+seguinte continua de onde a anterior parou pela data; treino pulado conta~~):
+o dono pulou um dia e o app fez o treino pulado sumir. Agora o ciclo dá a
+DIREÇÃO (A→B→C→A) e a pessoa faz o próximo do que fez; pular não avança nada, e
+ela pode escolher outra letra. O `CLAUDE.md` (seção "SEQUÊNCIA POR PRESENÇA")
+tem a regra inteira.
+
+O que NÃO muda, e é o que esta tabela mede: seguindo a recomendação em ordem, a
+pessoa faz A B C A B C… e cada letra cai 5 vezes em 3 semanas — a MESMA
+distribuição da antiga rotação por calendário. A média por grupo, o teto por
+letra e o dourado ficam intactos (o `test_rotacao.py` mede a média sobre essa
+sequência ideal). O plano de antes da rotação ENTRA na regra por presença sem
+ser remontado; só o customizado à mão fica preso ao dia da semana.
 
 Até 16/09/2026 o ciclo recomeçava toda segunda-feira: em 5 dias com ABC era
 A B C A B toda semana, peito e costas caíam 2× e "Pernas e ombros" 1× —
 quadríceps em 7 diretas, ombro em 9, para sempre. O desequilíbrio era do
-CALENDÁRIO, não do motor. Desde 17/09 a semana seguinte continua de onde a
-anterior parou (A B C A B → C A B C A → B C A B C; `TrainingPlan.
-inicio_do_ciclo`, `services.letra_do_dia`), e em 3 semanas cada letra cai 5
-vezes. O plano de antes da rotação continua preso ao dia da semana (não é
-remontado; a Home pergunta), como manda a política da Fase 5.
+CALENDÁRIO, não do motor.
 
 Medido em 17/09/2026, média semanal de séries DIRETAS por grupo sobre 3
 semanas, no pior caso por dia (a opção mais pesada no grupo):

@@ -131,7 +131,7 @@
                 </a>
               </p>
             {% elif treino_hoje.tem_ficha %}
-              <p class="painel__valor">Descanso</p>
+              <p class="painel__valor painel__valor--palavra">Descanso</p>
               <p class="painel__detalhe">
                 {% if proximo_treino %}
                   Próximo: {% if proximo_treino.dias == 1 %}amanhã{% else %}em {{ proximo_treino.dias }} dias{% endif %}, {{ proximo_treino.session.label }}
@@ -143,7 +143,7 @@
                 <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Ver a semana</a>
               </p>
             {% else %}
-              <p class="painel__valor">Sem ficha</p>
+              <p class="painel__valor painel__valor--palavra">Sem ficha</p>
               <p class="painel__detalhe">A sua ficha ainda não foi montada.</p>
               <p class="painel__rodape">
                 <a class="btn btn--quiet btn--sm btn--block" href="{% url 'workouts:routine' %}">Montar treino</a>
@@ -172,7 +172,7 @@
               <p class="painel__valor num">{{ corrida_km|floatformat:1 }}<span class="painel__de"> km</span></p>
               <p class="painel__detalhe">Última corrida em {{ ultima_corrida.comecou_em|date:"d/m" }}</p>
             {% else %}
-              <p class="painel__valor">Nenhuma ainda</p>
+              <p class="painel__valor painel__valor--palavra">Nenhuma ainda</p>
               <p class="painel__detalhe">Grave a primeira com o GPS, ou importe um arquivo do relógio.</p>
             {% endif %}
             <p class="painel__rodape">
@@ -208,7 +208,7 @@
               <p class="painel__valor num">{{ ultimo_peso.weight_kg|floatformat:1 }}<span class="painel__de"> kg</span></p>
               <p class="painel__detalhe">Última pesagem em {{ ultimo_peso.date|date:"d/m" }}</p>
             {% else %}
-              <p class="painel__valor">Sem pesagem</p>
+              <p class="painel__valor painel__valor--palavra">Sem pesagem</p>
               <p class="painel__detalhe">O primeiro peso é o que faz a curva existir.</p>
             {% endif %}
             {% comment %}

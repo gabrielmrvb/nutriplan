@@ -57,6 +57,7 @@ from .models import (
     MealSlot,
     MealStatus,
     OptionLabel,
+    ROTULOS_DA_LISTA_DE_COMPRAS,
     ItemAvulsoDaLista,
     ItemDaListaMarcado,
 )
@@ -1709,7 +1710,7 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
                 "plan": self.plan,
                 "aisles": aisles,
                 "label": label,
-                "labels": OptionLabel.choices,
+                "labels": [(v, ROTULOS_DA_LISTA_DE_COMPRAS[v]) for v in OptionLabel.values],
                 "days": shopping.DAYS,
                 "total_items": sum(aisle["count"] for aisle in aisles),
             }
