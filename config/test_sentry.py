@@ -17,14 +17,20 @@ log comum (achado da revisão de 27/09/2026: a primeira versão só cobria
 (inclusive o `webpush`, que posta no endpoint da assinatura — um
 identificador por aparelho) deixa rastro por padrão.
 """
+import json
 import subprocess
 import sys
 from unittest import mock
 
-from django.test import SimpleTestCase
+import sentry_sdk
+from sentry_sdk.transport import Transport
+
+from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.urls import reverse
 
 from config import observabilidade
 from config.settings import BASE_DIR
+from config.wsgi import application as _aplicacao_wsgi
 
 DSN_FALSO = "https://chave@o0.ingest.sentry.io/0"
 
@@ -151,6 +157,33 @@ class AntesDeEnviarRedigeURLEQueryString(SimpleTestCase):
 
         self.assertEqual(antes_de_enviar({}, {}), {})
 
+    def test_apaga_todos_os_cabecalhos_do_pedido(self):
+        """Achado do evento de teste real em 27/09/2026 (NUTRIPLAN-1):
+        `Cf-Connecting-Ip` — o IP de quem usa o app, que o Cloudflare na
+        frente do Render acrescenta — chegou ao Sentry inteiro, porque
+        `send_default_pii=False` só reconhece nomes como Authorization,
+        Cookie e X-Forwarded-For, não esse. IP é dado pessoal pela LGPD, e
+        o cabeçalho não serve para depurar este app: a saída é não mandar
+        cabeçalho nenhum, não ampliar uma lista que sempre vai ficar atrás
+        de um nome novo de proxy."""
+        opcoes = observabilidade.opcoes_do_sentry(DSN_FALSO, "producao", None)
+        antes_de_enviar = opcoes["before_send"]
+        evento = {
+            "request": {
+                "url": "https://nutriplan-xxfn.onrender.com/hoje/",
+                "headers": {
+                    "Cf-Connecting-Ip": "201.0.0.1",
+                    "X-Forwarded-For": "201.0.0.1",
+                    "True-Client-Ip": "201.0.0.1",
+                    "User-Agent": "curl",
+                },
+            },
+        }
+
+        resultado = antes_de_enviar(evento, {})
+
+        self.assertNotIn("headers", resultado["request"])
+
 
 class BeforeBreadcrumbDescartaHttpDeSaida(SimpleTestCase):
     """Breadcrumb de HTTP de saída carrega o endpoint de push — um
@@ -181,3 +214,89 @@ class ComDSNSentrySdkEIniciado(SimpleTestCase):
         # dict inteiro por igualdade já prova que NENHUMA opção diverge,
         # sem precisar de um laço que ignore as funções.
         self.assertEqual(modulo_falso.init.call_args.kwargs, opcoes_esperadas)
+
+
+class _TransporteCapturador(Transport):
+    """Transporte de verdade do SDK (não um mock) que guarda o evento em
+    memória em vez de mandar pela rede — é o gancho que deixa inspecionar o
+    que o PIPELINE inteiro do `sentry_sdk` monta, e não só a função isolada
+    que os testes acima já cobrem."""
+
+    def __init__(self):
+        self.eventos = []
+
+    def capture_envelope(self, envelope):
+        evento = envelope.get_event()
+        if evento is not None:
+            self.eventos.append(evento)
+
+
+class PipelineDeVerdadeNaoLevaCabecalhoAoSentry(SimpleTestCase):
+    """Achado de 27/09/2026 (NUTRIPLAN-1): os testes de
+    `AntesDeEnviarRedigeURLEQueryString` provam a FUNÇÃO `before_send`
+    isolada — quem de fato PÕE `url`/`method`/`headers`/`env` no evento é o
+    `SentryWsgiMiddleware` do próprio SDK, instalado por cima de
+    `WSGIHandler.__call__` (a classe que `config/wsgi.py` usa).
+
+    Por isso este teste NÃO usa `self.client` (o client de teste do Django):
+    ele roda em cima de `ClientHandler`, uma classe IRMÃ de `WSGIHandler` —
+    não filha —, então o middleware do SDK nunca entra em cena por ali.
+    MEDIDO: um `self.client.post(...)` chega ao `before_send` com
+    `event["request"]` só com a chave `data`; sem `headers`, sem `url`, com
+    ou sem o `pop("headers")` do fix. Um teste "e2e" com `self.client`
+    passaria mesmo sabotado — o exato risco que este arquivo já nomeia
+    noutro comentário ("passa pelo motivo errado"). Este teste chama
+    `config.wsgi.application` diretamente com um environ de verdade
+    (`RequestFactory`), o mesmo objeto que o Render serve em produção —
+    e SÓ assim o cabeçalho chega a existir no evento para o `before_send`
+    ter o que apagar.
+    """
+
+    def setUp(self):
+        self.token = "token-de-ensaio-sentry-e2e"
+        self.transporte = _TransporteCapturador()
+        opcoes = observabilidade.opcoes_do_sentry(DSN_FALSO, "producao", "abc1234")
+        opcoes["transport"] = self.transporte
+        sentry_sdk.init(**opcoes)
+
+    def tearDown(self):
+        # Devolve o SDK ao estado DESLIGADO de antes deste teste. Sem isto,
+        # todo teste depois deste — neste arquivo ou em qualquer outro,
+        # `config.test_sentry` roda no mesmo processo dos demais — herdaria
+        # uma integração do Django ligada e um transporte fake capturando
+        # eventos que ninguém foi ler.
+        sentry_sdk.get_client().close()
+        sentry_sdk.init()
+
+    def _post_pelo_wsgi_de_verdade(self, **cabecalhos):
+        with override_settings(NUTRIPLAN_TAREFAS_TOKEN=self.token):
+            requisicao = RequestFactory().post(
+                reverse("erro_controlado"),
+                HTTP_AUTHORIZATION="Bearer " + self.token,
+                **cabecalhos,
+            )
+            status = {}
+
+            def start_response(codigo, headers, exc_info=None):
+                status["codigo"] = codigo
+
+            # `raise_request_exception=False` de produção: o WSGI não
+            # reergue, devolve a resposta 500 — e é NESSE caminho
+            # (`got_request_exception`) que o Django integration do SDK
+            # captura o evento.
+            b"".join(_aplicacao_wsgi(requisicao.environ, start_response))
+            return status["codigo"]
+
+    def test_pedido_real_com_erro_nao_leva_cabecalho_nem_ip_ao_evento(self):
+        codigo = self._post_pelo_wsgi_de_verdade(
+            HTTP_CF_CONNECTING_IP="201.0.0.99",
+            HTTP_X_FORWARDED_FOR="201.0.0.99",
+            HTTP_TRUE_CLIENT_IP="201.0.0.99",
+            HTTP_USER_AGENT="curl/8",
+        )
+
+        self.assertTrue(codigo.startswith("500"))
+        self.assertEqual(len(self.transporte.eventos), 1)
+        evento = self.transporte.eventos[0]
+        self.assertNotIn("headers", evento["request"])
+        self.assertNotIn("201.0.0.99", json.dumps(evento))
