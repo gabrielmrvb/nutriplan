@@ -5252,7 +5252,18 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      `align-items: start` porque cartão não se estica para acompanhar o
      vizinho: "Conquistas" tem 188px de conteúdo e esticá-lo até os 1.094 do
      Peso abriria exatamente o buraco que P2-4 veio fechar. */
-  .container.largo .split__main.stack--duas-colunas {
+  /* O SELETOR PERDEU O `.split__main` EM 24/09/2026, e a razão é medida.
+     As Conquistas são três cartões soltos no `.container`, sem lado de
+     consulta nenhum — e pô-las num `.split__main` só para casar com o
+     seletor mudava o CELULAR: `.split__main` é flex com `gap: var(--gap)` E
+     os cartões dentro ainda pegam `.card + .card`, então o espaço entre eles
+     ia de 16px para 32 (medido a 390: a página crescia 32px). Com
+     `.stack stack--duas-colunas` direto no container, o celular fica byte a
+     byte igual — `.stack > * + *` e `.card + .card` declaram o MESMO
+     `var(--gap)` — e o desktop ganha a grade. Quem já usava a classe
+     (Progresso, e desde hoje Treino e Lista de compras) continua casando:
+     `.split__main` é um `.stack` também. */
+  .container.largo .stack--duas-colunas {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -5260,7 +5271,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   }
   /* A faixa de três números atravessa as duas colunas: ela é o resumo da
      tela, e meia largura a apertaria de volta para 2+1. */
-  .container.largo .split__main.stack--duas-colunas > :first-child { grid-column: 1 / -1; }
+  .container.largo .stack--duas-colunas > :first-child { grid-column: 1 / -1; }
 
   .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
@@ -9413,6 +9424,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   font-weight: 900;
   line-height: 1;
   letter-spacing: -.02em;
+}
+
+/* O valor que é uma PALAVRA ("Dia de descanso", "Sem ficha") não usa a
+   display: ela é a fonte dos números deste app — caixa alta, 900, tracking
+   negativo — e uma frase nela lê como manchete de jornal dentro de um
+   cartão. Mesmo degrau de hierarquia, outra família. */
+.painel__valor--palavra {
+  font-family: var(--font);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
 }
 
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */

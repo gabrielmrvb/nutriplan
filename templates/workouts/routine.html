@@ -2,6 +2,13 @@
 
 {% block title %}Treino · NutriPlan{% endblock %}
 
+{% comment %} A LARGURA DO DESKTOP (24/09/2026): medido a 1280, o `<main>`
+   desta tela tinha 480px (440 úteis) enquanto Hoje, Progresso, Alimentação e
+   Corridas já usavam 1024 — e esta é UMA DAS QUATRO ABAS da barra de baixo,
+   ou seja, o celular no meio do monitor estava na porta principal do app. A
+   mesma linha que `corridas.html` ganhou. {% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% comment %}
   NEM DRAWER NEM CRONÔMETRO NESTA TELA, e a ausência é medida.
 
@@ -77,8 +84,33 @@
     {% endcomment %}
     {% include "workouts/_corrida.html" %}
   {% else %}
-    <div class="split">
-      <div class="split__main stack">
+    {% comment %}
+      DUAS COLUNAS DE VERDADE, E POR ISSO O `.split` SAIU (24/09/2026).
+
+      A grade é a do Progresso (`stack--duas-colunas`, seção 28 do CSS): o
+      PRIMEIRO filho atravessa as duas colunas — é o treino de hoje, que é a
+      tarefa —, e embaixo "Seu programa" fica de um lado e os cartões de
+      sessão do outro.
+
+      O `<div class="split">` em volta foi embora porque ele MEDE caro:
+      `.container.largo .split` é `1fr` + `21rem`, e a faixa de 336px do lado
+      de consulta é reservada mesmo quando ninguém a ocupa (medido no
+      Progresso, que não tem `<aside>` nenhum e mesmo assim desenha em
+      632px). Com ele, as duas colunas desta tela davam 304px cada e a tira da
+      semana quebrava "QUA" e "DOM" em duas linhas — o desktop ficaria pior
+      que o celular, que tem 343. Sem ele são 480px e a tira cabe inteira.
+
+      O `<aside>` com os detalhes continua existindo; ele virou o quarto item
+      da grade, em vez de uma coluna própria de 336px com um `<details>`
+      recolhido dentro e novecentos pixels de nada embaixo.
+
+      E sem o `.split` em volta o elemento perde o `split__main`: aquela
+      classe é flex com `gap: var(--gap)`, e somada ao `.card + .card` que os
+      cartões já têm ela dobrava o espaço entre eles NO CELULAR (16px -> 32).
+      É a mesma medição que está no CSS, do outro lado — a razão pela qual o
+      seletor da grade deixou de exigir `.split__main`.
+    {% endcomment %}
+    <div class="stack stack--duas-colunas">
 
         {# ------------- 1. O treino de hoje ------------- #}
         {% comment %}
@@ -674,97 +706,102 @@
             </li>
           {% endfor %}
         </ul>
-      </div>
 
-      <aside class="split__aside stack">
         {% comment %}
-          A CORRIDA SAIU DAQUI, e não voltou para o fim da página.
-
-          Ela tinha subido para o topo desta coluna porque estava enterrada no
-          rodapé — medido a 375px, o cabeçalho caía em y=5476 de uma página de
-          5755. Aquilo consertou a posição e manteve o problema de fundo: uma
-          segunda porta para uma área que já tem a sua.
-
-          Corrida é um dos cinco pilares e mora em Áreas, que é destino fixo da
-          barra de baixo desde UX-01. Um cartão aqui divide a mesma porta em
-          duas, e é isso que a Fase 2 veio desfazer.
-
-          O QUE SOBROU DA COLUNA virou um bloco recolhido. Volume por músculo,
-          como executar, dias de treino e a nota da divisão continuam
-          acessíveis — o que eles deixam de fazer é ocupar a tela de quem abriu
-          o app para treinar agora. Nada de vídeo, série, carga, repetição,
-          descanso, progressão ou histórico é tocado aqui.
+          `stack` e não `split__aside`: ele deixou de ser uma COLUNA e virou o
+          quarto item da grade. `.container.largo .split__aside` é `position:
+          sticky`, e um item grudado dentro da própria grade é movimento que
+          ninguém pediu.
         {% endcomment %}
-        <details class="card explicacao" id="detalhes-do-programa">
-          <summary class="explicacao__head">
-            <h2>Detalhes do programa</h2>
-            <span class="explicacao__dica" aria-hidden="true">abrir</span>
-          </summary>
+        <aside class="stack">
+          {% comment %}
+            A CORRIDA SAIU DAQUI, e não voltou para o fim da página.
 
-          {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
+            Ela tinha subido para o topo desta coluna porque estava enterrada no
+            rodapé — medido a 375px, o cabeçalho caía em y=5476 de uma página de
+            5755. Aquilo consertou a posição e manteve o problema de fundo: uma
+            segunda porta para uma área que já tem a sua.
 
-          <h3 class="explicacao__titulo">Séries por músculo</h3>
-          <div class="macro-list">
-            {% for row in volume %}
-              <div class="macro-line">
-                <div class="macro-line__head">
-                  <span class="macro-line__name">{{ row.name }}</span>
-                  <span class="macro-line__value">{{ row.sets }} séries</span>
+            Corrida é um dos cinco pilares e mora em Áreas, que é destino fixo da
+            barra de baixo desde UX-01. Um cartão aqui divide a mesma porta em
+            duas, e é isso que a Fase 2 veio desfazer.
+
+            O QUE SOBROU DA COLUNA virou um bloco recolhido. Volume por músculo,
+            como executar, dias de treino e a nota da divisão continuam
+            acessíveis — o que eles deixam de fazer é ocupar a tela de quem abriu
+            o app para treinar agora. Nada de vídeo, série, carga, repetição,
+            descanso, progressão ou histórico é tocado aqui.
+          {% endcomment %}
+          <details class="card explicacao" id="detalhes-do-programa">
+            <summary class="explicacao__head">
+              <h2>Detalhes do programa</h2>
+              <span class="explicacao__dica" aria-hidden="true">abrir</span>
+            </summary>
+
+            {% if plan.notes %}<p class="callout">{{ plan.notes }}</p>{% endif %}
+
+            <h3 class="explicacao__titulo">Séries por músculo</h3>
+            <div class="macro-list">
+              {% for row in volume %}
+                <div class="macro-line">
+                  <div class="macro-line__head">
+                    <span class="macro-line__name">{{ row.name }}</span>
+                    <span class="macro-line__value">{{ row.sets }} séries</span>
+                  </div>
+                  <div class="progress">
+                    <span class="progress__fill progress__fill--protein"
+                          style="width: {{ row.pct }}%"></span>
+                  </div>
                 </div>
-                <div class="progress">
-                  <span class="progress__fill progress__fill--protein"
-                        style="width: {{ row.pct }}%"></span>
+              {% endfor %}
+            </div>
+            <p class="hint">
+              É o total da semana, somando todos os dias. A faixa em que os ganhos
+              aparecem de forma consistente é de 10 a 20 séries semanais por grupo
+              muscular — e com {{ plan.days_per_week }}
+              {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} de treino
+              vários grupos ficam no piso dessa faixa, ou abaixo dele. Isso é
+              aritmética de tempo, não erro da ficha: quem quer subir o volume abre
+              mais um dia na semana, não empilha série no dia que já treina.
+            </p>
+
+            <h3 class="explicacao__titulo">Como executar</h3>
+            <dl class="data-list">
+              <div><dt>Aquecimento</dt><dd>1-2 séries leves</dd></div>
+              <div><dt>Séries de trabalho</dt><dd>até 1-2 reps da falha</dd></div>
+              <div><dt>Progressão</dt><dd>+carga ao fechar o topo</dd></div>
+            </dl>
+            <p class="hint">
+              A faixa de repetição é uma faixa de propósito: comece no número de baixo e
+              suba semana a semana com a mesma carga. Quando fechar todas as séries no
+              número de cima com técnica, aumente a carga e volte para o número de baixo —
+              é essa troca, e não a variedade de exercícios, que faz o músculo crescer.
+            </p>
+            <p class="hint">
+              Nos exercícios multiarticulares o descanso é maior porque a limitação é o
+              sistema todo, não o músculo isolado: cortar esse tempo derruba a carga da
+              série seguinte, que é justamente o que a gente está tentando aumentar.
+            </p>
+
+            <h3 class="explicacao__titulo">
+              Dias de treino
+              <a href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Editar</a>
+            </h3>
+            <dl class="data-list">
+              {% for session in sessions %}
+                <div>
+                  <dt>{{ session.weekday_display }}</dt>
+                  <dd>{{ session.label }} · {{ session.name }}</dd>
                 </div>
-              </div>
-            {% endfor %}
-          </div>
-          <p class="hint">
-            É o total da semana, somando todos os dias. A faixa em que os ganhos
-            aparecem de forma consistente é de 10 a 20 séries semanais por grupo
-            muscular — e com {{ plan.days_per_week }}
-            {% if plan.days_per_week == 1 %}dia{% else %}dias{% endif %} de treino
-            vários grupos ficam no piso dessa faixa, ou abaixo dele. Isso é
-            aritmética de tempo, não erro da ficha: quem quer subir o volume abre
-            mais um dia na semana, não empilha série no dia que já treina.
-          </p>
-
-          <h3 class="explicacao__titulo">Como executar</h3>
-          <dl class="data-list">
-            <div><dt>Aquecimento</dt><dd>1-2 séries leves</dd></div>
-            <div><dt>Séries de trabalho</dt><dd>até 1-2 reps da falha</dd></div>
-            <div><dt>Progressão</dt><dd>+carga ao fechar o topo</dd></div>
-          </dl>
-          <p class="hint">
-            A faixa de repetição é uma faixa de propósito: comece no número de baixo e
-            suba semana a semana com a mesma carga. Quando fechar todas as séries no
-            número de cima com técnica, aumente a carga e volte para o número de baixo —
-            é essa troca, e não a variedade de exercícios, que faz o músculo crescer.
-          </p>
-          <p class="hint">
-            Nos exercícios multiarticulares o descanso é maior porque a limitação é o
-            sistema todo, não o músculo isolado: cortar esse tempo derruba a carga da
-            série seguinte, que é justamente o que a gente está tentando aumentar.
-          </p>
-
-          <h3 class="explicacao__titulo">
-            Dias de treino
-            <a href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Editar</a>
-          </h3>
-          <dl class="data-list">
-            {% for session in sessions %}
-              <div>
-                <dt>{{ session.weekday_display }}</dt>
-                <dd>{{ session.label }} · {{ session.name }}</dd>
-              </div>
-            {% endfor %}
-          </dl>
-          <p class="hint">
-            Mudou a frequência? A divisão se ajusta sozinha na próxima vez que você abrir
-            esta tela — dois dias viram AB, três viram ABC, quatro viram ABCD, e de cinco
-            em diante o ciclo ABC recomeça.
-          </p>
-        </details>
-      </aside>
+              {% endfor %}
+            </dl>
+            <p class="hint">
+              Mudou a frequência? A divisão se ajusta sozinha na próxima vez que você abrir
+              esta tela — dois dias viram AB, três viram ABC, quatro viram ABCD, e de cinco
+              em diante o ciclo ABC recomeça.
+            </p>
+          </details>
+        </aside>
     </div>
 
 
