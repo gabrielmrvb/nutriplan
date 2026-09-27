@@ -383,12 +383,9 @@ compras é feita deles).
 - **O ESTADO DA REFEIÇÃO VEM DO SERVIDOR NUMA PALAVRA.** `plans/agora.py`
   escreve `slot.estado` ao lado do `marcador`: `resolvida` · `agora` ·
   `pendente` · `futura`. A tela desenha quatro coisas a partir dela e não
-  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). **Só a
-  `agora` nasce aberta** — a decisão de 20/09 sobre a Home compacta vale
-  para a vencida também, e esta reforma quase a desfez: com cards de receita
-  no lugar das linhas, abrir `pendente` poria dois cardápios na tela às 15h.
-  Quem segurou foi `test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar`.
-  Fechada, a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
+  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). Até 23/09 a
+  `agora` nascia ABERTA; desde 24/09/2026 **nenhuma nasce** (abaixo). Fechada,
+  a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
   registrar"): 150 → 86 px, medidos a 390.
 - **A opção é um CARD DE RECEITA**, não uma linha com sanfona: ilustração,
   nome, caloria, os TRÊS macros, tempo e os ingredientes com a porção numa
@@ -396,7 +393,7 @@ compras é feita deles).
   já fazia — zero consulta nova). A linha ABREVIA a medida ("6,5 col. de
   sopa"); a receita escreve por extenso. O rótulo A/B **saiu da interface** —
   é nome interno do rodízio; `OptionLabel` continua no banco e na lista de
-  compras. O CTA é "Comi esta", e só a sugestão do dia é verde.
+  compras. O CTA e o peso dos dois botões são de 24/09/2026 (abaixo).
 - **A RECEITA É UM MARKUP SÓ EM TRÊS LUGARES** (`templates/plans/_receita.html`):
   a tela `/refeicao/<slot>/receita/<opcao>/`, a folha do celular e o painel
   da direita no desktop. A folha e o painel são a seção `#receita`
@@ -1714,6 +1711,51 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
 
+**A ALIMENTAÇÃO SUGERE, NÃO IMPÕE (24/09/2026).** Cinco decisões do dono
+depois de usar o app. Elas SUBSTITUEM, com data e motivo, três regras
+anteriores: "só a refeição da vez nasce aberta" (20/09, reforçada em 23/09),
+"só a sugestão do dia é verde" e "o CTA é Comi esta" (as duas de 23/09). As
+três foram boas decisões para a tela que existia quando foram tomadas — uma
+refeição aberta custava quatro linhas de texto, não dois cards de receita.
+
+- **O cartão AGORA é da Hoje, e só dela.** Na Alimentação ele repetia a
+  refeição que estava logo abaixo, com o mesmo botão: o herói e o primeiro
+  card eram a mesma coisa dita duas vezes. A tela abre com o anel (meta e
+  saldo) e o cardápio. `_agora.html` perdeu o ramo `sugestao`, que só a
+  Alimentação usava — na Hoje ele é PONTEIRO ("Ver refeição"), e a única
+  ação que executa é a água.
+- **Nenhuma refeição nasce aberta; a da vez é MARCADA.** Toda refeição em
+  aberto é uma linha, e quem abre é a pessoa. A linha da `agora` traz o selo
+  "Agora" e a da `pendente`, "Ficou para trás" — dentro do próprio
+  `<summary>`, sem custar altura. **Uma marca por linha:** na `pendente` ela
+  SUBSTITUI o convite "Não registrada · registrar" (25/09). Dois rótulos
+  `flex: none` na mesma linha espremiam o nome da refeição a zero — 145px de
+  altura a 390px, com uma letra por linha, e o transbordo recortado pelo
+  `overflow-x` da raiz, que é o motivo de nenhuma barra de rolagem denunciar.
+  `test_a_linha_fechada_nao_espreme_o_nome_da_refeicao` é a régua. Medido a 390px com a conta de QA: **2.568 →
+  1.561 px às 9h, 2.580 → 1.773 às 14h, 2.596 → 2.131 às 20h**.
+- **O botão diz a AÇÃO: "Registrar".** "Comi esta" saiu de toda tela — o
+  card já é a receita, e na folha aberta por link não havia "esta" a que
+  apontar. `config/test_linguagem.py` cobra a ausência da frase no cardápio e
+  na folha; o `aria-label` continua nomeando receita e horário.
+- **As duas opções pesam igual, e a sugestão vira CHIP.** Os dois CTAs são
+  `btn--ghost`: o verde só na primeira lia como "faça a primeira", e com
+  cinco refeições por dia seriam dez primários na mesma tela. O rodízio
+  continua escolhendo — é ele que equilibra a lista de compras — e diz qual
+  escolheu num chip "sugestão de hoje" dentro do card.
+- **"Não comi" e "Comi outra coisa" são duas ações do mesmo tamanho.** Eram
+  um link de 15px de texto e um resumo disfarçado de link; viraram dois
+  `btn--ghost` lado a lado (grade de duas colunas, uma só abaixo de 24rem),
+  com a altura de 3,25rem do `.btn` — que o `.fora__abrir` precisa REPETIR,
+  porque ele declara `min-height` 3.000 linhas depois e vencia a cascata. Secundárias pelo CONTORNO e pela posição, não
+  pelo tamanho. O `<details>` aberto ocupa a largura toda. Contrato intacto:
+  mesma URL, `status=skipped`/`off_plan`, mesmo `data-celebra`, mesma
+  idempotência da fila offline.
+
+Continuam valendo: o card de receita e a folha, o anel e o `topo.modo`, a
+lista de compras, `OptionLabel` no banco e o teto de consultas de
+`plans:alimentacao` (`plans/test_stress.py`, hoje 19 — é TETO, e tirar
+trabalho da tela só pode baixá-lo).
 **O CARTÃO DE HOJE CONTA O TREINO DE HOJE, E NÃO A REFERÊNCIA DA SEMANA
 (24/09/2026).** `TrainingSession.total_sets` e `estimated_minutes` são da
 OPÇÃO 1 — o retrato da LETRA, que é o que os cartões das outras mostram e o

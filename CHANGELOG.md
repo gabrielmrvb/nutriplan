@@ -10,6 +10,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **A tela de Alimentação abre com o cardápio, não com um cartão repetido.** O cartão AGORA mostrava a mesma refeição que estava logo abaixo, com o mesmo botão. Ele continua na Hoje, que é a tela do dia.
+- **Nenhuma refeição nasce aberta.** Todas viram uma linha — hora, nome e o alvo — e você abre a que quiser. A da vez ganha o selo "Agora" e a que passou, "Ficou para trás", sem precisar abrir nada. A tela encolheu de 2.568 para 1.561 px num celular de 390 px.
+- **O botão diz o que faz: "Registrar".** Era "Comi esta" — o card já mostra qual receita é.
+- **As duas opções têm o mesmo peso.** Nenhuma das duas é "a certa": a sugestão do dia agora é um selo no card ("sugestão de hoje") em vez de um botão verde.
+- **"Não comi" e "Comi outra coisa" viraram botões de verdade.** Eram dois links pequenos no rodapé do cartão; agora são duas ações do mesmo tamanho, e "Comi outra coisa" abre um campo com os alimentos do catálogo.
 - **Nada mais cobre o exercício durante o treino.** O bloco de registro preso no rodapé ocupava quase metade da tela: num iPhone SE ele tapava os músculos, o "ver vídeo" e a dica, e com o descanso rodando não sobrava nada. Agora ele tem só a carga, as repetições e o "Concluir série"; as bolinhas das séries e o "Anotar algo" voltaram para a página, logo acima. O vídeo abre do tamanho do espaço que sobra e sobe junto com o nome do exercício.
 - **"Ver vídeo" volta a funcionar depois da primeira série.** Ao concluir uma série, os botões da tela de treino paravam de responder até a página recarregar sozinha: o vídeo não abria, o −2,5/+2,5 não mexia na carga e o relógio de descanso ficava parado no mesmo número.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
