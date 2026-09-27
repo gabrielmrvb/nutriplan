@@ -17,6 +17,57 @@ As outras quatro continuam valendo para o que decidem: `nutriplan-product`
 
 Pergunta pontual e ajuste de uma linha **não** precisam de protocolo.
 
+## Ponytail e Caveman: ligados neste projeto (26/09/2026)
+
+Dois plugins de Claude Code, escolhidos pelo dono, e a regra deles vale
+para toda sessão que abrir este repositório.
+
+**Ponytail** (`DietrichGebert/ponytail`) é a escada da preguiça: antes de
+escrever código, a sessão desce sete degraus — isto precisa existir? já
+existe equivalente? a biblioteca padrão resolve? há recurso nativo da
+plataforma? há dependência instalada? cabe em uma linha? — e só escreve
+código novo quando os seis primeiros falham, parando no primeiro que
+resolve. Fica em `full`, que é o padrão da instalação. É a mesma doutrina
+que este arquivo já aplica caso a caso ("Antes de criar componente novo,
+procure"; "o melhor código é o que não se escreveu"), agora com um nome e
+uma escada explícita.
+
+**Caveman** (`JuliusBrussee/caveman`) comprime a RESPOSTA — tira enchimento,
+rodeio e formalidade —, e nunca o que este projeto mede: código, número,
+unidade, negação e texto exato de erro passam intactos, e a compressão se
+desliga sozinha em aviso de segurança, em confirmação de ação irreversível
+e onde comprimir criaria ambiguidade técnica.
+
+**Três coisas que NÃO mudam por causa deles**, e estão aqui porque um
+plugin de concisão é exatamente o que as afrouxaria sem querer:
+
+- o **formato do relatório** (o que terminou · o que mudou · testes ·
+  problemas · deploy · próximo passo, mais "Decisões que tomei sozinha" e
+  "O que preciso de você") — ele é curto por conteúdo, não por estilo;
+- a **prosa medida do commit e deste arquivo**: o "porquê" com o número que
+  o provou é o que faz esta base ser lida daqui a um mês. `/caveman-commit`
+  não substitui a mensagem de commit deste repositório;
+- a **evidência**: `[EXECUTADA]`/`[OBSERVADA]`/`[LIDA NO CÓDIGO]`/`[LIDA NA
+  DOCUMENTAÇÃO]`/`[HIPOTÉTICA]` e a régua de "provado em produção" continuam
+  inteiras. Ponytail em `ultra` não autoriza pular teste, sabotagem ou
+  prova — a escada decide o que ESCREVER, nunca o que PROVAR.
+
+**Instalar (uma vez por máquina, na sessão de Claude Code):**
+
+```
+/plugin marketplace add DietrichGebert/ponytail
+/plugin install ponytail@ponytail
+/plugin marketplace add JuliusBrussee/caveman
+/plugin install caveman@caveman
+```
+
+**Ajustar e desligar:** `/ponytail lite|full|ultra` e `/caveman
+lite|full|ultra` valem só na sessão (a seguinte volta ao padrão);
+`/ponytail off` ou "stop ponytail" e `/caveman off` ou "stop caveman"
+desligam na hora; `/plugin remove ponytail` e `/plugin remove caveman`
+desinstalam. Para desligar em TODO o projeto, apague esta seção — é ela
+que os ativa aqui.
+
 ## Autonomia
 
 **DECIDA E REGISTRE (regra permanente, 17/09/2026).** Uma sessão só para e
@@ -1573,6 +1624,25 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   terceiro. O rodapé do cartão voltou a responder o que o cartão é (a porta
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
+
+**O CARTÃO DE HOJE CONTA O TREINO DE HOJE, E NÃO A REFERÊNCIA DA SEMANA
+(24/09/2026).** `TrainingSession.total_sets` e `estimated_minutes` são da
+OPÇÃO 1 — o retrato da LETRA, que é o que os cartões das outras mostram e o
+que faz o programa não oscilar conforme o dia em que a tela é aberta —, e o
+cartão de hoje os usava: num dia de variação 2 ele prometia os números de um
+treino que a pessoa não ia fazer. Medido (observado em produção em 18/09 e
+reproduzido em 24/09 no `abc2` do intermediário de cinco dias): a letra B
+fecha em 57 min na opção 1 e 60 na 2, a C em 25 séries contra 27 — o painel
+dizia "~57 min" e a ficha do mesmo dia, "~60". Não eram duas contas de
+duração (a conta é uma só desde 13/09); eram duas OPÇÕES. `preparar_dia` já
+calculava `sessao.minutos` da opção do dia e `progresso_do_dia` já tirava
+`total_exercicios` de `itens_do_dia`; faltava `series_do_dia`, e o template
+passou a ler os três. Zero consulta nova: as linhas das duas opções já
+estavam carregadas. `workouts/test_minutos_do_dia.py` mede a IGUALDADE com a
+ficha do mesmo dia — nunca um número escrito à mão, que envelhece com o
+catálogo — e o teste que protege o significado da referência tem controle
+positivo: a letra A dá 59 min nas duas opções, e sem uma letra que as
+distinga a sabotagem passava verde.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -3241,6 +3311,16 @@ reprovar três passos depois é um diagnóstico que já não diz o que houve.
 **A consequência operacional fica escrita: E2E vermelho PARA a promoção do
 lote**, e produção fica no commit anterior até alguém consertar; foi o que
 segurou `1c66b92` por cinco horas.
+
+E a SEXTA, achada pelo conserto da quinta: **`ir` clicava sem esperar o
+link**. Com as caixas marcando, o lote das 15:22 passou o onboarding inteiro
+e reprovou em `serie` com "Element not found: `a[href^='/treino/agora/']`" —
+o segundo `ir` do passo chegou à ficha antes de ela existir. O caminho do
+app está ÍNTEGRO (reproduzido com o perfil que o roteiro cria, sete dias e
+ABC: o painel linka a ficha de hoje e a ficha traz a execução); o runner é
+mais lento que esta máquina e o app ANIMA a troca de página — durante a view
+transition o `elementFromPoint` devolve `<html>` por ~300 ms. `ir` agora
+espera o seletor, como `marcar` já fazia desde o primeiro run do Actions.
 
 `config/test_e2e_noturno.py` prende o roteiro com um navegador falso.
 
