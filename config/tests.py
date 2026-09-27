@@ -517,7 +517,7 @@ class TouchTargetTests(TestCase):
         (".pesagem__salvar {", "min-height: 2.75rem"),
         (".pesar__topo {", "min-height: 2.75rem"),
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
-        # errar o toque em "Pulei".
+        # errar o toque em "Não comi".
         (".btn-link {", "min-height: 2.75rem"),
         # O CRONÔMETRO DE DESCANSO TAMBÉM MUDOU DE TELA, e a régua com ele.
         # Eram "+30s" e o "×" da barra flutuante de `_cronometro.html`, que

@@ -33,6 +33,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
+from plans.models import NutritionPlan
 from accounts.test_tres_etapas import ETAPA1, ETAPA2, ETAPA3, etapa
 from config.seo import DESCRICAO_PADRAO
 from accounts import papeis
@@ -151,6 +152,49 @@ class NenhumaTelaDaAlimentacaoChamaDePlanoTests(ComCadastroCompleto):
             with self.subTest(rota=rota):
                 texto = texto_visivel(apenas_o_main(self.client.get(rota).content.decode()))
                 self.assertIsNone(PLANO.search(texto), texto[:400])
+
+
+#: O rótulo que saiu da tela em 24/09/2026 (decisão do dono, depois de usar o
+#: app): o card JÁ diz qual receita é, e o botão diz a AÇÃO. "Comi esta" era o
+#: card contando a mesma coisa duas vezes — e, na folha da receita aberta por
+#: link, "esta" não tinha a quem apontar.
+COMI_ESTA = re.compile(r"\bcomi esta\b", re.IGNORECASE)
+
+
+class NenhumaTelaDizComiEstaTests(ComCadastroCompleto):
+    """O botão de registrar refeição diz "Registrar", em toda tela que o tem."""
+
+    def test_o_cardapio_diz_registrar(self):
+        self.pessoa_completa()
+        texto = texto_visivel(
+            self.client.get(reverse("plans:alimentacao")).content.decode()
+        )
+        self.assertIn("Registrar", texto)
+        self.assertIsNone(COMI_ESTA.search(texto), texto[:400])
+
+    def test_a_folha_da_receita_diz_registrar(self):
+        """A folha é a tela em que o rótulo antigo mentia: aberta por link, ela
+        não tem "esta" nenhuma ao lado."""
+        pessoa = self.pessoa_completa()
+        plano = NutritionPlan.objects.filter(user=pessoa, is_active=True).first()
+        slot = plano.slots.order_by("order").first()
+        opcao = slot.options.order_by("rank").first()
+        html = self.client.get(
+            reverse("plans:receita", args=[slot.pk, opcao.pk])
+        ).content.decode()
+        texto = texto_visivel(html)
+        self.assertIn("Registrar", texto)
+        self.assertIsNone(COMI_ESTA.search(texto), texto[:400])
+
+    def test_nenhuma_tela_de_quem_tem_cardapio_diz_comi_esta(self):
+        self.pessoa_completa()
+        for rota in (reverse("plans:today"), reverse("plans:alimentacao"),
+                     reverse("plans:history"), reverse("ajuda:index")):
+            with self.subTest(rota=rota):
+                texto = texto_visivel(
+                    apenas_o_main(self.client.get(rota).content.decode())
+                )
+                self.assertIsNone(COMI_ESTA.search(texto), texto[:400])
 
 
 class ALandingEAsDescricoesNaoPrometemDietaTests(TestCase):

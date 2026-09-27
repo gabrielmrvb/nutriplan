@@ -42,7 +42,7 @@ TEMPLATES_NOVOS = {
     # e `_peso.html` são antigos e continuam fora: marcar mil frases velhas
     # de uma vez não é o objetivo desta régua.
     "templates/plans/_progresso_area.html": ['O que este gráfico mede', 'treinou', 'descanso combinado', 'combinado, sem série', 'sem registro', 'dia cheio', 'Seus recordes', 'Os recordes aparecem a partir do segundo treino com carga.', 'O que mais você registrou', 'Ritmo da última semana:', 'por km'],
-    "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Comi esta', 'Trocar por outra receita'],
+    "templates/plans/_receita.html": ['Porção', 'Proteína', 'Carboidrato', 'Gordura', 'O que vai', 'Como faz', 'Você registrou esta refeição.', 'Registrar', 'Trocar por outra receita'],
 }
 
 

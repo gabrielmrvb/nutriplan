@@ -1450,7 +1450,7 @@ class MarkMealViewTests(CatalogFixture):
         """A asserção era `status == 405`: o mecanismo, e não a regra.
 
         O 405 vinha com zero byte, e era onde o `next` do login aterrissava
-        depois de a sessão expirar — quem tocava em "Comi esta", entrava de
+        depois de a sessão expirar — quem tocava em "Registrar", entrava de
         novo e acertava a senha terminava numa página em branco. Ver
         `config/acoes.py`.
         """
@@ -2343,7 +2343,7 @@ class ComiOutraCoisaTests(TestCase):
                 self.assertEqual(self._log().kcal, Decimal("0.00"))
 
     def test_skipping_a_meal_still_registers_nothing(self):
-        """"Pulei" continua sendo o que sempre foi: o comportamento novo é do
+        """"Não comi" continua sendo o que sempre foi: o comportamento novo é do
         botão ao lado, e não pode ter vazado para este."""
         self.client.post(self.url, {"status": "skipped"})
 

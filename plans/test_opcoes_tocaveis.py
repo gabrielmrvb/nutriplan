@@ -66,11 +66,22 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
         """A ação e a opção que ela registra são um PAR, e a proximidade é o
         que diz isso. Antes o botão era irmão do `<details>`; hoje ele mora
         dentro do card da receita a que pertence."""
-        self.assertIn("Comi esta", self.html)
+        # O TEXTO do botão, e não `">Registrar<"`: o template quebra a linha
+        # depois do `<button ...>`, e a âncora com os sinais de tag reprovaria
+        # por espaço em branco — medido ao escrever este teste.
+        rotulos = {
+            texto.strip()
+            for texto in re.findall(
+                r'<form[^>]*class="receita__acao".*?<button[^>]*>(.*?)</button>',
+                self.html,
+                re.S,
+            )
+        }
+        self.assertEqual(rotulos, {"Registrar"})
         self.assertIn('class="receita__acao"', cards_de_receita(self.html))
 
     def test_o_botao_diz_qual_opcao_registra(self):
-        """"Comi esta" dito por escrito, com o nome da receita e do horário.
+        """"Registrar" na tela, e o nome da receita e do horário no rótulo.
 
         Eram "Registrar A" e "Registrar B" — e a letra é nome INTERNO: ela
         existe para o rodízio, que é do servidor. O que distingue os dois
@@ -102,18 +113,45 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
     def test_o_tempo_de_preparo_continua_na_linha(self):
         self.assertIn("min", self.html)
 
-    def test_as_acoes_secundarias_continuam_secundarias(self):
-        """"Pulei" e "Comi outra coisa" não podem virar botão primário.
+    def test_as_duas_saidas_sao_acoes_do_mesmo_tamanho(self):
+        """"Não comi" e "Comi outra coisa": secundárias pelo PESO, não pelo tamanho.
 
-        Desde 23/09/2026 elas são MAIS secundárias que antes: eram dois
-        botões de 48px com o mesmo peso do registrar, e viraram uma linha
-        discreta no rodapé do card (`btn-link`, a mesma língua de "desfazer").
+        Decisão do dono, 24/09/2026. Em 23/09 elas viraram uma linha discreta
+        — um `btn-link` de 15px de texto e um resumo disfarçado de link —, e
+        quem não comeu o que estava no cardápio ficava sem saída visível. As
+        duas voltam a ser botões de contorno, do mesmo tamanho, lado a lado;
+        o que as mantém secundárias é serem de contorno abaixo dos cards, não
+        serem pequenas.
         """
-        self.assertIn("Pulei", self.html)
+        self.assertIn("Não comi", self.html)
+        # O texto DO BOTÃO, e não a página inteira: `class="meal__pulei"`
+        # continua no HTML e faria um `assertNotIn("Pulei")` reprovar por
+        # um nome de classe — a armadilha que este repositório documenta.
+        texto = re.search(
+            r'<button[^>]*value="skipped"[^>]*>(.*?)</button>', self.html, re.S
+        ).group(1).strip()
+        self.assertEqual(texto, "Não comi")
         self.assertIn("Comi outra coisa", self.html)
         self.assertIn('class="meal__secundarias"', self.html)
-        self.assertIn('value="skipped" class="btn-link"', self.html)
-        self.assertNotIn('value="skipped" class="btn btn--primary"', self.html)
+        pulei = re.search(r'<button[^>]*value="skipped"[^>]*>', self.html).group(0)
+        self.assertIn("btn--ghost", pulei)
+        self.assertNotIn("btn-link", pulei)
+        self.assertNotIn("btn--primary", pulei)
+        abrir = re.search(r'<summary class="([^"]*fora__abrir[^"]*)"', self.html).group(1)
+        self.assertIn("btn--ghost", abrir)
+
+    def test_comi_outra_coisa_abre_um_campo_de_verdade(self):
+        """O campo estava lá, atrás de um resumo que parecia link; o que muda
+        é a promessa do rótulo — e o texto de exemplo, que agora diz o que se
+        espera (`o que você comeu`)."""
+        fora = re.search(r'<details class="fora".*?</details>', self.html, re.S).group(0)
+        self.assertIn('placeholder="o que você comeu"', fora)
+        self.assertIn('list="alimentos-do-catalogo"', fora)
+        botao = re.search(
+            r"<button[^>]*>(.*?)</button>", fora, re.S
+        ).group(1).strip()
+        self.assertEqual(botao, "Registrar")
+        self.assertNotIn('<details class="fora" open', self.html)
 
 
 class OContratoDoFormularioNaoMudouTests(TestCase):
@@ -224,19 +262,24 @@ class ToqueRepetidoNaoDuplicaRegistroTests(TestCase):
         )
 
 
-class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
-    """Dois botões verdes iguais não são hierarquia — são um empate.
+class AsDuasOpcoesPesamIgualTests(TestCase):
+    """As duas opções do dia são alternativas, e a tela diz isso.
 
-    Medido na captura de 12/09/2026 a 390px: o cartão da refeição atual
-    trazia "Registrar A" e "Registrar B" como dois `btn--primary` de largura
-    inteira, um debaixo do outro, e mais nada verde na tela competia com
-    eles. A missão mestre (§7) pede que o verde marque estado positivo e
-    ação principal, "não pintar tudo".
+    A HISTÓRIA, porque ela explica o vaivém. Em 12/09/2026 os dois botões
+    eram `btn--primary` de largura inteira: dois verdes empilhados, que é um
+    empate, não hierarquia. Em 23/09 o segundo virou `btn--ghost` — o verde
+    passou a dizer "a sugestão do dia é esta".
 
-    `rodizio` já ordena as opções, e a primeira da projeção É a sugestão do
-    dia. O botão dela continua primário; o da segunda vira `btn--ghost`:
-    mesma largura, mesmo alvo de 44px, mesma ação, peso diferente. Quem quer
-    a segunda toca nela; quem só quer marcar toca no verde.
+    Em 24/09/2026 o dono usou o app e leu o que a cor dizia de verdade: "faça
+    a primeira". A sugestão do rodízio continua existindo, porque é ela que
+    equilibra a lista de compras — mas ela INFORMA (um chip no card) em vez de
+    EMPURRAR (a cor do botão). Os dois CTAs são `btn--ghost`: mesma largura,
+    mesmo alvo, mesma ação, mesmo peso.
+
+    Por que os dois de contorno, e não os dois verdes: são cinco refeições por
+    dia, duas opções cada — dez botões primários numa tela só. O verde fica
+    para o que ele identifica no app (a ação do dia na Hoje, o "Registrar" do
+    formulário de fora do plano).
     """
 
     @classmethod
@@ -269,12 +312,31 @@ class AOpcaoAEASugestaoEABEAAlternativaTests(TestCase):
     def _acoes(self, bloco):
         return re.findall(r'<form[^>]*class="receita__acao"(.*?)</form>', bloco, re.S)
 
-    def test_na_refeicao_atual_so_a_primeira_opcao_e_primaria(self):
+    def test_as_duas_opcoes_tem_o_mesmo_peso(self):
+        """Decisão do dono, 24/09/2026: nenhuma das duas é "a certa"."""
         acoes = self._acoes(self._cartao_da_vez())
         self.assertGreaterEqual(len(acoes), 2, "a refeição atual precisa de duas opções para medir")
-        self.assertIn("btn--primary", acoes[0])
-        self.assertNotIn("btn--primary", acoes[1])
-        self.assertIn("btn--ghost", acoes[1])
+        classes = [
+            re.search(r'class="(btn[^"]*)"', acao).group(1) for acao in acoes[:2]
+        ]
+        self.assertEqual(classes[0], classes[1], "os dois CTAs têm de ser o mesmo botão")
+        for classe in classes:
+            self.assertIn("btn--ghost", classe)
+            self.assertNotIn("btn--primary", classe)
+
+    def test_a_sugestao_do_dia_e_um_chip_e_nao_a_cor_do_botao(self):
+        """O rodízio continua escolhendo — e continua dizendo qual escolheu.
+
+        O que muda é o CANAL: um chip no card em vez do peso do botão. Sem
+        isto a decisão viraria "sumir com a sugestão", que não é o que o dono
+        pediu — a sugestão é o que equilibra a lista de compras.
+        """
+        cartao = self._cartao_da_vez()
+        cards = re.findall(r'<article class="receita.*?</article>', cartao, re.S)
+        self.assertEqual(len(cards), 2, "a refeição da vez tem duas opções")
+        self.assertIn("receita__chip", cards[0])
+        self.assertIn("sugestão de hoje", cards[0])
+        self.assertNotIn("receita__chip", cards[1])
 
     def test_as_duas_continuam_registrando_a_mesma_coisa(self):
         """Peso visual diferente, contrato igual: as duas mandam `status=done`

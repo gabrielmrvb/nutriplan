@@ -28,7 +28,7 @@
   {% comment %}
     A PORÇÃO é um link por valor, e não um `<select>` com JavaScript: cada
     porção é um ENDEREÇO (`?porcao=0.5`), então a conta é do servidor, a
-    escolha sobrevive a recarregar e o botão "Comi esta" embaixo já sai com o
+    escolha sobrevive a recarregar e o botão "Registrar" embaixo já sai com o
     valor certo. Na folha e no painel, `pwa.js` troca o conteúdo sem navegar.
 
     A lista é fechada (`porcoes.PORCOES`) do lado do servidor, e não só aqui:
@@ -82,7 +82,7 @@
 
   {% if r.log %}
     {% comment %}
-      Já registrada: o painel vira consulta. Repetir "Comi esta" embaixo de um
+      Já registrada: o painel vira consulta. Repetir o botão embaixo de um
       registro que já existe é oferecer uma ação que só pode dar errado — e
       desfazer mora no card da refeição, que é de onde a pessoa registrou.
     {% endcomment %}
@@ -94,7 +94,7 @@
       <input type="hidden" name="status" value="done">
       <input type="hidden" name="option" value="{{ r.opcao.pk }}">
       <input type="hidden" name="porcao" value="{{ r.porcao|stringformat:'.1f' }}">
-      <button type="submit" class="btn btn--primary btn--block">{% translate "Comi esta" %}</button>
+      <button type="submit" class="btn btn--primary btn--block">{% translate "Registrar" %}</button>
     </form>
   {% endif %}
 

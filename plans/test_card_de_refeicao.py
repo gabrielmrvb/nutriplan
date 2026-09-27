@@ -92,7 +92,18 @@ class CardDeRefeicaoTests(TestCase):
         # As duas receitas do dia, cada uma num card com ação própria.
         self.assertEqual(html.count('<article class="receita'), 2 * 5)
         self.assertIn("receita--sugerida", html)
-        self.assertIn("Comi esta", html)
+        self.assertIn("receita__chip", html)
+        # O TEXTO do botão: o template quebra a linha depois do `<button>`, e
+        # uma âncora com os sinais de tag reprovaria por espaço em branco.
+        rotulos = {
+            texto.strip()
+            for texto in re.findall(
+                r'<form[^>]*class="receita__acao".*?<button[^>]*>(.*?)</button>',
+                html,
+                re.S,
+            )
+        }
+        self.assertEqual(rotulos, {"Registrar"})
         # O rótulo interno A/B não chega na tela.
         # Com os sinais de tag: "Registrar A" casa com o `aria-label`
         # novo ("Registrar Arroz com lentilha...").
@@ -120,7 +131,7 @@ class CardDeRefeicaoTests(TestCase):
 
     def test_a_refeicao_registrada_mostra_o_que_foi_comido_e_o_desfazer(self):
         """Feita é um terceiro desenho: o resultado e a saída, sem as duas
-        opções — oferecer "Comi esta" embaixo de um registro que já existe é
+        opções — oferecer "Registrar" embaixo de um registro que já existe é
         oferecer uma ação que só pode dar errado."""
         slot = self.plan.slots.order_by("order").first()
         opcao = slot.options.order_by("rank").first()
@@ -401,7 +412,7 @@ class AReceitaEUmaTelaTests(TestCase):
             reverse("plans:receita", args=[self.slot.pk, self.opcao.pk])
         ).content.decode()
         self.assertIn("Você registrou esta refeição", html)
-        self.assertNotIn(">Comi esta<", html)
+        self.assertNotIn("receita-folha__acao", html)
 
 
 class OPreparoViraPassosTests(TestCase):

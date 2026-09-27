@@ -5744,7 +5744,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  *
  * `aria-busy` e não uma classe: o estado é exatamente o que o atributo
  * descreve, e quem usa leitor de tela recebe "ocupado" sem eu escrever nada a
- * mais. A regra pega qualquer botão de envio do app — "Comi esta", "Pulei",
+ * mais. A regra pega qualquer botão de envio do app — "Registrar", "Não comi",
  * "Continuar" do wizard — porque todos têm o mesmo problema numa rede de
  * academia: o POST leva segundos e a tela não se mexe. */
 [type="submit"][aria-busy="true"] {
@@ -9588,6 +9588,21 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   stroke-width: 1.6;
 }
 
+/* O CHIP DA SUGESTÃO (24/09/2026). Ele diz o que a cor do botão dizia antes —
+   qual das duas o rodízio escolheu para hoje —, e diz informando: contorno
+   fino, minúsculas, sem preenchimento. Não é o `.chip` tocável do resto do app
+   (aquele é caixa alta e tem alvo de toque); este é rótulo, e mora dentro do
+   link que abre a receita. */
+.receita__chip {
+  align-self: start;
+  padding: var(--espaco-1) var(--espaco-3);
+  border: 1px solid var(--fio-forte);
+  border-radius: var(--quina-p);
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+}
+
 .receita__nome {
   margin: 0;
   font-size: var(--texto-md);
@@ -9639,40 +9654,52 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 /* -- As ações secundárias ------------------------------------------------ */
 
-/* Uma linha, dois links de texto. Eram dois botões de 48px com o mesmo peso
-   do CTA principal. O alvo de 44px continua vindo do `.btn-link`, que já o
-   garante com margem negativa — o que muda é o PESO, não o toque. */
+/* DUAS AÇÕES DO MESMO TAMANHO, lado a lado (decisão do dono, 24/09/2026).
+
+   Elas já foram dois botões de 48px com o peso do CTA (12/09) e uma linha de
+   dois links de texto (23/09). O primeiro empatava com o registrar; o segundo
+   sumia — e quem não comeu o que estava no cardápio é metade dos dias de
+   qualquer pessoa. Agora são dois botões de CONTORNO: o que as mantém
+   secundárias é não serem preenchidas e virem abaixo dos cards.
+
+   Grade de duas colunas iguais, porque é isso que "do mesmo tamanho" quer
+   dizer quando os rótulos têm comprimentos diferentes ("Não comi" e "Comi
+   outra coisa"). Abaixo de 24rem viram uma coluna: a 320px dois botões lado a
+   lado deixariam "Comi outra coisa" em três linhas. */
 .meal__secundarias {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--espaco-3) var(--espaco-6);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--espaco-3);
   margin-top: var(--espaco-4);
   padding-top: var(--espaco-3);
   border-top: 1px solid var(--fio);
 }
-.meal__secundarias .btn-link { margin-inline: 0; }
-.meal__secundarias .fora { flex: 1 0 auto; min-width: 0; }
 
-/* "Comi outra coisa" era uma CAIXA de superfície própria, centralizada e do
-   tamanho da linha — do lado de "Pulei", ela continuava sendo o elemento mais
-   pesado do rodapé. Aqui ela vira texto, com a mesma cara do link ao lado; a
-   caixa volta quando abre, onde ela de fato delimita um formulário.
-
-   O alvo de 44px fica: `min-height` continua no `.fora__abrir` de origem, e
-   é só o FUNDO e o alinhamento que mudam. */
-.meal__secundarias .fora__abrir {
-  justify-content: flex-start;
-  padding-inline: 0;
-  background: none;
-  /* O slot vale zero, e é ele que diz isso: um `0` escrito à mão abriria o
-     precedente que a régua de quinas existe para fechar. */
-  border-radius: var(--quina-p);
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: .2em;
+@media (max-width: 24rem) {
+  .meal__secundarias { grid-template-columns: minmax(0, 1fr); }
 }
-.meal__secundarias .fora[open] .fora__abrir { text-decoration: none; }
+
+/* O `<details>` é uma das duas colunas enquanto está fechado; aberto, ele
+   ocupa a largura toda — o formulário de dentro tem campo de texto, três
+   pares de alimento e quantidade, e meia coluna o espremeria. A caixa de
+   superfície própria volta AQUI, onde ela de fato delimita um formulário. */
+.meal__secundarias .fora { margin-top: 0; background: none; border-color: transparent; }
+.meal__secundarias .fora[open] {
+  grid-column: 1 / -1;
+  background: var(--surface-2);
+  border-color: var(--fio);
+}
+
+/* O resumo é o botão: o `.btn--ghost` do HTML desenha contorno, altura e
+   alinhamento. O que sobra para esta regra é o que o `<summary>` traz de
+   fábrica e o botão não quer — a seta do marcador nativo já sai em
+   `.fora__abrir`, e aqui só se ajusta o que a caixa de superfície tinha. */
+.meal__secundarias .fora__abrir {
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
 
 /* -- O topo em modo PLANO, e a resposta depois de registrar -------------- */
 

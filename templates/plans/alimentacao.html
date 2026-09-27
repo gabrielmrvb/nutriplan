@@ -501,9 +501,13 @@
                   de 23/09 escreveu "o usuário não sabe o que 'A' significa", e
                   estava certa — a letra existe para o rodízio, e o rodízio é
                   do servidor. O que sobra na tela é o que diferencia as duas
-                  receitas de verdade: o nome, os macros e o tempo. A primeira
-                  continua sendo a sugestão do dia, e isso é dito pelo PESO do
-                  botão, não por uma letra.
+                  receitas de verdade: o nome, os macros e o tempo.
+
+                  A primeira continua sendo a sugestão do dia, e desde
+                  24/09/2026 isso é dito por um CHIP no card — não pelo peso do
+                  botão. O dono usou o app e leu o que a cor dizia: "faça a
+                  primeira". As duas são alternativas; a sugestão informa, e
+                  não empurra.
                 {% endcomment %}
                 {% for option in slot.opcoes_do_dia %}
                   <article class="receita{% if forloop.first %} receita--sugerida{% endif %}">
@@ -530,7 +534,7 @@
                       JavaScript, que não abre em aba nova, não aparece no
                       histórico e não existe sem script.
 
-                      O `<form>` do "Comi esta" fica FORA dele: botão dentro
+                      O `<form>` do "Registrar" fica FORA dele: botão dentro
                       de link é conteúdo interativo aninhado, que o HTML
                       proíbe e que os navegadores resolvem cada um do seu
                       jeito. E é por isso que não se usa "stretched link"
@@ -552,6 +556,18 @@
                       h2 para h4 é `heading-order` no axe, e foi a única
                       violação que a varredura desta reforma achou.
                     {% endcomment %}
+                    {% if forloop.first %}
+                      {% comment %}
+                        O CHIP DA SUGESTÃO (24/09/2026). `rodizio` escolhe a
+                        primeira, e é ela que equilibra a lista de compras da
+                        semana — a tela continua dizendo qual é, com uma
+                        palavra em vez de uma cor.
+
+                        Dentro do link e acima do nome: é informação sobre a
+                        receita, e quem toca no card quer a receita.
+                      {% endcomment %}
+                      <span class="receita__chip">sugestão de hoje</span>
+                    {% endif %}
                     <h3 class="receita__nome">{{ option.template.name }}</h3>
 
                     {% comment %}
@@ -588,22 +604,32 @@
                     </a>
 
                     {% comment %}
-                      UM CTA POR OPÇÃO, e o rótulo aponta para o card em que
-                      ele está: "Comi esta". Era "Registrar A" — o elemento
-                      mais chamativo da página, cinco vezes, dizendo uma letra
-                      interna. Só a primeira é verde: `rodizio` já ordena, e a
-                      primeira da projeção é a sugestão do dia. Dois primários
-                      iguais são um empate, e o verde deixa de dizer "esta".
+                      UM CTA POR OPÇÃO, e ele diz a AÇÃO: "Registrar"
+                      (24/09/2026). Foi "Registrar A" (uma letra interna) e
+                      depois "Comi esta" — que o card já dizia, porque o card É
+                      a receita; e na folha da receita "esta" não tinha a quem
+                      apontar.
+
+                      OS DOIS BOTÕES SÃO IGUAIS, e os dois de contorno. Só a
+                      primeira era verde, e lado a lado isso lia como "faça a
+                      primeira". São cinco refeições com duas opções cada: dez
+                      botões primários seria pintar a tela inteira de ação. O
+                      verde fica para quem ele identifica no app — a ação do
+                      dia na Hoje e o "Registrar" do formulário de fora do
+                      plano, que é o único ali dentro.
+
+                      O `aria-label` continua nomeando receita e horário: numa
+                      lista de leitor de tela, cinco "Registrar" seguidos não
+                      distinguem nada.
                     {% endcomment %}
                     <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
                           data-celebra="slot-{{ slot.pk }}" class="receita__acao">
                       {% csrf_token %}
                       <input type="hidden" name="status" value="done">
                       <input type="hidden" name="option" value="{{ option.pk }}">
-                      <button type="submit"
-                              class="btn {% if forloop.first %}btn--primary{% else %}btn--ghost{% endif %} btn--block"
+                      <button type="submit" class="btn btn--ghost btn--block"
                               aria-label="Registrar {{ option.template.name }} em {{ slot.name }}">
-                        Comi esta
+                        Registrar
                       </button>
                     </form>
                   </article>
@@ -615,29 +641,41 @@
               </div>
 
               {% comment %}
-                "PULEI" E "COMI OUTRA COISA" SÃO SECUNDÁRIAS, e passam a
-                parecer. Eram dois botões de 48px com o mesmo peso de
-                "Registrar B" — a auditoria contou cinco botões empilhados por
-                refeição. São as duas saídas honestas de quem não comeu o que
-                estava no plano, e continuam a um toque; o que muda é que elas
-                deixam de disputar a atenção com a ação que a tela existe para
-                receber.
+                AS DUAS SAÍDAS DE QUEM NÃO COMEU O QUE ESTAVA NO CARDÁPIO, e
+                elas são AÇÕES (decisão do dono, 24/09/2026).
+
+                Em 23/09 as duas foram rebaixadas a uma linha de texto: "Pulei"
+                virou um `btn-link` de 15px de altura de texto e "Comi outra
+                coisa", um resumo que parecia link. O dono usou o app e disse o
+                que isso custava: quem não seguiu o cardápio — que é metade dos
+                dias de qualquer pessoa — ficava sem saída visível.
+
+                Agora são dois botões de contorno do mesmo tamanho, lado a
+                lado, com o alvo de 44px que o `.btn` garante. O que as mantém
+                secundárias é o CONTORNO e a posição (abaixo dos cards), e não
+                o tamanho: elas não competem com o registrar, e também não se
+                escondem dele.
+
+                "Pulei" virou "NÃO COMI": é o que a pessoa fez, dito sem gíria
+                de aplicativo. O formulário, o `status=skipped` e a
+                idempotência da fila offline não mudaram.
 
                 "Comi outra coisa" continua sendo o `<details>` com busca no
-                catálogo — a auditoria pediu para rebaixar o destaque, não
-                para mexer no que ele faz.
+                catálogo; o que muda é o texto de exemplo do campo, que agora
+                diz o que se espera ali.
               {% endcomment %}
               <div class="meal__secundarias">
                 <form method="post" action="{% url 'plans:mark_meal' slot.pk %}"
                       data-celebra="slot-{{ slot.pk }}" class="meal__pulei">
                   {% csrf_token %}
-                  <button type="submit" name="status" value="skipped" class="btn-link">
-                    Pulei
+                  <button type="submit" name="status" value="skipped"
+                          class="btn btn--ghost btn--block">
+                    Não comi
                   </button>
                 </form>
 
                 <details class="fora" id="refeicao-{{ slot.pk }}">
-                  <summary class="fora__abrir">Comi outra coisa</summary>
+                  <summary class="fora__abrir btn btn--ghost btn--block">Comi outra coisa</summary>
 
                   <form method="post" action="{% url 'plans:mark_meal' slot.pk %}" data-celebra="slot-{{ slot.pk }}"
                         class="fora__corpo">
@@ -654,7 +692,7 @@
                       <span class="fora__rotulo">O que você comeu?</span>
                       <input class="field-input" type="text" name="notes" required
                              maxlength="200" autocomplete="off"
-                             placeholder="Prato feito no restaurante"
+                             placeholder="o que você comeu"
                              aria-label="Descrição do que comeu em {{ slot.name }}">
                     </label>
 
