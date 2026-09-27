@@ -60,13 +60,15 @@ def reunir(user, hoje=None) -> Dados:
         TrainingDay.objects.filter(user=user).values_list("weekday", flat=True)
     )
 
-    # A MESMA META DE ÁGUA QUE A HOME (22/09/2026): sem ela a água "fechava"
-    # todo dia e as Conquistas diziam "3 dias" enquanto a Home dizia 0. O
-    # plano ativo é lido uma vez aqui e emprestado à ofensiva
-    # (`_streak_tem_plano`), então o custo não muda.
+    # A MESMA CONTA QUE A HOME, e por construção desde 24/09/2026:
+    # `streaks.para_a_tela` é a porta única e deriva a meta de água do
+    # plano ativo. Até 22/09 estas linhas chamavam `calcular` SEM a meta, a
+    # água "fechava" todo dia e as Conquistas diziam "3 dias" (ou "401 / 3")
+    # enquanto a Home dizia 0 — a régua dependia de o chamador lembrar. O
+    # plano é lido uma vez aqui e emprestado às duas coisas
+    # (`_streak_tem_plano` e `plano=`), então o custo não muda.
     plano = plan_services.get_active_plan(user)
     user._streak_tem_plano = plano is not None
-    meta_agua = weight_trend.hidratacao_ml(plano.weight_kg) if plano else None
 
     dados = Dados(
         hoje=hoje,
@@ -75,7 +77,7 @@ def reunir(user, hoje=None) -> Dados:
         # `hoje` viaja junto: sem isso a ofensiva leria o calendário real
         # enquanto o resto do cálculo usa a data recebida, e o teste que
         # controla a data mediria duas coisas diferentes ao mesmo tempo.
-        ofensiva=streaks.calcular(user, hoje=hoje, meta_agua_ml=meta_agua).dias,
+        ofensiva=streaks.para_a_tela(user, hoje=hoje, plano=plano).dias,
         tem_plano=TrainingPlan.objects.filter(user=user, is_active=True).exists(),
     )
 
