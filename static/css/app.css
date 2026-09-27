@@ -6445,13 +6445,17 @@ body.montando { overflow: hidden; }
   font-weight: 700;
 }
 
-/* O botão principal ocupa a largura toda e carrega duas linhas: o verbo e, em
-   eco, o nome do exercício para onde ele leva. O eco existe para o toque não
-   ser às cegas — quem vai "continuar de onde parou" quer saber onde é isso
-   antes de rolar. */
+/* O botão principal ocupa a largura toda. Até 22/09/2026 carregava duas
+   linhas — o verbo e, em eco, o nome do exercício —, e por isso tinha
+   `flex-direction: column`; o eco saiu quando a ficha virou lista (a
+   execução já diz onde a pessoa está). A coluna ficou de sobra e só foi
+   achada em 24/09/2026, medida em produção: `.btn` é `inline-flex`, e cada
+   texto solto do rótulo ("Continuar treino (", o número, " de ", o outro
+   número, ")") virava um item de flex PRÓPRIO — cinco linhas, com o `)`
+   fora do `clip-path` do botão. O template agora entrega UM filho só
+   (`templates/workouts/routine.html`), então a coluna nem seria mais
+   necessária para o eco — mas ela não volta: nada aqui precisa empilhar. */
 .btn--hoje {
-  flex-direction: column;
-  gap: .1rem;
   min-height: 3.4rem;
   font-size: var(--texto-base);
 }
