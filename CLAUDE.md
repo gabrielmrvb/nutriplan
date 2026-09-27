@@ -160,11 +160,11 @@ que pediria um fica vazia de propósito em vez de apontar para nada.
 `ruff-baseline.txt` e a regra é que a contagem **não sobe**. O `pre-commit` e o
 job `ruff (relatório)` do CI comparam contra esse número; o check que barra o
 merge continua sendo só a "suíte rápida". Portão bloqueante quando o burndown
-zerar. **Hoje são 114**, e o caminho até aqui está em `docs/quality-baseline.md`:
+zerar. **Hoje são 104**, e o caminho até aqui está em `docs/quality-baseline.md`:
 `E501` saiu do `select` em 27/09/2026 (eram 1.439 de 1.656 — 87% —, quase todos
 em comentário de prosa deliberada, que é o estilo desta base) e os 97 `F401`
 saíram com `ruff check --fix`, correção segura, só import. O que sobra é
-julgamento humano: o ruff não corrige nenhum dos 114 sozinho.
+estilo: o ruff não corrige nenhum dos 104 sozinho, e os dez achados reais (`F601`, `F811`, `F841`) já saíram.
 
 **Nunca rode servidor pelo Bash** — `preview_start`, sempre.
 
