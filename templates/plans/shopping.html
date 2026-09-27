@@ -2,6 +2,13 @@
 
 {% block title %}Lista de compras · NutriPlan{% endblock %}
 
+{% comment %} A LARGURA DO DESKTOP (24/09/2026): medido a 1280, 480px de
+   `<main>` (440 úteis) contra os 1024 de Hoje e Progresso — e esta era a
+   tela mais alta do app, 4.196px de rolagem para uma lista de mercado.
+   A coluna da direita ("Como usar", "Seu cardápio") já existia no HTML e
+   nunca aparecia, porque sem `largo` o `.split` é uma pilha. {% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% block content %}
   {% comment %}
     O `data-lista-compras` carrega o ENDEREÇO, e não um marcador vazio: o demo
@@ -19,7 +26,18 @@
   </div>
 
   <div class="split">
-    <div class="split__main stack">
+    {% comment %}
+      OS CORREDORES EM DUAS COLUNAS, a mesma grade do Progresso
+      (`stack--duas-colunas`, seção 28 do CSS): o primeiro filho — o cartão
+      que escolhe a opção — atravessa as duas, porque decide a lista inteira,
+      e cada corredor vira uma célula de altura própria.
+
+      É a tela mais alta do app: 4.196px medidos a 1280 em 24/09/2026, para
+      uma lista que se lê ANDANDO pelo mercado. Cartão de corredor tem de
+      cinco a oito linhas e não estica; empilhá-los numa coluna só era rolar
+      quatro telas para conferir o que já foi pego.
+    {% endcomment %}
+    <div class="split__main stack stack--duas-colunas">
       <section class="card">
         <div class="card__head">
           <h2>Baseada na opção</h2>

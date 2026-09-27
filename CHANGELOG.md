@@ -13,6 +13,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O endereço antigo `/hoje/` volta a funcionar**, levando para a tela Hoje — quem tinha o link salvo recebia "Esta página não existe".
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
+- **Treino, Hidratação, Conquistas e Lista de compras também usam a largura do monitor.** Eram as quatro telas que sobravam numa coluna de 440 px no meio de um monitor de 1280, com a lista de compras pedindo quatro rolagens de tela para ser lida inteira.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 
 *(gerência, não aparece para quem usa)*
