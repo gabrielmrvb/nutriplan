@@ -4,6 +4,19 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-26
+
+- **A ficha de quem treina em casa não pede mais barra fixa.** Quem respondeu "só o peso do corpo" ou "em casa, com halteres" recebia barra fixa, mergulho nas paralelas e parada de mão na parede — um dia inteiro da semana podia ser cinco exercícios pendurados numa barra que não existe naquela casa. Agora o catálogo sabe o que cada exercício exige, e a ficha usa só o que cabe (a remada invertida fica: ela se faz sob a mesa, e é a única forma de treinar costas em casa).
+- **Quem está começando em casa treina o corpo inteiro, em meia hora.** Três dias por semana deixaram de virar "peito e tríceps · costas e bíceps · pernas e ombros" — que dá um estímulo por grupo na semana — e viraram uma sessão de corpo inteiro: agachar, empurrar, puxar e dobrar o quadril, em torno de 28 minutos. Na academia a ficha de sempre não mudou. A faixa de duração continua a um toque, em Treino › Seu programa.
+- **E começa pelo degrau mais fácil de cada movimento.** A flexão de braço abre na versão com joelhos apoiados, o agachamento na cadeira — e subir é um toque em "Trocar", que mostra a escada inteira com "você está aqui".
+- **Exercício de peso do corpo não pede mais "Carga".** O campo aparecia vazio numa flexão, e quem digitava zero fechava o treino com "0 kg levantados". Ele simplesmente não existe mais ali; o placar conta repetições.
+- **A sua corrida entra na conta da meta.** O app perguntava só pelos dias de academia, e quem corre três vezes por semana recebia a meta de calorias de quem não treina. Agora a etapa 2 (e o Perfil) perguntam "você corre, pedala ou nada?" — e uma corrida por semana conta como uma sessão, igual a um dia de academia. Quem não responder não muda nada: a conta continua a mesma.
+- **E ela não é contada duas vezes.** Quem declara a corrida na rotina deixa de ver "+300 kcal da corrida de hoje" somados por cima, porque esse gasto já está na meta de todo dia. Quem não declarou continua vendo o crédito no dia em que correu.
+- **No dia em que você corre, a meta de água sobe meio litro.** A sequência continua sendo medida pela meta de sempre — correr não pode tornar o dia mais difícil de fechar.
+- **O cadastro não marca mais o equipamento por você.** A pergunta "o que você tem para treinar?" abria com "academia completa" já marcada, e quem passasse batido saía com uma resposta que não deu. Agora ela abre em branco — e o Perfil de quem nunca respondeu diz qual é o padrão que está valendo.
+- **"Quantos grupos musculares por dia?" só aparece para quem já treina.** Quem marca "iniciante" não vê mais a pergunta: a divisão de quem está começando é decidida pelo app (corpo inteiro em casa, e a divisão por frequência na academia).
+- **A ficha explica "3 × 6-10" na primeira vez.** Uma linha no topo, enquanto você ainda não registrou carga em nenhum daqueles exercícios: "3 séries de 6 a 10 repetições — faça, descanse o tempo indicado, e repita."
+
 ## 2026-09-24
 
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.

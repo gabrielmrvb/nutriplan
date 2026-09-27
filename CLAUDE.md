@@ -583,8 +583,9 @@ POR PRIORIDADE (22/09/2026).**
   COMPARTILHAR — e o QA desta missão reproduziu: 40 cliques no botão
   caíam no toast). Nas outras telas continua fixo, com a reserva de
   `tem-conquista`. `workouts/test_toast_nao_cobre_o_botao.py`.
-- **O iniciante do peso do corpo começa no degrau 3 ou abaixo**
-  (`services.ajustar_degrau_do_iniciante`, `DEGRAU_DO_INICIANTE = 3`;
+- **O iniciante do peso do corpo começa no degrau mais fácil**
+  (`services.ajustar_degrau_do_iniciante`; `DEGRAU_DO_INICIANTE` foi 3 de
+  22 a 24/09/2026 e hoje é 1 — ver "A ficha de quem começa em casa";
   doutrina no `TREINO.md`, "O degrau do iniciante no peso do corpo"): a
   persona recebia paralelas (4), parada de mão (5) e flexão arqueiro (5).
   Só `iniciante` + `peso_corporal`; item acima do degrau é trocado pelo
@@ -1489,6 +1490,167 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   terceiro. O rodapé do cartão voltou a responder o que o cartão é (a porta
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
+
+**A FICHA DE QUEM COMEÇA EM CASA (missão "quem entra não desiste", item 1,
+24–26/09/2026).** A persona 1 do relatório de experiência — iniciante, 78 kg,
+treina em casa só com o peso do corpo, três dias por semana — fechava o app
+no PRIMEIRO treino. O que ela recebia, medido: divisão `abc2`, e portanto um
+dia inteiro da semana chamado "Costas e bíceps" que, sem barra fixa, tinha
+DOIS exercícios e dezessete minutos; cinco barras fixas seguidas na letra B;
+mergulho nas paralelas e parada de mão na parede numa casa; os movimentos no
+meio da escada de progressão; oito exercícios e ~60 minutos. Quatro mudanças,
+e cada uma com a régua que impede a volta (`workouts/test_ficha_de_casa.py`):
+
+- **O CATÁLOGO DIZ O QUE O EXERCÍCIO EXIGE ALÉM DO CORPO** (`Exercise.
+  aparelho`, `workouts.models.Aparelho`, migration `workouts.0037` por NOME).
+  `Equipment` responde "que CARGA", e uma barra fixa não é carga: é aparelho —
+  a flexão de braço e a barra fixa pronada eram a MESMA COISA para o motor,
+  as duas `bodyweight`. Onze exercícios marcados: seis de barra fixa, três de
+  barra baixa, paralelas e inversão. O mapa de quem tem o quê é a tabela
+  "Mapa de aparelho" do `TREINO.md`, lida por `doutrina.aparelhos_de`, e o
+  corte é de produto: **barra fixa, paralelas e inversão saem de casa; a
+  barra baixa FICA**, porque a remada invertida se faz sob a mesa e sem ela o
+  perfil fica com ZERO exercício de costas. Banco, cadeira e parede não
+  viraram valor — todo perfil os tem, e classificá-los seria curadoria que
+  ninguém conferiu.
+
+  O motor obedece pelo MESMO caminho do equipamento, e sem parâmetro novo:
+  `permitidos` virou **a sacola do perfil** — equipamento E aparelho no mesmo
+  conjunto, porque os dois vocabulários não colidem. Quem lê separa com
+  `equipamentos_do_perfil`, `aparelhos_fora_do_perfil`, `perfil_inteiro` e
+  `dentro_do_perfil`; `in permitidos` cru passou a ser errado, e é o tipo de
+  linha que responde "sim" para um aparelho quando a pergunta era sobre
+  equipamento. `full A` ganhou uma remada horizontal ("Remada baixa na
+  polia") para a substituição ter o que trocar: sem ela o corpo inteiro em
+  casa saía SEM COSTAS, porque as duas puxadas do modelo eram verticais e a
+  única puxada de casa é horizontal.
+
+- **O INICIANTE EM CASA TREINA O CORPO INTEIRO até três dias por semana**
+  (`split_for(dias, preferencia, nivel, equipamento)`,
+  `DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE = 3`, `PERFIS_DE_CASA`). Com três
+  sessões, `abc2` dá UM estímulo por grupo na semana e o corpo inteiro dá
+  três. **"Em casa" faz parte da régua**: numa academia completa a letra de
+  "Costas e bíceps" do iniciante tem quatro exercícios de verdade, e é a
+  ficha que o teste DOURADO cobra — o corpo inteiro conserta o que o catálogo
+  de casa quebra e não mexe no que já estava certo. Quatro dias ou mais é a
+  tabela de sempre: corpo inteiro quatro vezes por semana é volume que um
+  iniciante não recupera.
+
+  E `rotina_invalida` compara com AS DUAS RÉGUAS — a nova e a de antes —,
+  porque "plano ativo antigo nunca remonta sozinho": quem tinha `abc2`
+  montado pela régua anterior continua válido, e recebe a nova quando mexer
+  numa entrada de verdade.
+
+- **A PRIMEIRA FICHA DE QUEM DECLARA "INICIANTE" NASCE NA FAIXA RÁPIDO**
+  (`TrainingForm.save`, só quando ainda não há ficha ativa). Medido: o corpo
+  inteiro em casa dá 8 exercícios e ~60 min no Padrão, e 4 exercícios em ~28
+  min no Rápido — agachar, empurrar, puxar e dobrar o quadril, que são os
+  movimentos que importam. Meia hora três vezes por semana é o programa que
+  se cumpre. Só na PRIMEIRA: quem já tem ficha pode ter escolhido a faixa na
+  área de Treino, e sobrescrever aquilo seria o app desfazer uma resposta.
+
+  O que tornou os quatro movimentos possíveis foi **o piso de série do
+  relógio virar o do NÍVEL** (`piso_de_serie`, lido do `TREINO.md`):
+  `PISO_COMPOSTO = 3` continua para quem não declarou nível e para
+  intermediário e avançado, e o iniciante desce a 2 porque a tabela A dele
+  diz 2–3. Com o piso em 3 a sessão fechava em TRÊS exercícios de três
+  séries e ficava sem cadeia posterior.
+
+- **O DEGRAU DO INICIANTE É 1, e o substituto é o degrau mais BAIXO LIVRE**
+  (`DEGRAU_DO_INICIANTE`, decisão do dono). Era 3 — a versão "padrão" do
+  movimento —, e a ficha abria com flexão de braço completa e afundo. E o
+  filtro do substituto deixou de ser "≤ o teto" e passou a ser "abaixo do
+  degrau do item": com o teto em 1, toda escada sem degrau 1 (o mergulho vai
+  de 2 a 4) perdia o substituto, e as paralelas voltavam a entrar — o
+  defeito que a régua existe para impedir, pela porta do teto. Subir é um
+  toque em "Trocar", que mostra a escada com "você está aqui".
+
+Duas telas mudaram junto: a execução **não desenha mais o campo "Carga"**
+para exercício de peso do corpo (ele já nascia vazio e sem `required`, e
+ainda assim era uma pergunta sem resposta certa — a persona digitou zero e
+fechou o treino em "0 kg levantados"; o servidor continua gravando 0 sozinho
+nesse caso), e a ficha abre com a **legenda da notação** — "3 × 6-10 quer
+dizer 3 séries de 6 a 10 repetições" — uma vez no topo, enquanto nenhum
+exercício daquela ficha tiver última vez (`ficha.estreando`, zero consulta).
+
+**A ETAPA 2 NÃO RESPONDE NO LUGAR DE NINGUÉM (missão "quem entra não
+desiste", item 5, 26/09/2026).** Duas perguntas da etapa 2 estavam erradas de
+formas opostas — uma vinha respondida, a outra era feita a quem não tem como
+responder:
+
+- **o equipamento abria MARCADO em "academia completa"**, porque
+  `Profile.equipamento` nascia com esse valor. Desde 24/09 o campo é
+  OBRIGATÓRIO para quem faz musculação, e as duas coisas juntas são uma
+  contradição: a tela exige a resposta e já a dá. O default virou `""`
+  (migration `accounts.0040`, só o default — **nenhuma linha é tocada**, e
+  quem tem "completa" gravado continua com ela, que era a verdade de quem
+  tinha ficha antes de a pergunta existir). Vazio é "ainda não respondeu",
+  como em `experiencia`: `services.equipamento_de` traduz para "completa" na
+  hora de montar a ficha, e o Perfil mostra o padrão DIZENDO que é padrão —
+  a mesma forma que o nível já tinha;
+- **"Quantos grupos musculares por dia?" era perguntada a quem nunca montou
+  um treino** (achado #13 das personas). Para o iniciante quem decide é o
+  motor — corpo inteiro em casa, divisão por frequência na academia —, então
+  a pergunta não tem consequência: `EtapaCompostaView.mostrar_divisao`
+  devolve falso para `iniciante` (e por isso o formulário da divisão também
+  não é exigido), e `pwa.js` some com o bloco no mesmo toque em que a pessoa
+  marca "iniciante", sem enviar e voltar. A régua dos DIAS continua ao lado:
+  abaixo do mínimo, toda preferência dá a mesma divisão.
+
+O nível ("iniciante") é lido do ENVIO antes do perfil (`nivel_pedido`): a
+etapa 2 pergunta as duas coisas na mesma tela, e quem marca "iniciante" e
+manda o formulário não pode receber de volta a pergunta da divisão só porque
+o perfil ainda estava vazio. `accounts/test_etapa_2_limpa.py` prende as duas,
+com controle positivo em cada uma, e mais a ordem do cadastro — o aceite dos
+Termos é a última coisa antes de "Criar conta", que já era verdade e agora
+tem régua.
+
+**A CORRIDA ENTRA NA CONTA (missão "quem entra não desiste", item 2,
+26/09/2026).** `calculations.activity_factor` conta SESSÕES por semana, e as
+sessões eram só as de academia (`len(session_minutes)`, que vem de
+`TrainingDay`): quem corre três vezes e não levanta peso recebia o piso da
+faixa — a meta de quem não treina (persona 3 do relatório de experiência).
+
+- **`Profile.corrida` / `corrida_dias` / `corrida_minutos`** (migration
+  `accounts.0041`, sem backfill), perguntados na etapa 2 e no Perfil, que é a
+  mesma tela. A pergunta-porta é a segunda da etapa ("Você corre, pedala ou
+  nada?"), e ela **não é obrigatória**, ao contrário da musculação: sem a
+  resposta da musculação a etapa não sabe o que mostrar, e sem esta o cálculo
+  fica exatamente como estava. Uma segunda pergunta obrigatória cobraria de
+  todo frequentador de academia uma resposta sobre corrida para não mudar
+  nada.
+- **Os DIAS entram no fator; os MINUTOS não.** A doutrina de
+  `plans/calculations.py` recusa somar MET por fora, e a razão vale igual
+  aqui: a precisão daquela soma depende de a pessoa saber quantos minutos
+  realmente corre. Os minutos existem para o dia de corrida e para a pessoa
+  ver o que declarou. Medido: 3 corridas movem o fator de 1,40 para 1,430
+  numa mulher de 62 kg — +40 kcal/dia, o mesmo que 3 musculações moveriam.
+- **QUEM DECLARA A CORRIDA DEIXA DE RECEBER O CRÉDITO DO DIA**
+  (`tracking.day_summary`), e esse é o defeito que a mudança quase criou: o
+  gasto da corrida passou a estar na meta de TODO dia, e somar a corrida
+  registrada por cima contaria o mesmo esforço duas vezes — ~40 kcal/dia de
+  fator mais ~300 kcal de uma corrida de 5 km. A régua é **"você declarou,
+  entra na meta; não declarou, entra no dia"**: quem não respondeu a
+  pergunta continua recebendo o crédito por cima, exatamente como antes, e a
+  comparação é com `plan.corrida_dias` (o RETRATO), não com o perfil de
+  agora — o número da tela tem de bater com o plano que o produziu.
+- **A meta de ÁGUA do dia sobe meio litro quando houve corrida**
+  (`weight_trend.hidratacao_do_dia_ml`). Só o que a tela mostra e cobra no
+  dia: a OFENSIVA continua medindo pela meta base, de propósito — ela
+  compara muitos dias com uma régua só, e uma régua que sobe justamente no
+  dia em que a pessoa se esforçou mais tornaria o dia de corrida o mais
+  difícil de fechar.
+- **A corrida já contava como treino do dia na ofensiva** desde antes desta
+  missão ("a régua é moveu-se, não fez a letra"), e agora tem teste próprio.
+
+O que NÃO foi feito, e por quê: **o "lanche extra de carboidrato no dia de
+corrida" não virou um sexto `MealSlot`**. O cardápio é retrato do PLANO e os
+slots valem todo dia — um slot a mais apareceria também nos dias sem corrida,
+mudaria o denominador da aderência de todos os dias (`previstas_por_plano`) e
+daria calorias que a meta não previu justamente a quem já tem a corrida
+dentro dela. A alternativa honesta (mais carboidrato na divisão de macros de
+quem declara corrida, sem refeição nova) é decisão de produto e está no
+relatório como "recomendo rever".
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
