@@ -6,7 +6,8 @@
    `<main>` (440 úteis) contra os 1024 de Hoje e Progresso — e esta era a
    tela mais alta do app, 4.196px de rolagem para uma lista de mercado.
    A coluna da direita ("Como usar", "Seu cardápio") já existia no HTML e
-   nunca aparecia, porque sem `largo` o `.split` é uma pilha. {% endcomment %}
+   nunca aparecia, porque sem `largo` o `.split` é uma pilha — hoje ela é o
+   último item da grade, e o porquê está no comentário da grade. {% endcomment %}
 {% block container_class %}largo{% endblock %}
 
 {% block content %}
@@ -25,7 +26,6 @@
     </p>
   </div>
 
-  <div class="split">
     {% comment %}
       OS CORREDORES EM DUAS COLUNAS, a mesma grade do Progresso
       (`stack--duas-colunas`, seção 28 do CSS): o primeiro filho — o cartão
@@ -36,8 +36,18 @@
       uma lista que se lê ANDANDO pelo mercado. Cartão de corredor tem de
       cinco a oito linhas e não estica; empilhá-los numa coluna só era rolar
       quatro telas para conferir o que já foi pego.
+
+      E O `.split` SAIU DAQUI TAMBÉM, pela mesma conta que o tirou do painel
+      do Treino — a revisão adversarial desta missão achou que eu a tinha
+      feito só lá. `.container.largo .split` é `1fr` + `21rem`, então a
+      coluna da esquerda fica com 984 − 336 − 16 = 632px e cada corredor com
+      (632 − 24)/2 = 304 (264 úteis dentro do `.card`). Isso é MENOS que os
+      295 úteis que o mesmo cartão tem num celular de 390 — a tela ficaria
+      "larga" no `<main>` e mais apertada no conteúdo. Sem o `.split` são
+      480px por coluna (440 úteis), e o lado de consulta ("Como usar", "Seu
+      cardápio") vira o último item da grade em vez de uma faixa fixa.
     {% endcomment %}
-    <div class="split__main stack stack--duas-colunas">
+  <div class="stack stack--duas-colunas">
       <section class="card">
         <div class="card__head">
           <h2>Baseada na opção</h2>
@@ -181,9 +191,8 @@
           </div>
         </form>
       </section>
-    </div>
 
-    <aside class="split__aside stack">
+    <aside class="stack">
       <section class="card">
         <div class="card__head"><h2>Como usar</h2></div>
         <p class="hint">

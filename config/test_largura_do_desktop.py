@@ -20,6 +20,7 @@ são largas de propósito (entrada, cadastro, onboarding, consentimento, 403 e
 404): se alguém alargar uma delas, esta régua fica vermelha.
 """
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 from django.conf import settings
@@ -162,9 +163,60 @@ COMENTARIO = re.compile(
 )
 
 #: `class="split__main …"` e `class="split__aside …"` de verdade — em
-#: atributo, não em prosa.
-FILHO_DO_SPLIT = re.compile(r'class="[^"]*\bsplit__(main|aside)\b')
-PAI_SPLIT = re.compile(r'class="split\b')
+#: atributo, não em prosa. Serve para DECIDIR SE VALE ABRIR o arquivo; quem
+#: julga parentesco é o parser abaixo.
+FILHO_DO_SPLIT = re.compile(r"""class=["'][^"']*\bsplit__(main|aside)\b""")
+
+#: Tag que não tem filho e por isso não empilha. Sem esta lista, um `<img>`
+#: no meio do `.split` deixaria a pilha desalinhada para sempre.
+VAZIAS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+          "meta", "param", "source", "track", "wbr", "use", "path", "circle",
+          "rect", "line", "polyline", "polygon", "stop", "animate"}
+
+
+class ProcuraSplitOrfao(HTMLParser):
+    """Acha `split__main`/`split__aside` que não tem um `.split` ANCESTRAL.
+
+    A primeira versão desta régua comparava por COOCORRÊNCIA — "tem
+    `split__main` e tem `class="split"` no mesmo arquivo" —, e a revisão
+    adversarial desta missão mostrou os dois furos: uma tela com dois blocos
+    independentes (um `.split` de verdade e um `split__main` esquecido fora
+    dele) passava verde, e um pai escrito `class="algo split"` reprovava,
+    porque o regex exigia `split` como PRIMEIRO nome. Aqui a pergunta é a do
+    DOM: existe um ancestral aberto com a classe `split`?
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.pilha = []
+        self.orfaos = []
+
+    def _classes(self, attrs):
+        return set((dict(attrs).get("class") or "").split())
+
+    def handle_starttag(self, tag, attrs):
+        classes = self._classes(attrs)
+        filhas = classes & {"split__main", "split__aside"}
+        if filhas and not any("split" in ancestral for ancestral in self.pilha):
+            self.orfaos.append(sorted(filhas)[0])
+        if tag not in VAZIAS:
+            self.pilha.append(classes)
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in VAZIAS and self.pilha:
+            self.pilha.pop()
+
+    def handle_endtag(self, tag):
+        if tag not in VAZIAS and self.pilha:
+            self.pilha.pop()
+
+
+def orfaos_de(marcacao):
+    """As classes de `.split` sem `.split` em volta, na ordem em que aparecem."""
+    procura = ProcuraSplitOrfao()
+    procura.feed(marcacao)
+    return procura.orfaos
 
 
 class SplitMainSemSplitEhClasseOrfaTests(TestCase):
@@ -185,12 +237,11 @@ class SplitMainSemSplitEhClasseOrfaTests(TestCase):
             if not FILHO_DO_SPLIT.search(marcacao):
                 continue
             with self.subTest(template=str(caminho.relative_to(TEMPLATES))):
-                self.assertTrue(
-                    PAI_SPLIT.search(marcacao),
-                    "%s usa `split__main`/`split__aside` e não tem "
-                    "`class=\"split\"` nenhum: sem o pai, a classe só traz o "
-                    "flex e o `gap` extra do celular."
-                    % caminho.relative_to(TEMPLATES),
+                self.assertEqual(
+                    orfaos_de(marcacao), [],
+                    "%s usa `split__main`/`split__aside` sem um `.split` "
+                    "ancestral: sem o pai, a classe só traz o flex e o `gap` "
+                    "extra do celular." % caminho.relative_to(TEMPLATES),
                 )
 
     def test_a_regua_enxerga_a_marcacao_e_nao_a_prosa(self):
@@ -199,3 +250,27 @@ class SplitMainSemSplitEhClasseOrfaTests(TestCase):
         self.assertTrue(FILHO_DO_SPLIT.search('<div class="split__main stack">'))
         self.assertFalse(FILHO_DO_SPLIT.search("E é `.stack`, não `.split__main`:"))
         self.assertEqual(COMENTARIO.sub("", '{% comment %}x{% endcomment %}a'), "a")
+
+    def test_a_regua_julga_PARENTESCO_e_nao_coocorrencia(self):
+        """Os quatro casos que a revisão adversarial desta missão cobrou.
+
+        O terceiro é o que a versão por coocorrência deixava passar, e o
+        quarto é o que ela reprovava sem motivo."""
+        self.assertEqual(orfaos_de('<div class="split"><div class="split__main">x</div></div>'), [])
+        self.assertEqual(orfaos_de('<div class="split__main">x</div>'), ["split__main"])
+        self.assertEqual(
+            orfaos_de('<div class="split"><div class="split__main">a</div></div>'
+                      '<div class="split__aside">b</div>'),
+            ["split__aside"],
+            "o `.split` de outro bloco não vale de pai",
+        )
+        self.assertEqual(
+            orfaos_de('<div class="ficha-layout split"><div class="split__main">x</div></div>'),
+            [],
+            "`split` fora da primeira posição continua sendo pai",
+        )
+        self.assertEqual(
+            orfaos_de('<div class="split"><img src="x"><div class="split__main">x</div></div>'),
+            [],
+            "tag vazia não pode desalinhar a pilha",
+        )
