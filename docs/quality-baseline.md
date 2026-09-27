@@ -132,7 +132,7 @@ exige ler cada uma, e é trabalho de outra missão.
 `ignore = ["E501"]`, `line-length = 100`, migrações excluídas (código gerado
 pelo Django).
 
-**Total: 114 achados.** O piso vive em `ruff-baseline.txt` e a regra do dono é
+**Total: 104 achados.** O piso vive em `ruff-baseline.txt` e a regra do dono é
 que **a contagem não sobe** — o `pre-commit` e o job `ruff (relatório)` do CI
 comparam contra ele. Nenhum dos dois barra merge: o check obrigatório continua
 sendo a "suíte rápida".
@@ -143,9 +143,6 @@ sendo a "suíte rápida".
 | 20 | `E702` | duas instruções na mesma linha, com `;` |
 | 18 | `E701` | duas instruções na mesma linha, com `:` |
 | 8 | `E731` | `lambda` atribuído a nome |
-| 6 | `F841` | variável atribuída e nunca usada |
-| 2 | `F601` | chave repetida em literal |
-| 2 | `F811` | redefinido sem uso |
 
 ### Como saiu de 1.656 para 114 (27/09/2026)
 
@@ -177,16 +174,45 @@ a auditoria do diff antes de rodar a suíte:
 Resultado: **zero mudança de comportamento**, e a suíte rápida
 (`--exclude-tag lento`) confirma.
 
+### Os dez achados reais (27/09/2026, tarde) — 114 para 104
+
+Cada um foi lido e classificado antes de mexer, com a pergunta do dono: **a
+correção muda comportamento?**
+
+| regra | onde | o que era | veredito |
+|---|---|---|---|
+| `F601` | `accounts/test_duracao_portao.py`, 2× | `"experiencia": "intermediario"` repetido no mesmo dict, com o **mesmo valor** | não muda — a chave sobrescrita escrevia o que já estava lá. Duplicata removida. Resto de uma edição que acrescentou `musculacao`/`experiencia`/`equipamento` numa linha que já tinha a chave embaixo. |
+| `F811` | `plans/views.py` | `from django.views import View` e `from django.views.generic import TemplateView, View` | não muda — é o mesmo objeto. Ficou a linha de `generic`. |
+| `F811` | `demo/tests.py` | `User` importado de `accounts.models` e redefinido por `get_user_model()` | não muda — `AUTH_USER_MODEL` é esse mesmo `User`. Ficou `get_user_model()`. |
+| `F841` | `accounts/test_consentimento.py`, 2× | `user = self.pessoa()` com `user` nunca lido | não muda — a CHAMADA cria e loga a pessoa, e continua; só o nome saiu. Das sete ocorrências da linha no arquivo, as outras cinco usam `user` e ficaram. |
+| `F841` | `workouts/test_lista_de_hoje.py` | `sessao = self._uma_sessao()` | não muda — mesma coisa: a chamada monta a sessão e continua. |
+| `F841` | `workouts/test_perfis_de_qa.py` | `exp` no desempacotamento de `perfil`, nunca lido | não muda — saiu da tupla. O `exp` de `nascer()` é outro escopo e ficou. |
+| `F841` | `demo/tests.py` | `ontem = hoje - timedelta(days=1)`, nunca lido | não muda — conta morta: o laço subtrai da data de CADA registro, não de hoje. |
+| `F841` | `accounts/test_tres_etapas.py` | recorte `objetivo` montado e nunca usado; a asserção lia `html` | **MUDA** — ver abaixo. |
+
+**O único que mudava comportamento era um teste mais fraco do que o nome.**
+`test_o_campo_obrigatorio_erra_no_proprio_campo_e_preserva_o_resto` recortava o
+bloco do objetivo e depois afirmava o erro contra a PÁGINA inteira — "o erro
+aparece em algum lugar", bem menos do que "no próprio campo". Reaproveitar o
+recorte como estava também reprovava, com o app correto: ele terminava no
+primeiro `</ul>`, que é o fim da lista de opções, e o erro sai DEPOIS dela
+(`choice_cards.html:122`, fora do `role="group"`).
+
+O que liga erro e campo é o `aria-describedby` do grupo, e o teste agora prende
+as duas pontas: o grupo do objetivo aponta para `id_goal_error`, e a mensagem
+mora dentro do elemento com esse id. **Sabotado nos dois sentidos**, no template
+que o campo de fato usa: tirar o `_error` do `aria-describedby` → vermelho;
+trocar o `id` do bloco de erro → vermelho; restaurado → verde. (A primeira
+sabotagem foi feita em `field.html` e passou verde — o `goal` é cartão de escolha
+e não passa por ele. Fica o registro: sabotagem no arquivo errado prova nada.)
+
 ### O que sobra, e a ordem
 
-Os 114 são todos julgamento humano — o ruff não corrige nenhum com segurança
-(`No fixes available`; há 16 atrás de `--unsafe-fixes`, que não foi usado).
-
-- **10 são achados reais e pequenos**: 6 `F841` (variável atribuída e nunca
-  usada), 2 `F601`, 2 `F811`.
-- **104 são estilo**: `E741` (58), `E702` (20), `E701` (18), `E731` (8).
-  `E741` é o maior, e vale olhar caso a caso — um `l` de `linha` num laço curto
-  não é o mesmo problema que um `I` solto.
+**104, todos de estilo**, e o ruff não corrige nenhum com segurança
+(`No fixes available`; os 8 atrás de `--unsafe-fixes` não foram usados):
+`E741` (58), `E702` (20), `E701` (18), `E731` (8). `E741` é o maior, e vale olhar
+caso a caso — um `l` de `linha` num laço curto não é o mesmo problema que um `I`
+solto.
 
 ## Como usar este documento
 
