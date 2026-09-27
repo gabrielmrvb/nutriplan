@@ -27,7 +27,13 @@ escrever código, a sessão desce sete degraus — isto precisa existir? já
 existe equivalente? a biblioteca padrão resolve? há recurso nativo da
 plataforma? há dependência instalada? cabe em uma linha? — e só escreve
 código novo quando os seis primeiros falham, parando no primeiro que
-resolve. Fica em `full`, que é o padrão da instalação. É a mesma doutrina
+resolve. **Neste projeto o padrão é `lite`, e não o `full` da
+instalação** (decisão do dono, 27/09/2026): o `CLAUDE.md` liga para toda
+sessão, e a maioria delas é um ajuste pequeno — sete degraus antes de uma
+linha é cerimônia e token. **Missão aberta** (campanha, fase, bloco, lote
+que termina em publicação — o que a skill `nutriplan-missao` governa)
+**sobe para `/ponytail full` na própria sessão**, onde a escada paga o que
+custa. É a mesma doutrina
 que este arquivo já aplica caso a caso ("Antes de criar componente novo,
 procure"; "o melhor código é o que não se escreveu"), agora com um nome e
 uma escada explícita.
