@@ -88,11 +88,11 @@ msgid "dia cheio"
 msgstr ""
 
 #: templates/plans/_progresso_area.html
-msgid "Seus recordes"
+msgid "Melhores cargas"
 msgstr ""
 
 #: templates/plans/_progresso_area.html
-msgid "Os recordes aparecem a partir do segundo treino com carga."
+msgid "A sua maior carga em cada exercício aparece aqui assim que você registrar peso."
 msgstr ""
 
 #: templates/plans/_progresso_area.html
@@ -133,4 +133,8 @@ msgstr ""
 
 #: templates/workouts/exercicios_feitos.html
 msgid "Última vez:"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "recorde"
 msgstr ""

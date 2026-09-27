@@ -1216,15 +1216,24 @@ class ResponseCompressionTests(TestCase):
             # existe justamente para achar CSS que ninguém renderiza.
             caminho.read_text(encoding="utf-8")
             for caminho in RAIZ.rglob("*.py")
-            if ".venv" not in caminho.parts
-            and "migrations" not in caminho.parts
             # PASTA DE TRABALHO NÃO É O APP (22/09/2026). `artifacts/` e
             # `scratchpad/` ficam fora do controle de versão e existem para
             # scripts de apoio — e um script que cita `.opcao__meta` fazia a
             # classe parecer usada. MEDIDO: a suíte local passava e o
             # `pre-push`, que roda no worktree do commit, reprovava três
             # órfãs que estavam ali havia horas.
-            and not {"artifacts", "scratchpad"} & set(caminho.parts)
+            #
+            # O RECORTE É RELATIVO À RAIZ, E ISSO CUSTOU UMA HORA (24/09/2026).
+            # Com `caminho.parts` a exclusão valia para QUALQUER ancestral com
+            # esses nomes — e o worktree de uma sessão do Claude Code mora em
+            # `…\<sessão>\scratchpad\<branch>\`. Ali `rglob` achava os
+            # arquivos e o filtro descartava TODOS: zero `.py` lidos, e as duas
+            # classes que `accounts/forms.py` escreve com `mark_safe`
+            # (`senha__regras`, `senha__titulo`) viravam órfãs num teste que
+            # passava no CI e reprovava na máquina. Régua que muda de veredito
+            # com o caminho do checkout não é régua.
+            if not {".venv", "migrations", "artifacts", "scratchpad"}
+            & set(caminho.relative_to(RAIZ).parts)
             and not caminho.name.startswith(("test_", "tests"))
         )
 
