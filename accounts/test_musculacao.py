@@ -23,6 +23,15 @@ from workouts.models import TrainingPlan
 
 SO_CORRO = {"goal": "cut", "activity_level": "light", "musculacao": "nao", "wake_time": "07:00", "sleep_time": "23:30"}
 
+#: A etapa 3 de quem disse que NÃO faz musculação (item 4, 26/09/2026).
+#:
+#: O `ETAPA3` compartilhado marca "Treino" como interesse e como prioridade, e
+#: para esta pessoa o pilar deixou de ser oferecido: `InteressesForm` tira o
+#: valor das `choices`, então o POST com "treino" é recusado com erro de campo —
+#: que é a recusa certa para uma aba aberta antes da resposta da etapa 2, e
+#: passou a ser o que este arquivo estava enviando.
+ETAPA3_CORREDOR = {"meal_style": "quick", "interesses": ["corrida"], "prioridade": "corrida"}
+
 
 def sem_scripts(html):
     return re.sub(r"<script\b.*?</script>", "", html, flags=re.S)
@@ -89,7 +98,7 @@ class PerguntaDaMusculacaoTests(TestCase):
 
     def test_calcular_a_estimativa_nao_monta_ficha_e_a_aba_treino_nao_cobra_dias(self):
         self.client.post(etapa(2), SO_CORRO)
-        self.client.post(etapa(3), ETAPA3, follow=True)
+        self.client.post(etapa(3), ETAPA3_CORREDOR, follow=True)
         self.assertFalse(TrainingPlan.objects.filter(user=self.user, is_active=True).exists())
         html = sem_scripts(self.client.get(reverse("workouts:routine")).content.decode())
         self.assertNotIn("Cadastrar meus dias de treino", html)
@@ -100,7 +109,7 @@ class PerguntaDaMusculacaoTests(TestCase):
 
     def test_o_perfil_mostra_a_resposta(self):
         self.client.post(etapa(2), SO_CORRO)
-        self.client.post(etapa(3), ETAPA3, follow=True)
+        self.client.post(etapa(3), ETAPA3_CORREDOR, follow=True)
         html = self.client.get(reverse("accounts:profile")).content.decode()
         self.assertIn("Musculação", html)
         self.assertIn("Não faço", html)

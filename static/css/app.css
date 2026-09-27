@@ -9734,7 +9734,16 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   border-top: 1px solid var(--fio);
 }
 .meal__secundarias .btn-link { margin-inline: 0; }
-.meal__secundarias .fora { flex: 1 0 auto; min-width: 0; }
+/* `flex-shrink: 1`, e não 0 — ACHADO DO QA DE 26/09/2026, medido a 390 px.
+   Com `1 0 auto` o item NUNCA encolhe abaixo do conteúdo, e `min-width: 0`
+   não muda isso (ele só libera o limite automático; quem proíbe encolher é o
+   shrink). Aberto o "Comi outra coisa", a largura natural do campo "O que
+   você comeu?" (~539 px) virava a largura do `<details>`: 568 px dentro de um
+   container de 293, e `document.documentElement.scrollWidth` ia de 375 para
+   609 — a PÁGINA rolando na horizontal, que é a régua que este app não
+   quebra. Com `1 1 auto` a linha fechada continua idêntica (o item cresce
+   para ocupar a linha, que é o que o `1` de grow faz) e a aberta cabe.  */
+.meal__secundarias .fora { flex: 1 1 auto; min-width: 0; }
 
 /* "Comi outra coisa" era uma CAIXA de superfície própria, centralizada e do
    tamanho da linha — do lado de "Pulei", ela continuava sendo o elemento mais

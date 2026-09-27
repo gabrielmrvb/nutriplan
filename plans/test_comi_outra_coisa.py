@@ -270,6 +270,40 @@ class OAvisoFicaNoCardTests(TestCase):
         self.assertIn("registrar assim mesmo", corrido)
         self.assertIn("sem contar a caloria deste item", corrido)
 
+    def test_o_formulario_aberto_nao_faz_a_pagina_rolar_na_horizontal(self):
+        """ACHADO DO QA DE NAVEGADOR (26/09/2026), medido a 390 px.
+
+        `.meal__secundarias .fora` era `flex: 1 0 auto`. Com `flex-shrink: 0` o
+        item nunca encolhe abaixo do conteúdo — e `min-width: 0` NÃO muda isso,
+        porque ele só libera o limite automático; quem proíbe encolher é o
+        shrink. Aberto o "Comi outra coisa", a largura natural do campo "O que
+        você comeu?" (~539 px) virava a largura do `<details>`: 568 px dentro de
+        um container de 293, e `scrollWidth` ia de 375 para 609 — a PÁGINA
+        rolando na horizontal.
+
+        A asserção é sobre o CSS porque a suíte não tem motor de layout; a
+        medição está no relatório e no comentário da regra. O que se prende aqui
+        é a causa: aquele item não pode voltar a ter shrink zero.
+        """
+        from pathlib import Path
+
+        from django.conf import settings
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        regra = css.split(".meal__secundarias .fora {", 1)
+        self.assertEqual(len(regra), 2, "a regra do `.fora` no rodapé da refeição saiu")
+        corpo = regra[1].split("}", 1)[0]
+        self.assertIn("flex:", corpo)
+        atalho = corpo.split("flex:", 1)[1].split(";")[0].split()
+        self.assertGreaterEqual(len(atalho), 2, corpo)
+        self.assertNotEqual(
+            atalho[1], "0",
+            "o `.fora` aberto voltou a ter flex-shrink 0 — a página rola na "
+            "horizontal a 390 px (medido: scrollWidth 609 numa janela de 390)",
+        )
+
     def test_o_datalist_de_todos_os_nomes_saiu_da_pagina(self):
         """Com a TACO, ele seriam ~20 kB de `<option>` nesta tela em toda
         visita — e ele casava por prefixo do nome inteiro, que é o que não

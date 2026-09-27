@@ -1921,8 +1921,10 @@ para ganhar, nem a primeira.
   tratá-lo como "não faz" mudaria a navegação de toda conta anterior à
   pergunta — a mesma razão de `prioridade == ""` não inferir nada.
 - **A terceira ABA vira Corrida** (`navegacao.abas_de`, `ABA_DE_CORRIDA`), na
-  POSIÇÃO da de treino: a barra continua com quatro itens e a conta de largura
-  a 320px não muda. `icone-bicicleta` é o símbolo que o mapa já usa, então o
+  POSIÇÃO da de treino: a barra continua com as MESMAS CINCO abas (o QA de
+  navegador leu `['Hoje', 'Alimentação', 'Corrida', 'Progresso', 'Mais']`;
+  a primeira versão desta frase dizia "quatro", que é o número de antes de
+  22/09/2026), então nada de layout muda. `icone-bicicleta` é o símbolo que o mapa já usa, então o
   sprite não cresce. "Mais" perde `running` dos `navs` — com o pilar nas duas,
   as duas acendiam e `aria-current="page"` saía duplicado na mesma barra. Custo
   ZERO: as telas do app leem `request.user.profile` pelo descritor no

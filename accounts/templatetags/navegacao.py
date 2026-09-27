@@ -90,9 +90,10 @@ ABAS = (
 #: existe para dizer "você não tem ficha aqui". O que ela tem é corrida — e
 #: Corrida é pilar, não subfunção de Treino (é a docstring de `Pilar`).
 #:
-#: Substitui a aba de treino NA POSIÇÃO dela: a barra continua com quatro
-#: itens, e a conta de largura a 320px não muda. `icone-bicicleta` é o mesmo
-#: símbolo que o mapa de áreas já usa para Corrida — o sprite não cresce.
+#: Substitui a aba de treino NA POSIÇÃO dela: a barra continua com as MESMAS
+#: CINCO abas (são cinco desde 22/09/2026, e a conta de largura a 320px foi
+#: refeita ali), então nada de layout muda. `icone-bicicleta` é o mesmo símbolo
+#: que o mapa de áreas já usa para Corrida — o sprite não cresce.
 ABA_DE_CORRIDA = {
     "chave": "corrida", "rotulo": "Corrida", "rota": "workouts:corridas",
     "icone": "icone-bicicleta", "navs": ("running",),

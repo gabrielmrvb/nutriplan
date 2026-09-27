@@ -379,11 +379,46 @@ class CatalogoTests(TestCase):
                 self.assertTrue(regra.emoji)
 
     def test_nao_ha_conquista_de_dado_que_o_app_nao_tem(self):
-        """Corrida, passos, medida corporal, sono e desafio não existem no
-        NutriPlan. Uma conquista sobre eles seria uma promessa quebrada."""
+        """Passos, medida corporal, sono e desafio não existem no NutriPlan.
+        Uma conquista sobre eles seria uma promessa quebrada.
+
+        CORRIDA SAIU DESTA LISTA em 26/09/2026 (item 4 da missão "quem entra
+        não desiste"), e saiu porque o DADO passou a existir:
+        `workouts.Corrida` guarda distância e tempo desde a campanha da
+        corrida. Enquanto ela estava aqui, quem só corre não tinha conquista
+        NENHUMA para ganhar — nem a primeira.
+
+        A régua não afrouxou: ela continua sendo "família com regra só onde há
+        dado". O que mudou foi o inventário de dados do app.
+        """
         familias = {regra.familia for regra in POR_SLUG.values()}
 
-        self.assertEqual(familias, {"treino", "ofensiva", "meta", "recorde"})
+        self.assertEqual(
+            familias, {"treino", "ofensiva", "meta", "recorde", "corrida"}
+        )
+
+    def test_toda_conquista_de_corrida_sai_de_dado_que_o_banco_tem(self):
+        """O outro lado da régua acima, e o controle positivo dela: as quatro
+        de corrida leem SÓ os três campos que `achievements.reunir` agrega de
+        `Corrida` (contagem, maior distância, soma). Uma que lesse ritmo,
+        altimetria ou frequência cardíaca seria a promessa quebrada."""
+        from achievements.regras import Dados, Familia
+
+        de_corrida = [r for r in POR_SLUG.values() if r.familia == Familia.CORRIDA]
+        self.assertEqual(len(de_corrida), 4)
+        vazio = Dados(hoje=SEGUNDA, dias_treinados=0, previstos=frozenset(), ofensiva=0)
+        cheio = Dados(
+            hoje=SEGUNDA, dias_treinados=0, previstos=frozenset(), ofensiva=0,
+            corridas=30, maior_corrida_m=12000, total_corrido_m=200000,
+        )
+        for regra in de_corrida:
+            with self.subTest(slug=regra.slug):
+                # Sem corrida nenhuma, nada nasce; com muitas, todas nascem.
+                # Se uma delas dependesse de um campo que `Dados` não tem, ela
+                # estouraria aqui em vez de ficar muda em produção.
+                self.assertEqual(regra.detectar(vazio), [])
+                self.assertEqual(len(regra.detectar(cheio)), 1)
+                self.assertFalse(regra.repetivel, regra.slug)
 
 
 class AcessoTests(BaseDeConquistas):
