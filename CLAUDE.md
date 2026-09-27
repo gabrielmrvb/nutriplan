@@ -2581,6 +2581,28 @@ dela ANTES do merge, na própria branch — e uma linha só entra quando a
 mudança que ela descreve está na mesma branch ou já em `main` (a linha
 do placar saiu deste PR por isso e entra no dele).
 
+**E O ARQUIVO É APPEND DE VÁRIAS SESSÕES AO MESMO TEMPO, ENTÃO A REGRA É DO
+GIT E NÃO DA DISCIPLINA (27/09/2026).** Com sessões em paralelo, duas
+branches escrevem embaixo do mesmo `## AAAA-MM-DD` no mesmo dia; o git vê
+duas inserções no mesmo lugar e chama de conflito, e em 27/09 isso
+aconteceu DUAS vezes em poucas horas — nas duas o "conflito" era só as
+duas linhas querendo existir. Combinar quem escreve quando é pedir
+sincronização a quem trabalha em paralelo de propósito, então o arquivo
+ganhou `CHANGELOG.md merge=union` no `.gitattributes`: no trecho em
+conflito o git fica com OS DOIS LADOS, sem marcador. Medido em três
+cenários com `git merge` de verdade (a tabela está no próprio
+`.gitattributes`): seção que já existe, seção nova nas duas branches, e
+blocos de tamanhos diferentes — nos três, merge limpo e nenhum cabeçalho
+`## data` duplicado.
+
+O que o union NÃO faz é julgar conteúdo, e é daí que sai a regra de mão:
+**cada sessão só ACRESCENTA linha sob a data do dia — nunca reordena a
+lista, nunca reescreve a linha de outra sessão, nunca move item entre
+dias.** Editar a mesma linha em duas branches continua produzindo merge
+errado e SILENCIOSO (o union não avisa), e reordenar vira duplicata. A
+rede de segurança do cabeçalho duplicado é `ajuda.tests` ("uma seção por
+dia"), que roda no gate de todo PR; para o resto, a régua é esta frase.
+
 **O GLÚTEO É GRUPO PRÓPRIO DESDE 21/09/2026 (`MuscleGroup.GLUTES`), E
 NENHUMA FICHA MUDOU POR ISSO.** A elevação pélvica, a elevação pélvica no
 banco e as duas pontes de glúteo saíram de "posterior de coxa e glúteo"
