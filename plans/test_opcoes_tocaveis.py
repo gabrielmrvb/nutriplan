@@ -338,13 +338,44 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             self.assertNotIn('<details class="meal__futuro" open', corpo)
             self.assertIn('<summary class="meal__linha">', corpo)
 
-    def test_a_refeicao_da_vez_continua_aberta(self):
-        """Controle positivo: o `<details>` é de todas MENOS a da vez. A de
-        agora mostra as opções sem toque nenhum."""
-        abertas = [corpo for estado, corpo in self._artigos() if estado == "agora"]
-        self.assertTrue(abertas, "precisa de uma refeição de agora")
-        for corpo in abertas:
-            self.assertNotIn("meal__futuro", corpo)
+    def test_nenhuma_refeicao_nasce_aberta(self):
+        """Decisão do dono, 24/09/2026: a pessoa abre a que quiser.
+
+        Até aqui a refeição da vez nascia aberta (doutrina de 20/09, reforçada
+        em 23/09). Com cards de receita no lugar das linhas, era ela sozinha
+        que respondia por 1.000px dos 2.614px da tela — e quem abre a
+        Alimentação às 14h para ver o jantar tinha de rolar por cima do almoço
+        inteiro. O estado continua vindo do servidor; o que mudou é o que a
+        tela faz com ele: MARCA em vez de abrir.
+        """
+        artigos = self._artigos()
+        self.assertTrue(artigos, "precisa de refeições para medir")
+        for estado, corpo in artigos:
+            if estado == "resolvida":
+                continue
+            with self.subTest(estado=estado):
+                self.assertIn('<details class="meal__futuro">', corpo)
+                self.assertNotIn("<details class=\"meal__futuro\" open", corpo)
+        self.assertEqual(
+            re.findall(r"<details[^>]*\sopen", self.html), [],
+            "nenhuma sanfona do cardápio pode abrir sozinha",
+        )
+
+    def test_a_refeicao_da_vez_esta_marcada_na_linha(self):
+        """Fechada, mas achável sem abrir — a marca vive no `<summary>`.
+
+        Sem ela a tela ficaria honesta e inútil: cinco linhas iguais, e a
+        pergunta "qual é a minha agora" só se responderia lendo o relógio.
+        """
+        da_vez = [corpo for estado, corpo in self._artigos() if estado == "agora"]
+        self.assertTrue(da_vez, "precisa de uma refeição de agora")
+        for corpo in da_vez:
+            resumo = re.search(
+                r'<summary class="meal__linha">.*?</summary>', corpo, re.S
+            ).group(0)
+            self.assertIn("meal__marca--agora", resumo)
+            self.assertIn("Agora", resumo)
+            # E as opções continuam lá, atrás do toque.
             self.assertIn("receita__acao", corpo)
 
     def test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar(self):
@@ -367,6 +398,12 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             self.assertNotIn('<details class="meal__futuro" open', corpo)
             self.assertIn("Não registrada · registrar", corpo)
             self.assertIn("receita__acao", corpo)
+            # A marca da pendente na própria linha (24/09/2026): fechada como
+            # as outras, e ainda assim distinguível sem abrir.
+            resumo = re.search(
+                r'<summary class="meal__linha">.*?</summary>', corpo, re.S
+            ).group(0)
+            self.assertIn("Ficou para trás", resumo)
 
     def test_fora_da_vez_toda_acao_nasce_atras_do_toque(self):
         """A conta que a auditoria mediu: quantas ações nascem visíveis. Em
@@ -374,7 +411,7 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
         abre ANTES da primeira ação — nenhum botão de registrar fora dele."""
         medidas = 0
         for estado, corpo in self._artigos():
-            if estado in ("agora", "resolvida") or "receita__acao" not in corpo:
+            if estado == "resolvida" or "receita__acao" not in corpo:
                 continue
             medidas += 1
             self.assertLess(
@@ -382,4 +419,4 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
                 corpo.index("receita__acao"),
                 corpo[:200],
             )
-        self.assertGreaterEqual(medidas, 2, "meio-dia e meia: uma vencida e pelo menos uma futura")
+        self.assertGreaterEqual(medidas, 3, "meio-dia e meia: a da vez, uma vencida e pelo menos uma futura")

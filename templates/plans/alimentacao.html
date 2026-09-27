@@ -369,15 +369,17 @@
             {# O selo do toque offline: `pwa.js` mostra quando a fila guarda a marcação sem rede. #}
             <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
             {% comment %}
-              O CABEÇALHO DE DUAS LINHAS É DE QUEM ESTÁ ABERTO. A refeição
-              futura tem o dela DENTRO do `<summary>`, numa linha só — é o
-              item 11 da auditoria ("as outras colapsadas em uma linha cada:
-              10:37 · Lanche da manhã · 314 kcal"). Medido a 390px: com o
-              cabeçalho fora do resumo, cada refeição fechada custava 150px
-              (hora e nome numa linha, alvo na segunda, nome da receita na
-              terceira); com ele dentro, 72.
+              O CABEÇALHO DE DUAS LINHAS É DE QUEM JÁ COMEU. Desde 24/09/2026
+              nenhuma refeição nasce aberta, então toda refeição em aberto tem
+              o cabeçalho dela DENTRO do `<summary>`, numa linha só — é o item
+              11 da auditoria ("as outras colapsadas em uma linha cada: 10:37 ·
+              Lanche da manhã · 314 kcal"). Medido a 390px: com o cabeçalho
+              fora do resumo, cada refeição fechada custava 150px (hora e nome
+              numa linha, alvo na segunda, nome da receita na terceira); com
+              ele dentro, 72. A resolvida fica com o cabeçalho próprio porque
+              ela não tem sanfona: o que ela mostra é o que foi comido.
             {% endcomment %}
-            {% if slot.estado == 'agora' or slot.log %}
+            {% if slot.log %}
             <header class="meal__head">
               <span class="meal__time num">{{ slot.time|time:"H:i" }}</span>
               <span class="meal__title">
@@ -436,21 +438,24 @@
               </div>
             {% else %}
               {% comment %}
-                AS DUAS OPÇÕES SEMPRE VISÍVEIS — e o `<details>` sobreviveu só
-                para a refeição que NÃO é a da vez (item 11 da auditoria: a de
-                agora aberta no topo, as outras em uma linha cada).
+                NENHUMA REFEIÇÃO NASCE ABERTA (decisão do dono, 24/09/2026,
+                depois de usar o app). Toda refeição em aberto é UMA LINHA, e
+                quem abre é a pessoa — na que ela quiser, na hora que quiser.
 
-                Quem abre é o estado, não o template: `agora` e `pendente`
-                nascem abertas, porque as duas são ação em aberto e a pendente
-                é justamente a que a pessoa esqueceu. Futura nasce recolhida:
-                às 7h da manhã o jantar das 20h45 é consulta, não decisão, e
-                cinco cards de receita abertos eram os 2.100px que a decisão
-                de 20/09 tinha acabado de cortar.
+                Isto substitui a doutrina de 20/09 ("só a refeição da vez nasce
+                aberta"), que era a melhor resposta enquanto uma refeição
+                aberta custava quatro linhas de texto. Desde 23/09 ela custa
+                dois cards de receita: a da vez sozinha respondia por mais de
+                mil dos 2.614px da tela, e quem abria a Alimentação às 14h para
+                ver o jantar rolava por cima do almoço inteiro.
+
+                O estado continua vindo do servidor (`slot.estado`), e a tela
+                continua sem recalcular nada — o que ele decide agora é a
+                MARCA da linha, não a abertura.
 
                 `<details>` e não script: funciona sem JavaScript, entra na
                 ordem do Tab e anuncia estado. `pwa.js` só anima a abertura.
               {% endcomment %}
-              {% if slot.estado != 'agora' %}
               <details class="meal__futuro">
                 {% comment %}
                   A LINHA da refeição fechada: hora, nome e o alvo em kcal.
@@ -468,8 +473,23 @@
                   {% else %}
                     <span class="meal__linha-kcal num">{{ slot.target_kcal }} kcal</span>
                   {% endif %}
+                  {% comment %}
+                    A MARCA NA LINHA, e não a sanfona aberta (24/09/2026). A
+                    pessoa precisa ACHAR a refeição da vez sem abrir nada;
+                    abrir respondia a outra pergunta — "qual receita" — e
+                    custava a tela inteira em altura.
+
+                    O texto é o `slot.estado` que `plans/agora.py` já escreve;
+                    o template só escolhe a palavra. "Ficou para trás" e não
+                    "Pendente": a linha já diz "Não registrada · registrar", e
+                    o que falta dizer é QUANDO ela era, não o que fazer.
+                  {% endcomment %}
+                  {% if slot.estado == 'agora' %}
+                    <span class="meal__marca meal__marca--agora">Agora</span>
+                  {% elif slot.estado == 'pendente' %}
+                    <span class="meal__marca">Ficou para trás</span>
+                  {% endif %}
                 </summary>
-              {% endif %}
               <div class="meal__opcoes">
                 {% comment %}
                   `opcoes_do_dia`, e não `options.all`: o repertório do horário
@@ -662,9 +682,7 @@
                   </form>
                 </details>
               </div>
-              {% if slot.estado != 'agora' %}
               </details>
-              {% endif %}
             {% endif %}
           </article>
         {% endfor %}

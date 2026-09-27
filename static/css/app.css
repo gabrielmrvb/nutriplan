@@ -9524,6 +9524,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   overflow-wrap: anywhere;
 }
 .meal__linha-kcal { margin-left: auto; color: var(--text-mute); flex: none; }
+/* A MARCA DENTRO DA LINHA FECHADA (24/09/2026). Ela nasceu no `.meal__head`,
+   onde `margin-left: auto` a empurrava para a ponta; aqui quem já empurra é o
+   kcal (ou o convite a registrar), que vem antes dela. Sem esta linha a marca
+   e o kcal disputariam o mesmo `auto` e a linha quebraria em duas a 320px. */
+.meal__linha .meal__marca { margin-left: 0; }
 /* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
    sanfona "saltando" em miniatura. `inline-block` porque `transform` não
    pega em inline. */

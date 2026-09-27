@@ -77,10 +77,14 @@ class CardDeRefeicaoTests(TestCase):
         with mock.patch("plans.views.relogio", return_value=_as(hora)):
             return self.client.get(reverse("plans:alimentacao")).content.decode()
 
-    def test_a_refeicao_da_vez_nasce_aberta_com_as_duas_receitas(self):
-        """O toque deixou de ser para DESCOBRIR e passou a ser para
-        APROFUNDAR: as duas opções estão na tela, com ilustração, caloria, os
-        três macros, o tempo e os ingredientes."""
+    def test_a_refeicao_da_vez_nasce_fechada_e_marcada(self):
+        """As duas opções continuam completas — ilustração, caloria, os três
+        macros, o tempo e os ingredientes —, atrás de UM toque.
+
+        Até 24/09/2026 a da vez nascia aberta. O dono usou o app e decidiu que
+        nenhuma abre sozinha: a marca na linha diz qual é a da vez, e quem
+        escolhe o que abrir é a pessoa.
+        """
         html = self._tela(hora=8)
         primeiro = self.plan.slots.order_by("order").first()
 
@@ -94,9 +98,11 @@ class CardDeRefeicaoTests(TestCase):
         # novo ("Registrar Arroz com lentilha...").
         self.assertNotIn(">Registrar A<", html)
         self.assertNotIn(">Registrar B<", html)
-        # E o card da vez NÃO está dentro do `<details>` das futuras.
+        # E o card da vez está fechado como os outros, com a marca na linha.
         pedaco = _card(html, primeiro.pk)
-        self.assertNotIn('<details class="meal__futuro">', pedaco)
+        self.assertIn('<details class="meal__futuro">', pedaco)
+        self.assertNotIn('<details class="meal__futuro" open', pedaco)
+        self.assertIn("meal__marca--agora", pedaco)
 
     def test_a_refeicao_futura_e_uma_linha_com_hora_nome_e_alvo(self):
         """Item 11: as outras colapsadas em uma linha cada. O cabeçalho de
