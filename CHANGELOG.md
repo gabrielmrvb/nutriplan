@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-27
+
+- **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
+
 ## 2026-09-24
 
 - **Nada mais cobre o exercício durante o treino.** O bloco de registro preso no rodapé ocupava quase metade da tela: num iPhone SE ele tapava os músculos, o "ver vídeo" e a dica, e com o descanso rodando não sobrava nada. Agora ele tem só a carga, as repetições e o "Concluir série"; as bolinhas das séries e o "Anotar algo" voltaram para a página, logo acima. O vídeo abre do tamanho do espaço que sobra e sobe junto com o nome do exercício.

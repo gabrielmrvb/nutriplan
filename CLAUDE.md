@@ -1062,30 +1062,69 @@ toda ficha antiga em toda visita à Home, para sempre. Prescrição divergente
 NÃO carimba: o aviso continua até a pessoa decidir. O demo é fixture de que
 o seed é dono: `seed_demo` regenera sozinho quando a prescrição mudou.
 
-**O CICLO DA DIVISÃO RODA CONTÍNUO, e a letra de hoje sai da POSIÇÃO, não
-do dia da semana (17/09/2026).** Em 5 dias com ABC o ciclo fixo A B C A B
-recomeçava toda segunda, peito e costas caíam 2× e "Pernas e ombros" 1× —
-quadríceps em 7 diretas por semana, para sempre. O desequilíbrio era do
-calendário. Hoje a semana seguinte continua de onde a anterior parou (C A B
-C A, depois B C A B C; em 3 semanas cada letra cai 5 vezes), e a média do
-ciclo está medida no `TREINO.md` — peito 25,0 no Padrão contra o alvo de
-24, ACEITO pelo dono em 17/09 com tolerância de ± 2 (26 é o teto da média;
-ficha real de academia faz 26–28), lida do documento pelo teste. O golden
-não baixa. Como funciona: `TrainingPlan.
-inicio_do_ciclo` é a posição zero (o primeiro dia de treino da semana em que
-o plano nasce — a primeira semana é a de sempre, a rotação começa na
-segunda); as linhas de `sessions` continuam UMA POR DIA DA SEMANA, com a
-letra da primeira semana — são o retrato de dias, horários e durações que
-`rotina_invalida` compara —; `services.sessao_do_dia(plan, dia)` devolve a
-linha da LETRA da posição vestindo o dia da semana (`_no_dia`: horário,
-duração e `weekday` do dia, `pk` da letra — a escolha e a ficha apontam
-para a letra); `sessoes_da_semana` é a semana de hoje que o painel, a ficha
-e a leitura desenham. A posição é do CALENDÁRIO: treino pulado conta, como
-o quadro da academia. Toda letra recebe o teto e o número de opções da PIOR
-semana (`ocorrencias_das_letras`: 2× para A, B e C em 5 dias). Plano de
-antes da rotação (`inicio_do_ciclo` em branco) segue preso ao dia da semana,
-não é remontado, e a Home pergunta. NUNCA volte a resolver "a sessão de hoje"
-por `weekday=hoje.weekday()`: era isso que prendia o ciclo.
+**SEQUÊNCIA POR PRESENÇA: "qual treino é hoje" é a letra seguinte à ÚLTIMA
+FEITA, e a pessoa escolhe (decisão do dono, 24/09/2026).** Isto SUBSTITUI a
+doutrina de 17/09 onde as duas conflitam — ~~"a letra de hoje sai da POSIÇÃO,
+não do dia da semana; a posição é do CALENDÁRIO, treino pulado conta como o
+quadro da academia; NUNCA resolva a sessão de hoje por presença"~~. O motivo
+da troca: o dono usou o app e viu o defeito. ABC em 5 dias, fez A na segunda e
+B na terça, pulou a quarta — e na quinta o app abriu com A (a POSIÇÃO avançou
+pelo calendário, o C sumiu). Ninguém na academia faz assim: quem pulou faz C
+no dia seguinte. O ciclo dá a DIREÇÃO (A→B→C→A); QUAL letra é hoje pertence à
+pessoa.
+
+- **RECOMENDADO = a letra seguinte à última FEITA.** "Feito" é ter série
+  registrada (`ExerciseLog`) num dia com escolha daquela letra —
+  `services.sequencia_do_treino` lê tudo numa CONSULTA (`SequenciaDoTreino`,
+  com `recomendada()` e `contagem(letra)`). Encerrar com zero série NÃO conta.
+  Sem histórico no plano, o recomendado é a PRIMEIRA letra do ciclo. Pular não
+  avança nada. `TrainingDay` continua dizendo QUAIS dias são de treino e a
+  FREQUÊNCIA — deixou só de dizer a letra.
+- **A PESSOA ESCOLHE.** Painel e execução mostram o recomendado como "Treino
+  de hoje" com o selo "recomendado" e "Fazer outro treino" (`EscolherLetraView`,
+  `POST /treino/letra/`, `registrar_escolha_de_letra`); a escolha vale para o
+  dia (`EscolhaDeTreino`, uma por dia — a letra escolhida mora em
+  `escolha.session.label`, SEM coluna nova). A primeira série grava a escolha.
+  Trocar de letra DEPOIS de já ter registrado série hoje pede confirmação
+  (redirect `?trocar=<letra>`, e o POST com `confirmar=1` confirma) e NÃO apaga
+  nada — `ExerciseLog` é por exercício e data.
+- **AVISO, NUNCA BLOQUEIO.** Escolher uma letra cujo grupo principal foi
+  treinado nas últimas 48h mostra uma linha (`aviso_de_treino_repetido`:
+  "Peito foi treinado ontem; o recomendado hoje é Costas e bíceps."), e a
+  pessoa faz assim mesmo. O teto semanal por grupo continua regra do GERADOR
+  (pior caso por letra, `ocorrencias_das_letras`: 2× para A, B e C em 5 dias),
+  nunca da pessoa.
+- **A TIRA DA SEMANA É PROJEÇÃO** (`sessoes_da_semana`, atributo `.projecao`):
+  dia passado feito mostra a letra FEITA; hoje mostra o recomendado (ou o
+  escolhido); o futuro segue o ciclo a partir daí; dia de treino pulado fica
+  marcado (`pulado`). Sem histórico, a semana 1 e a semana 2 são as duas
+  A B C A B — o calendário não gira mais o ciclo sozinho.
+- **A OPÇÃO (1/2) DA LETRA também é por presença**: `opcoes[(nº de vezes que a
+  letra já foi feita) % nº de opções]` (`variacao_do_dia`). Coincide com o
+  antigo ciclo por posição quando nada é pulado — por isso o dourado, as
+  médias do `TREINO.md` (peito 25,0 no Padrão, alvo 24 ± 2, lido do documento)
+  e o teto por letra ficam INTACTOS; o golden não baixa.
+- **`inicio_do_ciclo` fica no banco como HISTÓRICO**, mas não decide mais a
+  letra; `posicao_no_ciclo` saiu da resolução do dia. As linhas de `sessions`
+  continuam UMA POR DIA DA SEMANA (o retrato de dias, horários e durações que
+  `rotina_invalida` compara), e `services.sessao_do_dia(plan, dia, user=…)`
+  veste a letra recomendada/escolhida no dia (`_no_dia`: horário, duração e
+  `weekday` do dia, `pk` da letra). `user`/`seq`/`escolha` atravessam
+  `sessao_do_dia`/`variacao_do_dia`/`sessoes_da_semana` para a leitura da
+  sequência ser UMA consulta por tela. Plano de antes da rotação
+  (`inicio_do_ciclo` em branco) ENTRA na regra nova sem ser remontado; só o
+  plano CUSTOMIZADO à mão (`is_customized`) fica preso ao dia da semana — quem
+  arranjou os dias mandou (`usa_presenca`). NENHUMA ficha existente é remontada:
+  a presença é LEITURA (`test_sequencia.ApresencaNaoRemontaAFichaTests`, o
+  retrato das linhas antes/depois).
+- **Ofensiva e "dia mensurável" não mudam**: dia previsto sem série continua
+  não fechando.
+
+`workouts/test_sequencia.py`, `test_rotacao.py`, `test_escolher_letra.py`,
+`test_aviso_repetido.py` e o `tornar_hoje` reescrito (registra a letra anterior
+como feita ontem — não mexe em `weekday` nem `inicio_do_ciclo`) prendem tudo
+isto. A tela do dia (o selo "recomendado", "Fazer outro treino" e o aviso) está
+na seção "A área de Treino são TRÊS telas".
 
 **A ofensiva mede aderência AO PLANO, e o denominador vem do plano.** Não do
 que a pessoa marcou — essa era a regra antiga, e ela invertia o incentivo do
