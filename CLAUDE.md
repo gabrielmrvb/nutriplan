@@ -2620,7 +2620,12 @@ nem número de PR. `ajuda/mudancas.py` lê pouco de propósito — escapa tudo
 e só conhece `**negrito**` e `` `código` ``; Markdown inteiro seria uma
 dependência para três marcas — e relê quando o mtime muda. Há teste
 cobrando a forma do arquivo real (datas decrescentes, uma seção por dia,
-nenhuma vazia). Toda missão que muda o que a pessoa vê acrescenta a linha
+nenhuma vazia). **O marcador `*(gerência, não aparece para quem usa)*`
+FECHA a seção pública** (`_GERENCIA`, 27/09/2026): dele até a próxima data,
+item nenhum chega à tela. Ele era decorativo — o leitor conhecia só `##
+data` e `- item` —, e a frase dele era falsa: medido contra produção, "O
+painel de gestão passou a responder três perguntas de produto" aparecia em
+`/ajuda/o-que-mudou/`. Toda missão que muda o que a pessoa vê acrescenta a linha
 dela ANTES do merge, na própria branch — e uma linha só entra quando a
 mudança que ela descreve está na mesma branch ou já em `main` (a linha
 do placar saiu deste PR por isso e entra no dele).
