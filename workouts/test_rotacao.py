@@ -250,6 +250,16 @@ class OPlanoAntigoEntraNaRegraNovaTests(TestCase):
         TrainingPlan.objects.filter(pk=self.plan.pk).update(inicio_do_ciclo=None)
         self.plan.refresh_from_db()
         self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
+        self.client.force_login(self.user)
+
+    def test_a_legenda_da_presenca_aparece_no_painel(self):
+        """A tira projeta feito/pulado por presença mesmo SEM `inicio_do_ciclo`;
+        a legenda que a explica tem de seguir a MESMA régua (`usa_presenca`), e
+        não `ciclo_roda`. Visto em produção (d965c07): o painel do demo antigo
+        projetava a semana e escondia a legenda, porque o guard era o mais
+        estrito dos dois."""
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.assertIn("continua de onde você parou", html)
 
     def test_entra_na_presenca_sem_ser_remontado(self):
         self.assertTrue(services.usa_presenca(self.plan))
@@ -284,6 +294,14 @@ class OPlanoCustomizadoFicaPresoAoDiaTests(TestCase):
         TrainingPlan.objects.filter(pk=self.plan.pk).update(customized_at=relogio.Relogio(SEGUNDA).agora())
         self.plan.refresh_from_db()
         self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
+        self.client.force_login(self.user)
+
+    def test_a_legenda_da_presenca_nao_aparece_no_customizado(self):
+        """Ficha ajustada à mão fica presa ao dia da semana; dizer "continua de
+        onde você parou" ali seria mentira. A legenda some quando `usa_presenca`
+        é falso."""
+        html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.assertNotIn("continua de onde você parou", html)
 
     def test_a_letra_e_a_do_dia_da_semana_em_toda_semana(self):
         self.assertFalse(services.usa_presenca(self.plan))
