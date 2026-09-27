@@ -161,11 +161,22 @@ o campo é `required` e o navegador barra o envio sem erro. A sonda reportava
 - **TDD**: 10 testes vermelhos antes da implementação, depois 14 em
   `workouts/test_nada_cobre_o_exercicio.py` + 3 em
   `workouts/test_nonce_na_troca.py` + 1 varredura.
-- **Sabotagem 100 % vermelha** (`scratchpad/sabotar.py`), 6 de 6, com
+- **Sabotagem 100 % vermelha** (`scratchpad/sabotar.py`), **7 de 7**, com
   controle positivo verde nos três módulos: bloco voltando a reservar a
   tabbar · teto do vídeo sem a cabeça · carga e reps em duas linhas · rolagem
-  voltando para a demonstração · nonce removido · alguém recriando `<script>`
-  sem nonce.
+  voltando para a demonstração · nonce removido · selo de rede voltando para
+  dentro do bloco · alguém recriando `<script>` sem nonce. Uma âncora nasceu
+  errada (indentação da grade) e a sabotagem AVISOU em vez de passar —
+  "âncora não achada" conta como falha no script, de propósito: sabotagem que
+  não aplica o defeito é sabotagem que não mede nada.
+- **Suíte completa**: 4 516 testes. A primeira passada deu 3 falhas, todas
+  analisadas e nenhuma regressão de comportamento — uma dependia da ORDEM DOS
+  ATRIBUTOS da tag do formulário (`test_serie_sem_recarga` casa a string
+  `…registro--agora" method="post" data-sem-recarga`, e o `id` novo entrou no
+  meio dela; foi para o fim da tag) e duas congelavam o estado que a decisão
+  do dono muda (`"menos carga mais"` numa faixa só, e `max-height: 60vh`).
+  As duas últimas foram atualizadas com a razão escrita, mantendo a intenção
+  original de cada uma.
 - **E2E noturno**: passo `video` entre `serie` e `tema-claro` (PASSOS vai a
   14), com a régua geométrica; `config/test_e2e_noturno.py` verde (13), e o
   navegador falso responde JSON em vez de `true` — senão o roteiro passaria
