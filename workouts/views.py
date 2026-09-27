@@ -3,6 +3,7 @@ import uuid
 import copy
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from functools import partial
 
 from django.contrib import messages
 from django.db.models import Count, Max
@@ -1629,9 +1630,9 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         nota = (request.POST.get("nota") or "").strip()[:120]
         falhou = request.POST.get("falhou") == "1"
         try:
-            criada, primeira_do_dia = telas.concluir_serie(
+            _criada, primeira_do_dia = telas.concluir_serie(
                 request.user, exercise, peso, dia, reps=reps, op_id=op_id,
-                nota=nota, falhou=falhou,
+                nota=nota, falhou=falhou, evento=partial(analytics.evento, request),
             )
         except ValueError:
             # Vinte séries no mesmo exercício num dia. Não é treino, é dedo
@@ -1641,14 +1642,6 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         else:
             self._avisar_se_o_programa_mudou(request)
             self._garantir_escolha(request, dia)
-            # Só o que GRAVOU de novo (não o reenvio deduplicado da fila).
-            if criada:
-                analytics.evento(
-                    request,
-                    "treino.serie_concluida",
-                    {"exercicio": exercise.name, "carga": float(peso),
-                     "reps": reps if reps is not None else ""},
-                )
             # As conquistas rodam AQUI, na escrita — é o que a doutrina de
             # `achievements.services` promete e o que esta rota não fazia:
             # só `RecordLoadView`, a rota do cartão que saiu da tela em
@@ -1673,21 +1666,6 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
                 # de "começou a treinar". A letra fica de fora para não pagar
                 # uma consulta na rota mais quente do app.
                 analytics.evento(request, "treino.iniciado", {})
-            if criada:
-                # `treino.serie_concluida` estava na taxonomia desde o começo
-                # e NUNCA era disparado (24/09/2026) — o último degrau do
-                # funil de entrada não existia, e o "uso por área" enxergava
-                # tudo menos o treino. Só quando a linha NASCE: o reenvio da
-                # fila offline (`criada=False`) é a mesma série chegando duas
-                # vezes, e contá-la de novo inflaria o número que a tela de
-                # gestão usa para decidir.
-                #
-                # `carga` e `reps` são da própria série — número de treino, e
-                # não de corpo; a taxonomia proíbe PII e nenhum dos dois é.
-                analytics.evento(
-                    request, "treino.serie_concluida",
-                    {"exercicio": exercise.pk, "carga": float(peso or 0), "reps": reps or 0},
-                )
             if primeira_do_dia or services.supera_recorde(
                 request.user, exercise, peso, reps=reps, dia=dia
             ):
