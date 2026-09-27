@@ -26,6 +26,7 @@ num comentário — seria o mesmo erro ao contrário.
 """
 import html as entidades
 import re
+from pathlib import Path
 
 from django.contrib.auth.models import Group
 from django.core.management import call_command
@@ -160,6 +161,10 @@ class NenhumaTelaDaAlimentacaoChamaDePlanoTests(ComCadastroCompleto):
 #: link, "esta" não tinha a quem apontar.
 COMI_ESTA = re.compile(r"\bcomi esta\b", re.IGNORECASE)
 
+#: "Pulei" virou "Não comi" na mesma decisão. A Ajuda ENSINAVA o botão pelo
+#: nome antigo — texto de produto contradizendo a tela, na mesma área do app.
+PULEI = re.compile(r"\bpulei\b", re.IGNORECASE)
+
 
 class NenhumaTelaDizComiEstaTests(ComCadastroCompleto):
     """O botão de registrar refeição diz "Registrar", em toda tela que o tem."""
@@ -186,7 +191,7 @@ class NenhumaTelaDizComiEstaTests(ComCadastroCompleto):
         self.assertIn("Registrar", texto)
         self.assertIsNone(COMI_ESTA.search(texto), texto[:400])
 
-    def test_nenhuma_tela_de_quem_tem_cardapio_diz_comi_esta(self):
+    def test_nenhuma_tela_de_quem_tem_cardapio_diz_comi_esta_nem_pulei(self):
         self.pessoa_completa()
         for rota in (reverse("plans:today"), reverse("plans:alimentacao"),
                      reverse("plans:history"), reverse("ajuda:index")):
@@ -195,6 +200,35 @@ class NenhumaTelaDizComiEstaTests(ComCadastroCompleto):
                     apenas_o_main(self.client.get(rota).content.decode())
                 )
                 self.assertIsNone(COMI_ESTA.search(texto), texto[:400])
+                self.assertIsNone(PULEI.search(texto), texto[:400])
+
+    def test_os_templates_versionados_nao_guardam_os_rotulos_antigos(self):
+        """A régua por rota cobre cinco telas; a promessa é "tela nenhuma".
+
+        Esta varre `templates/` inteiro — o mesmo padrão de
+        `config/test_design_system.py` —, fora dos comentários, que contam a
+        história e precisam citar o nome antigo.
+        """
+        import subprocess
+
+        from django.conf import settings
+
+        raiz = Path(settings.BASE_DIR)
+        arquivos = subprocess.run(
+            ["git", "ls-files", "templates"],
+            cwd=raiz, capture_output=True, text=True, check=True,
+        ).stdout.split()
+        achados = []
+        for caminho in arquivos:
+            if not caminho.endswith(".html"):
+                continue
+            texto = (raiz / caminho).read_text(encoding="utf-8")
+            sem_comentario = re.sub(r"{% comment %}.*?{% endcomment %}", " ", texto, flags=re.S)
+            sem_comentario = re.sub(r"{#.*?#}", " ", sem_comentario, flags=re.S)
+            for regua, nome in ((COMI_ESTA, "Comi esta"), (PULEI, "Pulei")):
+                if regua.search(sem_comentario):
+                    achados.append("%s: %s" % (caminho, nome))
+        self.assertEqual(achados, [])
 
 
 class ALandingEAsDescricoesNaoPrometemDietaTests(TestCase):

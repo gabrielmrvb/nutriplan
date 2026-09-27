@@ -3299,12 +3299,22 @@ class HojeV2ViewTests(CatalogFixture):
         self.user = create_complete_user(email="hojev2@exemplo.com")
         self.client.force_login(self.user)
 
-    def test_a_primeira_dobra_traz_uma_acao(self):
+    def test_a_primeira_dobra_e_o_anel_e_nao_um_cartao_repetido(self):
+        """Decisão do dono, 24/09/2026: o cartão AGORA saiu desta tela.
+
+        Ele mostrava a refeição da vez com o mesmo botão do primeiro card do
+        cardápio, logo abaixo. A primeira dobra passou a ser o anel — a meta e
+        o saldo —, que é o que só esta tela responde. O cartão continua na
+        Hoje, e `plans/test_card_de_refeicao.py` prende os dois lados.
+        """
         html = self.client.get(self.url).content.decode()
         corpo = html.split("<main", 1)[1]
         topo = corpo[: corpo.index("</section>")]
 
-        self.assertIn("agora__rotulo", topo)
+        self.assertNotIn("agora__rotulo", topo)
+        self.assertNotIn("agora-card", topo)
+        self.assertIn("today-hero", topo)
+        self.assertIn("ring__value", topo)
 
     def test_o_dia_inteiro_e_respondido_pelo_painel_da_hoje(self):
         """A linha `.resumo-dia` virou o painel de cartões (22/09/2026).
@@ -3599,7 +3609,12 @@ class MarcadorNaTelaTests(CatalogFixture):
         )
         regra = css.split("\n.meal__marca {", 1)[1].split("}", 1)[0]
 
+        # `margin-left: auto` na regra base, e a da LINHA (onde a marca
+        # de fato é renderizada desde 24/09/2026) mantém o mesmo empurrão —
+        # sem ele o selo encostaria no nome.
         self.assertIn("margin-left: auto", regra)
+        da_linha = css.split("\n.meal__linha .meal__marca {", 1)[1].split("}", 1)[0]
+        self.assertIn("margin-left: auto", da_linha)
         self.assertIn("flex: none", regra)
 
 

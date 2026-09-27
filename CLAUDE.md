@@ -1503,7 +1503,12 @@ refeição aberta custava quatro linhas de texto, não dois cards de receita.
 - **Nenhuma refeição nasce aberta; a da vez é MARCADA.** Toda refeição em
   aberto é uma linha, e quem abre é a pessoa. A linha da `agora` traz o selo
   "Agora" e a da `pendente`, "Ficou para trás" — dentro do próprio
-  `<summary>`, sem custar altura. Medido a 390px com a conta de QA: **2.568 →
+  `<summary>`, sem custar altura. **Uma marca por linha:** na `pendente` ela
+  SUBSTITUI o convite "Não registrada · registrar" (25/09). Dois rótulos
+  `flex: none` na mesma linha espremiam o nome da refeição a zero — 145px de
+  altura a 390px, com uma letra por linha, e o transbordo recortado pelo
+  `overflow-x` da raiz, que é o motivo de nenhuma barra de rolagem denunciar.
+  `test_a_linha_fechada_nao_espreme_o_nome_da_refeicao` é a régua. Medido a 390px com a conta de QA: **2.568 →
   1.561 px às 9h, 2.580 → 1.773 às 14h, 2.596 → 2.131 às 20h**.
 - **O botão diz a AÇÃO: "Registrar".** "Comi esta" saiu de toda tela — o
   card já é a receita, e na folha aberta por link não havia "esta" a que
@@ -1517,14 +1522,16 @@ refeição aberta custava quatro linhas de texto, não dois cards de receita.
 - **"Não comi" e "Comi outra coisa" são duas ações do mesmo tamanho.** Eram
   um link de 15px de texto e um resumo disfarçado de link; viraram dois
   `btn--ghost` lado a lado (grade de duas colunas, uma só abaixo de 24rem),
-  com o alvo de 44px do `.btn`. Secundárias pelo CONTORNO e pela posição, não
+  com a altura de 3,25rem do `.btn` — que o `.fora__abrir` precisa REPETIR,
+  porque ele declara `min-height` 3.000 linhas depois e vencia a cascata. Secundárias pelo CONTORNO e pela posição, não
   pelo tamanho. O `<details>` aberto ocupa a largura toda. Contrato intacto:
   mesma URL, `status=skipped`/`off_plan`, mesmo `data-celebra`, mesma
   idempotência da fila offline.
 
 Continuam valendo: o card de receita e a folha, o anel e o `topo.modo`, a
-lista de compras, `OptionLabel` no banco e o orçamento de 18 consultas de
-`plans:alimentacao`.
+lista de compras, `OptionLabel` no banco e o teto de consultas de
+`plans:alimentacao` (`plans/test_stress.py`, hoje 19 — é TETO, e tirar
+trabalho da tela só pode baixá-lo).
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 

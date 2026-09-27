@@ -388,21 +388,6 @@
                   alvo {{ slot.target_kcal }} kcal · {{ slot.target_protein_g }} g de proteína
                 </span>
               </span>
-              {% comment %}
-                O selo entra como TERCEIRO item da fileira do cabeçalho, e não
-                embaixo do nome: `.meal__name` é `display: block`, então uma
-                pílula depois dele cairia numa linha nova e cada cartão ficaria
-                mais alto. Aqui ele divide a linha que a hora e o nome já
-                ocupam, e não acrescenta altura nenhuma.
-
-                O texto é o marcador que `plans/agora.py` escreveu — o template
-                só escolhe a palavra. Nada de recalcular quem é a vez.
-              {% endcomment %}
-              {% if slot.estado == 'agora' %}
-                <span class="meal__marca meal__marca--agora">Agora</span>
-              {% elif slot.estado == 'pendente' %}
-                <span class="meal__marca">Pendente</span>
-              {% endif %}
             </header>
             {% endif %}
 
@@ -468,9 +453,7 @@
                 <summary class="meal__linha">
                   <span class="meal__time num">{{ slot.time|time:"H:i" }}</span>
                   <span class="meal__linha-nome">{{ slot.name }}</span>
-                  {% if slot.estado == 'pendente' %}
-                    <span class="meal__linha-aberta">Não registrada · registrar</span>
-                  {% else %}
+                  {% if slot.estado != 'pendente' %}
                     <span class="meal__linha-kcal num">{{ slot.target_kcal }} kcal</span>
                   {% endif %}
                   {% comment %}
@@ -480,14 +463,21 @@
                     custava a tela inteira em altura.
 
                     O texto é o `slot.estado` que `plans/agora.py` já escreve;
-                    o template só escolhe a palavra. "Ficou para trás" e não
-                    "Pendente": a linha já diz "Não registrada · registrar", e
-                    o que falta dizer é QUANDO ela era, não o que fazer.
+                    o template só escolhe a palavra.
+
+                    NA PENDENTE A MARCA SUBSTITUI O CONVITE "Não registrada ·
+                    registrar" (25/09/2026), e não se soma a ele: os dois eram
+                    rótulos longos e não-encolhíveis na mesma linha flex, e o
+                    nome da refeição era espremido a ZERO — medido a 390px,
+                    "14:30 Almoço" virava 145px de altura com uma letra por
+                    linha, e o transbordo era recortado pelo `overflow-x`
+                    da raiz (por isso nenhuma barra de rolagem denunciava).
+                    Uma marca por linha; o que fazer está a um toque.
                   {% endcomment %}
                   {% if slot.estado == 'agora' %}
                     <span class="meal__marca meal__marca--agora">Agora</span>
                   {% elif slot.estado == 'pendente' %}
-                    <span class="meal__marca">Ficou para trás</span>
+                    <span class="meal__marca meal__marca--atrasada">Ficou para trás</span>
                   {% endif %}
                 </summary>
               <div class="meal__opcoes">

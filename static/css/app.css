@@ -2578,7 +2578,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 /* "desfazer" media 20px de altura — e é justamente o link que a pessoa
-   procura no segundo seguinte a errar o toque em "Pulei". O alvo cresce por
+   procura no segundo seguinte a errar o toque em "Não comi". O alvo cresce por
    padding e a margem negativa devolve o espaço ao layout: o link continua
    visualmente discreto ao lado do texto, e o dedo passa a ter 44px. */
 /* A largura também. `TouchTargetTests` cobra a altura desta regra e a régua do
@@ -9528,7 +9528,27 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    onde `margin-left: auto` a empurrava para a ponta; aqui quem já empurra é o
    kcal (ou o convite a registrar), que vem antes dela. Sem esta linha a marca
    e o kcal disputariam o mesmo `auto` e a linha quebraria em duas a 320px. */
-.meal__linha .meal__marca { margin-left: 0; }
+/* A MARCA DENTRO DA LINHA FECHADA (24/09/2026). Ela nasceu no `.meal__head`,
+   onde `margin-left: auto` a empurrava para a ponta; aqui quem já empurra é o
+   kcal, que vem antes dela.
+
+   `flex-shrink` e `min-width: 0` (25/09): `.meal__marca` é `flex: none` por
+   herança do cabeçalho, e numa linha sem espaço isso espremia o NOME a zero —
+   uma letra por linha, 145px de altura, medido a 390px. Aqui ela cede antes
+   do nome, e `text-overflow` corta com reticências em vez de empurrar. */
+.meal__linha .meal__marca {
+  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meal__linha .meal__linha-kcal + .meal__marca { margin-left: var(--espaco-3); }
+
+/* A marca da vencida fala a língua do convite que ela substituiu: `--brand`,
+   como era o "Não registrada · registrar". A da vez continua sendo a pílula
+   de fundo tingido. */
+.meal__marca--atrasada { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 24%, transparent); }
 /* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
    sanfona "saltando" em miniatura. `inline-block` porque `transform` não
    pega em inline. */
@@ -9704,10 +9724,19 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    alinhamento. O que sobra para esta regra é o que o `<summary>` traz de
    fábrica e o botão não quer — a seta do marcador nativo já sai em
    `.fora__abrir`, e aqui só se ajusta o que a caixa de superfície tinha. */
+/* O resumo É o botão: quem manda em altura, padding, peso e tamanho de texto
+   é o `.btn`. `.fora__abrir` declara todos esses valores e vem 3.000 linhas
+   DEPOIS do `.btn`, com a mesma especificidade — então vencia, e as duas
+   saídas saíam com 44px contra 52px e 16px contra 14,4px (medido). Aqui cada
+   um deles é devolvido ao `.btn` por `revert-layer`… que não existe em CSS
+   plano: o jeito honesto é repetir o valor do `.btn`. */
 .meal__secundarias .fora__abrir {
+  min-height: 3.25rem;
+  padding: var(--espaco-4) var(--espaco-6);
   background: none;
   color: inherit;
-  font-size: inherit;
+  font-size: var(--texto-md);
+  font-weight: 700;
 }
 
 /* -- O topo em modo PLANO, e a resposta depois de registrar -------------- */
@@ -10037,7 +10066,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    no lugar em que a futura mostra o alvo em kcal. A decisão de 20/09/2026
    (só a refeição da vez nasce aberta) vale para ela também: o que a vencida
    ganha é o convite, e não o card inteiro aberto. */
-.meal__linha-aberta { margin-left: auto; color: var(--brand); flex: none; }
 
 /* ==========================================================================
    53. PROGRESSO — a tela de evolução (23/09/2026)

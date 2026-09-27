@@ -20,10 +20,12 @@ não cabia (o modo de preparo) virou uma TELA com endereço próprio.
 AS PROPRIEDADES DESTE ARQUIVO NÃO MUDARAM, e é por isso que ele continua
 existindo com os mesmos nomes de teste: a ação não fica atrás de uma
 descoberta, o botão diz o que registra, os números continuam na tela, as ações
-secundárias continuam secundárias, só a primeira opção é primária, e tudo que
-não é a refeição da vez nasce recolhido.
+secundárias continuam secundárias — e, desde 24/09/2026, as duas opções pesam
+igual e NENHUMA refeição nasce recolhida por decisão da tela: todas nascem
+fechadas, e quem abre é a pessoa.
 """
 import re
+from pathlib import Path
 from datetime import datetime, time
 from unittest import mock
 
@@ -348,7 +350,7 @@ class AsDuasOpcoesPesamIgualTests(TestCase):
 
 
 class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
-    """§7: a ação da vez aberta; o resto do dia recolhido.
+    """§7, com a régua de 24/09/2026: TODAS fechadas, a da vez marcada.
 
     Medido a 390px em 12/09/2026: cinco refeições sem registro renderizavam
     dez botões de registrar e dez ações secundárias — ~2.100px de formulário
@@ -440,7 +442,7 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
             # E as opções continuam lá, atrás do toque.
             self.assertIn("receita__acao", corpo)
 
-    def test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar(self):
+    def test_a_vencida_fica_em_uma_linha_com_a_marca_de_atraso(self):
         """Home compacta (decisão do dono, 20/09/2026). Até então a VENCIDA
         também nascia aberta, por ser "ação em aberto": medido na auditoria,
         um primeiro uso às 15 h dava uma Home de 3 757 px com quatro
@@ -458,14 +460,52 @@ class ARefeicaoFuturaFicaEmSegundoPlanoTests(TestCase):
         for corpo in vencidas:
             self.assertIn('<details class="meal__futuro">', corpo)
             self.assertNotIn('<details class="meal__futuro" open', corpo)
-            self.assertIn("Não registrada · registrar", corpo)
             self.assertIn("receita__acao", corpo)
-            # A marca da pendente na própria linha (24/09/2026): fechada como
-            # as outras, e ainda assim distinguível sem abrir.
             resumo = re.search(
                 r'<summary class="meal__linha">.*?</summary>', corpo, re.S
             ).group(0)
+            # UMA marca por linha (25/09/2026): "Ficou para trás" SUBSTITUI o
+            # convite "Não registrada · registrar" — os dois eram rótulos
+            # longos e não-encolhíveis na mesma linha flex, e o nome da
+            # refeição era espremido a zero (145px de altura a 390px, medido).
             self.assertIn("Ficou para trás", resumo)
+            self.assertNotIn("Não registrada", resumo)
+
+    def test_a_linha_fechada_nao_espreme_o_nome_da_refeicao(self):
+        """A régua que faltou em 24/09, e que custou o defeito de 25/09.
+
+        `.meal__linha` é `display: flex` sem `flex-wrap`: qualquer rótulo
+        `flex: none` a mais na linha come a largura do NOME, que é o único
+        item com `min-width: 0`. Medido a 390px com dois rótulos: o nome ficou
+        com 0px e a linha com 145px de altura — uma letra por linha, e o
+        transbordo recortado pelo `overflow-x` da raiz (nenhuma barra de
+        rolagem denuncia).
+
+        A régua é sobre o CSS, e não sobre a tela, pelo mesmo motivo de
+        `config/tests.py`: medir pixel exigiria navegador, e o contrato é
+        "a marca cede antes do nome".
+        """
+        from django.conf import settings
+
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        regra = css.split("\n.meal__linha .meal__marca {", 1)[1].split("}", 1)[0]
+        self.assertIn("flex: 0 1 auto", regra)
+        self.assertIn("min-width: 0", regra)
+        # E a metade que o CSS não resolve: na PENDENTE, um rótulo só. Era ela
+        # que trazia dois textos longos ("Não registrada · registrar" e "Ficou
+        # para trás"); a `agora` traz "514 kcal" e "Agora", curtos, e a marca
+        # agora encolhe antes do nome.
+        for estado, corpo in self._artigos():
+            if estado != "pendente":
+                continue
+            resumo = re.search(
+                r'<summary class="meal__linha">.*?</summary>', corpo, re.S
+            ).group(0)
+            self.assertIn("meal__marca", resumo)
+            self.assertNotIn("meal__linha-kcal", resumo)
+            self.assertNotIn("meal__linha-aberta", resumo)
 
     def test_fora_da_vez_toda_acao_nasce_atras_do_toque(self):
         """A conta que a auditoria mediu: quantas ações nascem visíveis. Em
