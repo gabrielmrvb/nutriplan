@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-27
 
+- **A mesma corrida tem o mesmo número em toda tela.** A lista dizia "5,20 km" e a Home "5,2 km". Agora a distância aparece sempre com até duas casas e sem zero sobrando: 5,2 · 5,23 · 10.
 - **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
 
 ## 2026-09-24
