@@ -657,6 +657,17 @@ POR PRIORIDADE (22/09/2026).**
   não entram — nem aqui nem no AGORA/lista (`agora.proxima_acao(desde=)`,
   `marcar_refeicoes(desde=)`; achado #7: "três refeições Pendente" na
   primeira Home de quem chegou às 18h). `plans/test_aderencia_primeiros_dias.py`.
+  **REVOGADO EM 27/09/2026 (decisão do dono): o recorte "até agora" valia
+  só para o Progresso, e a Home e o topo da Alimentação continuavam
+  dividindo pelo DIA INTEIRO ("1/5 refeições").** O QA exploratório daquele
+  dia viu as duas telas, na mesma hora, darem dois números para a mesma
+  pergunta ("1/5" na Home, "1/1 · hoje, até agora" no Progresso). Agora as
+  três contam igual: `tracking.teto_de_hoje` é a conta única,
+  `day_summary` devolve `ate_agora` e a Home diz "1/1 até agora".
+  `previstas` continua sendo o plano inteiro, porque "o seu dia em 5
+  refeições" fala da estrutura, não do progresso.
+  `plans/test_home_e_progresso_ate_agora.py` compara os dois números no
+  mesmo instante.
 - **"FICOU PARA TRÁS" depois da janela da refeição** (`JANELA_DO_AGORA_MIN
   = 90`): a refeição vencida mais recente continua sendo a ação (registrar
   o que aconteceu), mas às 18:20 o almoço das 14:30 não é "AGORA" (achado

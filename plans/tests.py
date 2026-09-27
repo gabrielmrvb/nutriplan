@@ -5059,7 +5059,9 @@ class RegistroNaoEAderenciaTests(TestCase):
 
         html = self.client.get(reverse("plans:today")).content.decode()
 
-        self.assertIn("1/5 refeições · 1 fora", html)
+        # Desde 27/09/2026 o denominador da Home é o de HOJE, até agora — a
+        # mesma conta do Progresso (`test_home_e_progresso_ate_agora.py`).
+        self.assertIn("1/%d até agora · 1 fora" % self._resumo()["ate_agora"], html)
 
     def test_num_dia_limpo_a_linha_continua_a_de_sempre(self):
         """A informação a mais não pode virar ruído permanente: a primeira
@@ -5072,5 +5074,5 @@ class RegistroNaoEAderenciaTests(TestCase):
 
         html = self.client.get(reverse("plans:today")).content.decode()
 
-        self.assertIn("1/5 refeições", html)
+        self.assertIn("1/%d até agora" % self._resumo()["ate_agora"], html)
         self.assertNotIn(" fora", html)
