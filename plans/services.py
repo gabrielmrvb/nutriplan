@@ -12,7 +12,7 @@ from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.utils import timezone
 
-from accounts.models import Profile
+from accounts.models import Corrida, Profile
 from catalog.models import MealTemplateItem
 
 from . import meal_planner
@@ -33,6 +33,10 @@ _INPUT_FIELDS = (
     "activity_level",
     "goal",
     "training_days_per_week",
+    # A CORRIDA TAMBÉM MOVE A META (26/09/2026), então ela é entrada: mudar
+    # "3 corridas por semana" para 5 no Perfil precisa nascer estimativa
+    # nova, como mudar os dias de academia já fazia.
+    "corrida_dias",
     # O QUE ESCOLHE A COMIDA (24/09/2026). Os sete de cima movem a META; estes
     # dois escolhem as RECEITAS, e estavam fora da comparação — marcar "sem
     # peixe" no Perfil não invalidava o cardápio, nem naquele POST nem na
@@ -93,6 +97,11 @@ def build_inputs(user, *, peso_kg=None) -> PlanInputs:
         activity_level=profile.activity_level,
         goal=profile.goal,
         session_minutes=tuple(dia.duration_min for dia in user.training_days.all()),
+        # A corrida DECLARADA (26/09/2026). Zero quando a pessoa respondeu
+        # "não" ou ainda não respondeu — e zero não muda meta nenhuma, que é
+        # o que faz esta pergunta nova não tocar em quem já tem conta.
+        corrida_dias=profile.corrida_dias if profile.corrida == Corrida.SIM else 0,
+        corrida_minutos=profile.corrida_minutos if profile.corrida == Corrida.SIM else 0,
         kcal_adjustment=profile.kcal_adjustment,
     )
 
@@ -185,6 +194,7 @@ def create_plan(user, inputs=None) -> NutritionPlan:
         activity_level=inputs.activity_level,
         goal=inputs.goal,
         training_days_per_week=inputs.training_days_per_week,
+        corrida_dias=inputs.corrida_dias,
         restricoes=inputs.restricoes,
         meal_style=inputs.meal_style,
         formula=result.formula,

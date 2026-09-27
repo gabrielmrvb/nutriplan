@@ -227,6 +227,18 @@
             {% endcomment %}
             <div><dt>Acorda</dt><dd>{{ profile.wake_time|time:"H:i" }}</dd></div>
             <div><dt>Dorme</dt><dd>{{ profile.sleep_time|time:"H:i" }}</dd></div>
+            {% comment %}
+              A CORRIDA NA MESMA LISTA (26/09/2026): ela é editada na mesma
+              etapa 2 que este cartão abre, e entra na meta de calorias como
+              os dias de academia. Só aparece depois de respondida — quem
+              não respondeu não lê uma linha dizendo "não" por ela.
+            {% endcomment %}
+            {% if profile.corrida %}
+              <div>
+                <dt>Corrida</dt>
+                <dd>{% if profile.corrida == "sim" %}{{ profile.corrida_dias }}× por semana{% if profile.corrida_minutos %} · {{ profile.corrida_minutos }} min{% endif %}{% else %}Não corro{% endif %}</dd>
+              </div>
+            {% endif %}
           </dl>
         {% else %}
           {% comment %}

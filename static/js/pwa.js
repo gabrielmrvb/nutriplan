@@ -738,12 +738,26 @@
   if (revela) {
     var minimo = parseInt(revela.dataset.diasMinimos, 10) || 0;
     var dias = document.querySelectorAll('input[name="weekdays"]');
+    /* E ELA NÃO É PERGUNTADA A QUEM ESTÁ COMEÇANDO (26/09/2026).
+     *
+     * "Quantos grupos musculares por dia?" é escolha de quem já montou
+     * treino — o achado #13 das personas. Para o iniciante quem decide é o
+     * motor (corpo inteiro em casa, divisão por frequência na academia), e
+     * o servidor decide igual: `mostrar_divisao` devolve falso e nem exige
+     * o formulário. Aqui o bloco some no mesmo toque, sem enviar e voltar. */
+    var niveis = document.querySelectorAll('input[name="experiencia"]');
+    function comecando() {
+      var sim = false;
+      niveis.forEach(function (n) { if (n.checked && n.value === "iniciante") sim = true; });
+      return sim;
+    }
     function acertarDivisao() {
       var marcados = 0;
       dias.forEach(function (d) { if (d.checked) marcados++; });
-      revela.hidden = marcados < minimo;
+      revela.hidden = comecando() || marcados < minimo;
     }
     dias.forEach(function (d) { d.addEventListener("change", acertarDivisao); });
+    niveis.forEach(function (n) { n.addEventListener("change", acertarDivisao); });
     acertarDivisao();
   }
 
@@ -752,6 +766,21 @@
    * (`[data-so-musculacao]`) e a nota `[data-sem-musculacao]` aparece; o
    * servidor ignora o bloco do mesmo jeito, então sem JavaScript nada
    * quebra — só fica mais comprido. */
+  /* ONBOARDING — "você corre?" revela a frequência (26/09/2026). Mesma
+   * mecânica da pergunta da musculação, e o servidor decide igual: com
+   * "não" (ou sem resposta) o `clean` zera os dois campos. */
+  var soCorrida = document.querySelector("[data-so-corrida]");
+  if (soCorrida) {
+    var corre = document.querySelectorAll('input[name="corrida"]');
+    function acertarCorrida() {
+      var sim = false;
+      corre.forEach(function (r) { if (r.checked && r.value === "sim") sim = true; });
+      soCorrida.hidden = !sim;
+    }
+    corre.forEach(function (r) { r.addEventListener("change", acertarCorrida); });
+    acertarCorrida();
+  }
+
   var soMusculacao = document.querySelector("[data-so-musculacao]");
   if (soMusculacao) {
     var respostas = document.querySelectorAll('input[name="musculacao"]');

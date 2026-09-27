@@ -27,6 +27,7 @@ from .models import (
     ActivityLevel,
     DuracaoTreino,
     Equipamento,
+    Corrida,
     Experiencia,
     Musculacao,
     Goal,
@@ -537,6 +538,39 @@ class TrainingForm(forms.Form):
         required=False,
         widget=forms.RadioSelect,
     )
+    corrida = forms.ChoiceField(
+        # A SEGUNDA PORTA (26/09/2026). A primeira pergunta se a pessoa
+        # levanta peso; esta pergunta se ela CORRE — e as duas juntas são o
+        # que faz o app enxergar quem só corre, que recebia a meta de quem
+        # não treina.
+        #
+        # NÃO é obrigatória, ao contrário da musculação, e a razão é o
+        # PREÇO de cada uma: sem a resposta da musculação a etapa não sabe
+        # o que mostrar, e sem a resposta desta o cálculo fica exatamente
+        # como estava — zero corridas é o que toda conta de hoje tem. Uma
+        # segunda pergunta obrigatória cobraria de todo frequentador de
+        # academia uma resposta sobre corrida para não mudar nada.
+        label="Você corre, pedala ou nada?",
+        help_text="Conta para a sua meta de calorias, como os dias de academia.",
+        choices=Corrida.choices,
+        widget=forms.RadioSelect,
+        required=False,
+    )
+    corrida_dias = forms.IntegerField(
+        label="Quantas vezes por semana?",
+        min_value=1,
+        max_value=14,
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "field-input", "inputmode": "numeric"}),
+    )
+    corrida_minutos = forms.IntegerField(
+        label="Quantos minutos, em média?",
+        min_value=5,
+        max_value=300,
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "field-input", "inputmode": "numeric"}),
+        help_text="Só para o cardápio do dia de corrida — a meta usa a frequência.",
+    )
     # Rótulos de uma palavra, e a explicação uma vez só acima do par.
     #
     # Eram duas perguntas inteiras lado a lado, e só a da esquerda tinha texto
@@ -577,6 +611,9 @@ class TrainingForm(forms.Form):
             # 10/09/2026 e continua vindo do perfil dentro de `save`.
             self.fields["experiencia"].initial = perfil.experiencia
             self.fields["equipamento"].initial = perfil.equipamento
+            self.fields["corrida"].initial = perfil.corrida
+            self.fields["corrida_dias"].initial = perfil.corrida_dias or None
+            self.fields["corrida_minutos"].initial = perfil.corrida_minutos or None
             # Conta anterior à pergunta com dias gravados: o "sim" é
             # implícito, e a tela abre com ele — quem veio trocar o
             # equipamento não é obrigado a responder o que já respondeu.
@@ -596,6 +633,21 @@ class TrainingForm(forms.Form):
         válido, não erro.
         """
         cleaned = super().clean()
+        # A CORRIDA (26/09/2026): com "sim", a frequência é obrigatória —
+        # é ela que entra no fator de atividade, e "sim, corro" sem número
+        # não muda conta nenhuma, o que seria a pessoa responder e o app
+        # ignorar. Com "não" (ou sem resposta), os dois campos são zerados,
+        # como o bloco da academia já faz com "não faço musculação".
+        if cleaned.get("corrida") == Corrida.SIM:
+            if not cleaned.get("corrida_dias"):
+                self.add_error(
+                    "corrida_dias",
+                    "Diga quantas vezes por semana — é o que entra na sua meta.",
+                )
+        else:
+            cleaned["corrida_dias"] = 0
+            cleaned["corrida_minutos"] = 0
+
         # "Não faço musculação" ZERA o resto do bloco, mesmo que o navegador
         # sem JavaScript tenha mandado os campos: o servidor é quem decide.
         if cleaned.get("musculacao") == Musculacao.NAO:
@@ -721,9 +773,13 @@ class TrainingForm(forms.Form):
             # que não o desenha) mantém o que a pessoa tinha.
             perfil.equipamento = self.cleaned_data.get("equipamento") or perfil.equipamento
             perfil.musculacao = self.cleaned_data.get("musculacao") or perfil.musculacao
+            perfil.corrida = self.cleaned_data.get("corrida") or perfil.corrida
+            perfil.corrida_dias = self.cleaned_data.get("corrida_dias") or 0
+            perfil.corrida_minutos = self.cleaned_data.get("corrida_minutos") or 0
             perfil.save(update_fields=[
                 "wake_time", "sleep_time", "duracao_treino", "experiencia",
-                "equipamento", "musculacao", "updated_at",
+                "equipamento", "musculacao", "corrida", "corrida_dias",
+                "corrida_minutos", "updated_at",
             ])
 
         return self.user.training_days.all()

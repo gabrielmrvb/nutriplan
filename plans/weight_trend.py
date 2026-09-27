@@ -302,3 +302,28 @@ def hidratacao_ml(weight_kg) -> int:
     """
     ml = Decimal(weight_kg) * 35
     return min(int((ml / 500).quantize(Decimal("1")) * 500), TETO_DIARIO_ML)
+
+
+#: Quanto a meta do dia sobe quando a pessoa correu (26/09/2026).
+#:
+#: Meio litro é a ordem de grandeza do que se perde numa corrida de 30 a 60
+#: minutos — e é a unidade em que esta meta é escrita desde sempre (a conta
+#: de 35 ml/kg é arredondada para meio litro porque ninguém mede 3.570 ml).
+#: Um número mais "preciso" aqui seria falsa precisão sobre uma perda que
+#: depende de calor, roupa e ritmo.
+EXTRA_POR_CORRIDA_ML = 500
+
+
+def hidratacao_do_dia_ml(weight_kg, *, correu=False) -> int:
+    """A meta de HOJE: a de sempre, mais meio litro se a pessoa correu.
+
+    Só o que a TELA mostra e cobra no dia. A ofensiva continua medindo pela
+    meta base, de propósito: ela compara muitos dias com uma régua só, e uma
+    régua que sobe justamente no dia em que a pessoa se esforçou mais
+    tornaria o dia de corrida o mais difícil de fechar — o oposto do que
+    esta mudança quer dizer.
+    """
+    meta = hidratacao_ml(weight_kg)
+    if not correu:
+        return meta
+    return min(meta + EXTRA_POR_CORRIDA_ML, TETO_DIARIO_ML)

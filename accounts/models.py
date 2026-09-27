@@ -201,6 +201,22 @@ class Musculacao(models.TextChoices):
     NAO = "nao", "Não faço — só corrida, natação ou outro esporte"
 
 
+class Corrida(models.TextChoices):
+    """"Você corre (ou pedala, nada)?" — a pergunta-porta do cardio.
+
+    Mesma forma de `Musculacao`, e pelo mesmo motivo: em branco é "não
+    perguntado" (toda conta anterior à pergunta), e é a resposta que decide
+    se o resto do bloco aparece. A palavra da TELA é corrida porque é o nome
+    do pilar; a pergunta nomeia pedalar e nadar para quem faz cardio de
+    outro jeito não achar que o app não serve para ela — o que a conta usa é
+    a SESSÃO por semana, e uma pedalada de 40 minutos é uma sessão como
+    qualquer outra.
+    """
+
+    SIM = "sim", "Sim, corro (ou pedalo, ou nado)"
+    NAO = "nao", "Não"
+
+
 class Experiencia(models.TextChoices):
     """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
 
@@ -551,6 +567,31 @@ class Profile(models.Model):
         blank=True,
         default="",
     )
+    #: A CORRIDA NO CÁLCULO (26/09/2026, missão "quem entra não desiste").
+    #:
+    #: `calculations.activity_factor` conta SESSÕES por semana, e elas eram
+    #: só as de musculação (`len(session_minutes)`, que vem de
+    #: `TrainingDay`): quem corre três vezes e não levanta peso recebia a
+    #: meta de quem não treina — o piso da faixa do nível de atividade
+    #: (persona 3 do relatório de experiência).
+    #:
+    #: Os DIAS entram na conta; os MINUTOS não. A doutrina de
+    #: `plans/calculations.py` recusa somar MET por fora — "metade de um
+    #: treino de força é descanso, e contar tudo inflava a meta de quem mais
+    #: precisava dela apertada" —, e a razão vale igual para a corrida: a
+    #: precisão daquela soma depende de a pessoa saber quantos minutos
+    #: realmente corre. Os minutos existem porque o cardápio do dia de
+    #: corrida usa (o lanche de carboidrato) e porque quem declarou merece
+    #: ver o que declarou.
+    corrida = models.CharField(
+        "corre, pedala ou nada",
+        max_length=3,
+        choices=Corrida.choices,
+        blank=True,
+        default="",
+    )
+    corrida_dias = models.PositiveSmallIntegerField("corridas por semana", default=0)
+    corrida_minutos = models.PositiveSmallIntegerField("minutos por corrida", default=0)
     #: A experiência move o teto semanal por grupo. Vazio é "não respondeu", e
     #: o motor o lê como 20 — o número que o app já praticava. Ver `Experiencia`
     #: para por que o padrão não é INTERMEDIARIO.

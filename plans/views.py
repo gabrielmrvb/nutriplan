@@ -281,7 +281,11 @@ def breakdown(plan):
     campo: dois números que dizem a mesma coisa acabam discordando um dia, e
     aqui o plano já guarda tudo que a conta precisa (nível e frequência).
     """
-    factor = activity_factor(plan.activity_level, plan.training_days_per_week)
+    # A CORRIDA ENTRA AQUI TAMBÉM (26/09/2026): o fator é recalculado das
+    # entradas do plano, e a corrida virou uma delas. Sem isto a tela que
+    # EXPLICA a meta mostraria um fator diferente do que produziu a meta.
+    corridas = getattr(plan, "corrida_dias", 0) or 0
+    factor = activity_factor(plan.activity_level, plan.training_days_per_week, corridas)
     minimo, maximo = ACTIVITY_FACTORS[plan.activity_level]
     ajuste = plan.target_kcal - plan.tdee_kcal
     return {
@@ -290,6 +294,11 @@ def breakdown(plan):
         "factor_min": minimo,
         "factor_max": maximo,
         "training_days": plan.training_days_per_week,
+        "corrida_dias": corridas,
+        #: O que a faixa conta: academia MAIS corrida. É este número que a
+        #: tela mostra ao lado do fator — "0× por semana" para quem corre
+        #: três vezes era a explicação contradizendo a própria conta.
+        "sessoes": plan.training_days_per_week + corridas,
         "tdee_kcal": plan.tdee_kcal,
         "adjustment_pct": round(abs(ajuste) * 100 / (plan.tdee_kcal or 1)),
         "adjustment_kcal": ajuste,
@@ -548,7 +557,13 @@ class TodayView(PlanRequiredMixin, TemplateView):
         menu = menu_totals(slots)
 
         recusa = recusa_pendente(self.request, "hoje")
-        meta_agua = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        # A META DO DIA SOBE MEIO LITRO QUANDO A PESSOA CORREU (26/09/2026).
+        # `corridas_de_hoje_m` já está em mãos — a mesma leitura que o resumo
+        # usa —, então isto custa zero consulta. A ofensiva continua medindo
+        # pela meta base: ver `weight_trend.hidratacao_do_dia_ml`.
+        meta_agua = weight_trend.hidratacao_do_dia_ml(
+            self.plan.weight_kg, correu=bool(corridas_de_hoje_m)
+        )
         bebido = agua_por_dia.get(today, 0)  # a leitura de água de cima
 
         # Existe gole para desfazer? A pergunta é `exists()` e não a contagem:
@@ -1939,7 +1954,15 @@ class HydrationView(PlanRequiredMixin, TemplateView):
         # A fórmula da meta é a de `weight_trend`, chamada e não copiada: uma
         # segunda cópia aqui divergiria da do Hoje no primeiro ajuste, e a
         # mesma pessoa veria duas metas diferentes em duas telas do mesmo app.
-        meta_ml = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        # A MESMA META DO DIA DA HOME (26/09/2026): base + meio litro quando
+        # houve corrida hoje. Uma consulta a mais, e só nesta tela — a Home
+        # já tinha as corridas do dia em mãos e passa de graça. Duas telas
+        # que mostram metas diferentes no mesmo dia é o defeito que a
+        # docstring abaixo existe para evitar.
+        correu = Corrida.objects.filter(
+            user=self.request.user, comecou_em__date=hoje
+        ).exists()
+        meta_ml = weight_trend.hidratacao_do_dia_ml(self.plan.weight_kg, correu=correu)
         registro = HydrationLog.objects.filter(user=self.request.user, date=hoje).first()
         bebido = registro.ml if registro else 0
         goles = list(GoleDeAgua.objects.filter(user=self.request.user, dia=hoje))
