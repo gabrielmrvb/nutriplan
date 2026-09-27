@@ -634,6 +634,90 @@ POR PRIORIDADE (22/09/2026).**
   COMPARTILHAR — e o QA desta missão reproduziu: 40 cliques no botão
   caíam no toast). Nas outras telas continua fixo, com a reserva de
   `tem-conquista`. `workouts/test_toast_nao_cobre_o_botao.py`.
+**NADA PRESO COBRE O EXERCÍCIO, E O BLOCO DE REGISTRO TEM ~140 px (decisão
+do dono, 24/09/2026).** Esta decisão REVERTE o item 2 da B32 acima, e a
+razão está medida. A B32 pôs as pastilhas "1 2 3 4" DENTRO do bloco preso
+para o `sticky` não as cobrir; o preço foi um bloco de **335 px** que ainda
+reservava 94 para uma barra de abas — `ModoTreinoView` põe `sem_tabbar =
+True` desde 20/09 e a correção do `bottom` era uma media query de 60rem, ou
+seja, no celular nunca. Medido antes desta missão, conta de QA, dia com
+treino:
+
+| vista | faixa livre | o que ficava coberto |
+|---|---:|---|
+| 390×844 | 355 px | o vídeo aberto (391 px) e "Série N de M" |
+| 375×667 | 178 px | músculos, **"ver vídeo"**, a dica e "Série N de M" |
+| 375×667 + descanso | **25 px** | tudo acima do bloco |
+
+Depois, com o mesmo instrumento: **640 px**, **463** e **400** (e 728 a
+430×932). O bloco fechou em **144 px**.
+
+A faixa livre é aritmética da JANELA e do bloco preso, e não do exercício:
+`janela − bottom − bloco − cabeçalho − descanso`. Antes eram
+`844 − 94 − 335 − 60 = 355`; hoje, `844 − 0 − 144 − 60 = 640`. É isso que
+torna a comparação antes/depois legítima mesmo quando a ficha usada na
+medição não é a mesma.
+
+A resposta não é engolir conteúdo, é encolher o bloco e devolver o espaço:
+
+- **o preso só tem o que o dedo usa ENTRE duas séries** — uma linha de carga
+  com as reps ao lado e "Concluir série". As pastilhas (histórico) e "Anotar
+  algo desta série" (opcional, recolhido) voltaram ao fluxo, ACIMA dele, com
+  `scroll-margin-bottom` do tamanho do bloco. O teto é o token `--exec-bloco`
+  (9rem = 144 px), e ele existe para a próxima linha de conteúdo não devolver
+  os 335 px sem ninguém perceber. **O teto tem de ficar ACIMA do conteúdo
+  real**, e a primeira versão desta missão errou nisso: com 8.5rem (136) o
+  conteúdo media 140 e TRANSBORDAVA — `max-height` prende a caixa, não o
+  conteúdo, e com `overflow: visible` o "Concluir série" saía dela sem o
+  fundo do bloco por baixo. Com o selo "aguardando rede" ligado o transbordo
+  ia a 32 px; o selo saiu do bloco por isso — ele é STATUS, não controle, e
+  mora com as pastilhas que ele comenta;
+- **`bottom` responde à CLASSE DO SERVIDOR, nunca à largura**:
+  `body:not(.tem-tabbar)` cola o bloco no rodapé. A regra vem DEPOIS da
+  geral (mesma especificidade: vence a última) e a media query de 60rem
+  SAIU — ela consertava só o desktop, e virou regra sem consumidor. O aviso
+  de conquista (`fixed`) levou a mesma correção; as outras três reservas de
+  `--tabbar-h` do `app.css` foram conferidas e estão certas, porque aquelas
+  telas TÊM barra;
+- **o vídeo mede a faixa que sobra**, não `60vh`: `100dvh` menos cabeçalho,
+  descanso (`--exec-descanso`, que a classe `agora--com-descanso` liga — do
+  servidor, nunca `:has()`), a cabeça do exercício e o bloco;
+- **quem SOBE ao abrir o vídeo é a cabeça do exercício, não a demonstração.**
+  Medido: rolando o `.demo` para `start` ele parava em 68 px, logo abaixo do
+  cabeçalho como se queria, e levava o NOME para −9 — um vídeo sem o nome
+  por cima é vídeo de que exercício? A rota de LEITURA divide o mesmo script
+  e não tem `.agora__topo`, então lá o alvo continua sendo a demonstração.
+
+A régua é GEOMÉTRICA e mora em dois lugares: `scratchpad/medir_execucao.py`
+(`elementFromPoint` no centro de cada elemento, 3 larguras × 2 temas × vídeo
+aberto/fechado, mais o descanso) e o passo `video` do E2E noturno. **E ela
+espera a ROLAGEM ASSENTAR antes de medir**: abrir o vídeo rola com
+`behavior: smooth`, e com espera de tempo fixo o CTA saiu uma vez como
+"coberto em qualquer posição" — irreprodutível numa medição dirigida. "O
+elemento existe no DOM" não prova nada — o que prova é o ponto que o dedo
+acerta. E a sonda faz DUAS perguntas: coberto ali, ou coberto em qualquer
+rolagem? Conteúdo do fluxo que cai atrás de um `sticky` só naquela posição é
+outro assunto — e conteúdo de `<details>` FECHADO tem caixa no Chrome e
+entrou como falso positivo na primeira varredura desta missão.
+
+**E O `<script>` RECRIADO NA TROCA SEM RECARGA PRECISA DO NONCE
+(24/09/2026).** Achado desta mesma missão, e é defeito de PRODUÇÃO. A CSP de
+22/09 é `script-src 'self' 'nonce-…'` sem `unsafe-inline`; a troca do
+`<main>` recria cada `<script>` com `createElement` (que é o que os faz
+rodar, porque `innerHTML` não executa script) e o elemento novo não herda
+nonce. MEDIDO: 3 de 3 scripts com nonce na carga inicial, **0 de 3** depois
+de UMA série — recusados em silêncio. "Ver vídeo" ficava na tela sem abrir
+nada, os degraus de carga (−2,5/+2,5) morriam e o relógio de descanso
+congelava. E a própria troca mora no `<main>`: sem o nonce ela morria junto,
+a série seguinte voltava a ser POST com recarga e a recarga consertava tudo
+— por isso o defeito se apagava a cada duas séries. Não dá para copiar o
+nonce do nó velho: ele veio do HTML BUSCADO e carrega o nonce DAQUELA
+resposta. Vale o DESTA página, guardado em `document.currentScript.nonce` no
+topo do script (dentro de um callback `currentScript` é `null`).
+`workouts/test_nonce_na_troca.py` prende os dois lados, e a varredura dele
+vale para a PRÓXIMA tela que trocar HTML por fetch — `config/test_csp.py` lê
+o TEMPLATE, e script criado em tempo de execução não passa por lá.
+
 - **O iniciante do peso do corpo começa no degrau 3 ou abaixo**
   (`services.ajustar_degrau_do_iniciante`, `DEGRAU_DO_INICIANTE = 3`;
   doutrina no `TREINO.md`, "O degrau do iniciante no peso do corpo"): a
