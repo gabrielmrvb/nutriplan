@@ -754,7 +754,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # Os fatos da área promovida, consultados SÓ quando ela é a
                 # promovida. Quem não declarou não paga consulta nenhuma.
                 "ultima_corrida": ultima_corrida,
-                "corrida_km": (ultima_corrida.distancia_m / 1000) if ultima_corrida else 0,
+                "corrida_m": ultima_corrida.distancia_m if ultima_corrida else 0,
                 "ultimo_peso": ultimo_peso,
                 # `None` quando não há erro pendente DESTA tela; string
                 # (às vezes vazia) quando há. `houve_recusa` carrega essa
