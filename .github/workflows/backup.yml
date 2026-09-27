@@ -1,34 +1,36 @@
 # Backup do banco de produção, criptografado, guardado como artefato.
 #
 # ------------------------------------------------------------------ ATIVAÇÃO
-# Este fluxo está DESLIGADO no relógio de propósito: só roda quando alguém
-# aperta o botão (`workflow_dispatch`). Para ligá-lo diariamente, descomente o
-# bloco `schedule` — mas leia a análise abaixo antes, porque a decisão não é
-# técnica, é de superfície de ataque.
+# Este fluxo roda TODO DIA (decisão do dono, 27/09/2026) — "DESLIGADO no
+# relógio de propósito" descrevia a versão anterior, só com o botão manual, e
+# deixou de ser verdade. O que sustenta rodar sozinho, todo dia:
+#
+#   * o segredo é `BACKUP_DATABASE_URL`, o mesmo papel SOMENTE LEITURA
+#     (`nutriplan_leitor`, sem CREATE) que `restaurar-mensal.yml` já usa —
+#     nenhum segredo novo de banco entrou no repositório para isto;
+#   * o repositório é PÚBLICO: um artefato de Actions de repositório público é
+#     baixável por qualquer conta do GitHub. É por isso
+#     que o dump nunca sobe em claro — ver a criptografia abaixo.
 #
 # ------------------------------------------------- o que isto custa em risco
-# Ligar este fluxo coloca a DATABASE_URL de produção nos segredos do GitHub.
-# A partir daí, quem tiver permissão de escrita em workflow no repositório
-# consegue ler o banco inteiro — basta abrir um PR que imprima o segredo. Não
-# é hipotético: é a forma mais comum de vazamento em Actions.
-#
-# O que reduz o risco, e já está feito aqui:
+# Quem tiver permissão de escrita em workflow neste repositório consegue abrir
+# um PR que imprima o segredo e ler o banco (leitura, não escrita — o papel
+# não tem CREATE nem DELETE). O que reduz o risco, e já está feito aqui:
 #
 #   * o dump NUNCA existe em claro como artefato — ele é criptografado com
-#     AES-256 antes de sair do runner, e a senha é um segundo segredo. Quem
-#     baixar o artefato sem ela tem um arquivo inútil;
+#     AES-256 antes de sair do runner, e a senha (`BACKUP_PASSPHRASE`) é um
+#     segundo segredo, guardado FORA do GitHub. Quem baixar o artefato sem
+#     ela tem um arquivo inútil;
 #   * `permissions: contents: read` — o token do fluxo não escreve nada;
 #   * sem `pull_request_target`, então fork nenhum executa isto;
 #   * retenção curta: cópia de dado de saúde não fica parada por 90 dias.
 #
-# O que NÃO some com nada disso: a DATABASE_URL continua existindo num lugar a
-# mais. A alternativa de superfície menor é rodar `scripts/backup.sh` na máquina
-# do Gabriel pelo Agendador de Tarefas — o segredo nunca sai de lá, e o preço é
-# depender da máquina estar ligada.
-#
 # ------------------------------------------------------------------ segredos
-#   DATABASE_URL        string de conexão do banco de produção
-#   BACKUP_PASSPHRASE   senha longa e aleatória, guardada FORA do GitHub
+#   BACKUP_DATABASE_URL   string de conexão do papel só-leitura nutriplan_leitor
+#   BACKUP_PASSPHRASE     senha longa e aleatória, guardada FORA do GitHub —
+#                         sem ela o run falha ANTES de despejar o banco (veja
+#                         o passo "Conferir a senha do backup"). Cria-se com:
+#                         .venv/Scripts/python.exe scripts/github.py segredo BACKUP_PASSPHRASE <arquivo>
 #
 # Sem a segunda, o backup não presta: ela é o que separa "artefato" de
 # "banco de dados de saúde exposto".
@@ -36,9 +38,9 @@ name: Backup do banco
 
 on:
   workflow_dispatch:
-  # Descomente para o backup diário às 06:00 UTC (03:00 em Brasília).
-  # schedule:
-  #   - cron: "0 6 * * *"
+  schedule:
+    # Backup diário às 06:00 UTC (03:00 em Brasília).
+    - cron: "0 6 * * *"
 
 permissions:
   contents: read
@@ -48,6 +50,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Falha ANTES de tocar no banco: sem senha, despejar já seria
+      # trabalho jogado fora — o dump nasceria e não teria como virar um
+      # artefato seguro. `secrets.*` não entra num `if:` de passo, então a
+      # checagem é feita em shell, com o segredo mapeado para env.
+      - name: Conferir a senha do backup
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$BACKUP_PASSPHRASE" || {
+            echo "ERRO: o segredo BACKUP_PASSPHRASE está vazio. Crie com:"
+            echo "  .venv/Scripts/python.exe scripts/github.py segredo BACKUP_PASSPHRASE <arquivo>"
+            exit 1
+          }
 
       # O cliente PRECISA ser >= servidor. O runner traz um pg_dump mais velho,
       # e o mais velho se recusa a despejar um servidor mais novo — produzindo
@@ -73,7 +89,7 @@ jobs:
       # nasce certo, entao a recusa nunca precisa ser contornada.
       - name: Despejar e validar
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: |
           export PATH="/usr/lib/postgresql/18/bin:$PATH"
           bash scripts/backup.sh "$RUNNER_TEMP/saida"

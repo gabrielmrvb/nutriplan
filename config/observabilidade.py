@@ -212,6 +212,91 @@ class FormatoJSON(logging.Formatter):
         return json.dumps(linha, ensure_ascii=False, default=str)
 
 
+def _sentry_antes_de_enviar(event, hint):
+    """`before_send` do Sentry: a MESMA redação do log comum (`redigir`, que
+    já cobre o token de `/tarefas/lembretes/externo/`, o token de três horas
+    de `/senha/nova/<uid>/<token>/` e `code=`/`state=`/`token=`/`key=`/
+    `password=` de query string), aplicada à URL e à query string do pedido.
+
+    Não é uma segunda lista de padrões: `PADROES` já existe para o log, e uma
+    cópia estreita dela aqui (só `/externo/`) foi o que deixou o token de
+    redefinição de senha e o `code=`/`state=` do OAuth do Google saindo crus
+    para o Sentry — achado da revisão de 27/09/2026.
+    """
+    pedido = event.get("request") or {}
+    if isinstance(pedido.get("url"), str):
+        pedido["url"] = redigir(pedido["url"])
+    if isinstance(pedido.get("query_string"), str):
+        # PADROES exige "?" ou "&" antes da chave (?code=... / &state=...);
+        # o `query_string` do Sentry vem SEM o "?" (só "code=X&state=Y").
+        pedido["query_string"] = redigir("?" + pedido["query_string"])[1:]
+    return event
+
+
+def _sentry_descarta_breadcrumb_de_http(crumb, hint):
+    """`before_breadcrumb` do Sentry: descarta o de HTTP de saída.
+
+    A integração padrão do SDK grava um breadcrumb com a URL de toda
+    requisição de saída — e `push/services.py` posta no endpoint da
+    assinatura (`fcm.googleapis.com/fcm/send/<id>`,
+    `web.push.apple.com/<token>`), um identificador por APARELHO. Um evento
+    depois de um disparo de lembretes levaria até uma centena desses.
+    """
+    return None if crumb.get("category") == "httplib" else crumb
+
+
+def opcoes_do_sentry(dsn: str, ambiente: str, versao: str | None) -> dict:
+    """As opções do Sentry, travadas num lugar só — o app guarda dado de
+    saúde, e cada uma existe para não virar um segundo vazamento:
+
+      `send_default_pii=False`    — nada de IP, cookie ou usuário anexado
+                                     sozinho pelo SDK;
+      `max_request_body_size="never"` — o corpo do pedido nunca vai junto
+                                     (é onde moram peso, refeição, treino);
+      `include_local_variables=False` — variável local de uma função que
+                                     quebrou pode ser QUALQUER dado que a
+                                     view estava manipulando;
+      `traces_sample_rate=0`      — sem tracing de performance: é volume
+                                     de evento que o plano grátis não
+                                     cobre, e este projeto não precisa dele
+                                     para saber que algo quebrou.
+
+    `before_send` redige URL e query string (ver `_sentry_antes_de_enviar`);
+    `before_breadcrumb` descarta o de HTTP de saída, que carregaria o
+    endpoint de push por aparelho (ver `_sentry_descarta_breadcrumb_de_http`).
+
+    `environment` é o `NUTRIPLAN_AMBIENTE` de sempre (`config/ambiente.py`),
+    ou "producao" quando vazio — a variável não existe em produção, e sem
+    esta troca todo evento de produção chegaria com o ambiente em branco.
+    """
+    return {
+        "dsn": dsn,
+        "environment": ambiente or "producao",
+        "release": versao or None,
+        "send_default_pii": False,
+        "max_request_body_size": "never",
+        "include_local_variables": False,
+        "traces_sample_rate": 0,
+        "before_send": _sentry_antes_de_enviar,
+        "before_breadcrumb": _sentry_descarta_breadcrumb_de_http,
+    }
+
+
+def ligar_sentry(dsn: str, ambiente: str, versao: str | None) -> bool:
+    """Liga o Sentry só quando há DSN — devolve se ligou.
+
+    O `import sentry_sdk` mora AQUI DENTRO, e não no topo do módulo: sem
+    `SENTRY_DSN`, a biblioteca nem é carregada. Um plano grátis desligado por
+    padrão não pode custar uma dependência sempre ativa.
+    """
+    if not dsn:
+        return False
+    import sentry_sdk
+
+    sentry_sdk.init(**opcoes_do_sentry(dsn, ambiente, versao))
+    return True
+
+
 def _enviar_email(assunto: str, corpo: str) -> bool:
     """O e-mail de alerta, pelo SMTP configurado. Sem destinatário, só avisa no log."""
     from django.conf import settings
