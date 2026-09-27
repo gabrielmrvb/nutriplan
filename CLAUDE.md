@@ -160,11 +160,11 @@ que pediria um fica vazia de propósito em vez de apontar para nada.
 `ruff-baseline.txt` e a regra é que a contagem **não sobe**. O `pre-commit` e o
 job `ruff (relatório)` do CI comparam contra esse número; o check que barra o
 merge continua sendo só a "suíte rápida". Portão bloqueante quando o burndown
-zerar. **Hoje são 114**, e o caminho até aqui está em `docs/quality-baseline.md`:
+zerar. **Hoje são 104**, e o caminho até aqui está em `docs/quality-baseline.md`:
 `E501` saiu do `select` em 27/09/2026 (eram 1.439 de 1.656 — 87% —, quase todos
 em comentário de prosa deliberada, que é o estilo desta base) e os 97 `F401`
 saíram com `ruff check --fix`, correção segura, só import. O que sobra é
-julgamento humano: o ruff não corrige nenhum dos 114 sozinho.
+estilo: o ruff não corrige nenhum dos 104 sozinho, e os dez achados reais (`F601`, `F811`, `F841`) já saíram.
 
 **Nunca rode servidor pelo Bash** — `preview_start`, sempre.
 
@@ -3258,10 +3258,13 @@ nenhum — a noite é da `noturna.yml`.
   de novo, o primeiro lugar a olhar é o `TimeoutError` do socket, não o Django.
 - **O banco saiu do Render e foi para o Neon em 01/09/2026.** Provado em 04/09
   pelo cabeçalho do dump daquele dia: servidor 16.9, e o Render rodava 18.4 —
-  um cliente 16.9 não despeja um servidor 18.4. O banco do Render **é apagado
-  por volta de 23/09/2026** (verbo do painel: *deleted*), e continua declarado
-  no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
-  tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
+  um cliente 16.9 não despeja um servidor 18.4. **O banco do Render NÃO é
+  mais rollback**: lido pela API em 27/09/2026 (`GET /v1/postgres`),
+  `nutriplan-db` está `suspended`, com `expiresAt` 24/09/2026 — o plano
+  gratuito dele venceu. Ele continua declarado no `render.yaml`, e tirá-lo
+  de lá é decisão do dono (um Sync do Blueprint mexe no painel). A volta
+  hoje é o Neon: *restore* no lugar ou branch de um instante, e o backup
+  próprio (`scripts/backup.sh`).
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
 - **O SMART APP CONTROL DESTA MÁQUINA FOI DESLIGADO PELO DONO EM
   20/09/2026, e é irreversível** (`VerifiedAndReputablePolicyState = 0`;
@@ -3627,8 +3630,8 @@ uma rede falsa e prova que nada além de GET chega nela.
 
 - **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
   deploy automático de `main`, build em `scripts/build.sh`, healthcheck
-  `/saude/`. Variáveis, por nome: `DATABASE_URL` (Neon — o banco do Render
-  é só rollback), `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
+  `/saude/`. Variáveis, por nome: `DATABASE_URL` (Neon; o banco do Render
+  venceu em 24/09/2026), `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
   `DJANGO_EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, `EMAIL_HOST`, `EMAIL_PORT`,
   `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (Brevo, 2525),
   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PYTHON_VERSION`,
@@ -3766,7 +3769,7 @@ ENSAIADO no staging com a branch `staging-restaurada` (criada da `staging`
 com dados): `PUT` + redeploy em 1 min 30, `/saude/` ok, e `pg_stat_activity`
 mostrou a conexão do app na branch nova e nenhuma na antiga; a volta é o
 mesmo comando com a URL de sempre. O Postgres do Render que era o rollback
-some por volta de 23/09/2026; depois disso o caminho (4) é o Neon.
+venceu em 24/09/2026 (`suspended` na API, 27/09): o caminho (4) é o Neon.
 
 **Deploy quebrou.** `deploy` lista os últimos deploys com status e commit.
 `build_failed`/`update_failed`: o deploy anterior continua no ar, nada a

@@ -278,7 +278,7 @@ class AFichaCompletaContinuaExistindoTests(TestCase):
         """
         from workouts.tests import sem_scripts as _sem
 
-        sessao = self._uma_sessao()
+        self._uma_sessao()
         painel = _sem(self.client.get(reverse("workouts:routine")).content.decode())
 
         self.assertNotIn("registro__carga", painel)
