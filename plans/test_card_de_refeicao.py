@@ -20,6 +20,7 @@ from datetime import datetime, time
 from decimal import Decimal
 from unittest import mock
 
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -71,6 +72,16 @@ class CardDeRefeicaoTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _tela(self, hora=8):
@@ -185,6 +196,16 @@ class OTopoContaODiaTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _contexto(self, hora=8):
@@ -253,6 +274,16 @@ class APorcaoRecalculaTests(TestCase):
         cls.opcao = cls.slot.options.order_by("rank").first()
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _receita(self, **params):
@@ -353,6 +384,16 @@ class AReceitaEUmaTelaTests(TestCase):
         cls.outro_plano = services.create_plan(cls.outra_pessoa)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def test_a_receita_traz_ingredientes_preparo_macros_e_a_troca(self):
@@ -457,6 +498,16 @@ class OPainelDaDireitaTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _tela(self, hora=8):
