@@ -44,10 +44,39 @@ from pathlib import Path
 #: prova — o caminho, não só o efeito.
 PASSOS = (
     "cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-    "agua", "alimentacao", "refeicao", "serie", "tema-claro",
+    "agua", "alimentacao", "refeicao", "serie", "video", "tema-claro",
     "movimento-reduzido", "excluir", "login-recusado",
 )
 DOMINIO_DE_QA = "nutriplan.invalid"
+
+#: A régua do passo `video`: quem a pessoa precisa ver com o vídeo aberto —
+#: o NOME do exercício (um vídeo sem o nome por cima é vídeo de quê?) e o
+#: player. `elementFromPoint` no centro devolve o próprio elemento, ou devolve
+#: quem está por cima.
+FAIXA_LIVRE = r"""(function(){
+  function ok(sel){
+    var el = document.querySelector(sel);
+    if (!el) return {sel: sel, ok: false};
+    var r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return {sel: sel, ok: false};
+    var x = Math.min(Math.max(r.left + r.width / 2, 1), window.innerWidth - 1);
+    var y = Math.min(Math.max(r.top + r.height / 2, 1), window.innerHeight - 1);
+    var emCima = document.elementFromPoint(x, y);
+    return {sel: sel, ok: !!(emCima && (emCima === el || el.contains(emCima) || emCima.contains(el)))};
+  }
+  var cab = document.querySelector('.app-bar');
+  var desc = document.querySelector('.descanso');
+  var bloco = document.querySelector('.agora__registro');
+  return JSON.stringify({
+    faixa_livre: Math.max(0,
+      (bloco ? bloco.getBoundingClientRect().top : window.innerHeight)
+      - (cab ? cab.getBoundingClientRect().bottom : 0)
+      - (desc ? desc.getBoundingClientRect().height : 0)),
+    bloco: bloco ? Math.round(bloco.getBoundingClientRect().height) : 0,
+    elementos: ['.agora__nome',
+                '.demo--aberta iframe, .demo--aberta video, .demo--aberta img'].map(ok)
+  });
+})()"""
 VIEWPORT = (390, 844)
 
 
@@ -326,7 +355,17 @@ class E2E:
     def ir(self, seletor, trecho, segundos=45):
         """Clica num link e espera a URL trazer `trecho`; se o clique não navegou
         (MEDIDO: o CTA "Começar pelo primeiro" da ficha nova ficou parado atrás
-        do convite de instalação), navega pelo próprio href."""
+        do convite de instalação), navega pelo próprio href.
+
+        ESPERA O LINK ANTES DE CLICAR, pela mesma razão que `marcar` espera
+        desde o primeiro run do Actions: o runner é mais lento que a máquina
+        de quem escreve, e este app ANIMA a troca de página — durante a view
+        transition o `elementFromPoint` devolve `<html>` por ~300 ms (medido
+        no Chrome 153). Sem a espera, o segundo `ir` de um passo chega à tela
+        que o primeiro abriu antes de ela existir: foi assim que o lote das
+        15:22 de 24/09/2026 reprovou em `serie` com "Element not found:
+        a[href^='/treino/agora/']", com o caminho do app íntegro."""
+        self.ab("wait", seletor, "--timeout", str(segundos * 1000))
         self.ab("click", seletor)
         try:
             self.ab.esperar_js("location.pathname.indexOf(%s)!==-1" % json.dumps(trecho), segundos=15, rotulo=trecho)
@@ -343,6 +382,42 @@ class E2E:
         self.ab.preencher("input[name=reps]", "10")
         self.acionar(".agora__concluir", "(function(){var e=document.querySelector('.series__titulo .num');return e?e.textContent.trim()==='2':false})()", "série 2 na tela")
         self.captura("serie")
+
+    def video(self):
+        """O VÍDEO ABRE, E ABRE DENTRO DA FAIXA LIVRE (24/09/2026).
+
+        Dois defeitos medidos no mesmo dia moram neste passo, e é por isso
+        que ele vem logo DEPOIS de `serie`:
+
+        1. o bloco preso do registro tinha 335px e reservava mais 94 para uma
+           barra de abas que esta tela não desenha — a 390×844 sobravam 355px
+           de faixa livre para um vídeo de 391, e a 375×667 o próprio botão
+           "ver vídeo" ficava debaixo do bloco;
+        2. a troca do `<main>` sem recarga recriava os `<script>` sem o nonce,
+           e sob a CSP eles eram recusados em silêncio — DEPOIS da primeira
+           série o botão continuava na tela sem abrir nada.
+
+        A régua é geométrica, e não "o elemento existe": `elementFromPoint` no
+        centro de cada um tem de devolver o próprio elemento. Um vídeo atrás
+        do bloco existe no DOM e não serve para ninguém.
+        """
+        self.acionar(
+            ".demo__abrir",
+            "!!document.querySelector('.demo--aberta iframe, .demo--aberta video, "
+            ".demo--aberta img')",
+            "vídeo aberto depois da série",
+        )
+        cru = self.ab.eval(FAIXA_LIVRE).strip().strip('"').replace('\\"', '"')
+        medida = json.loads(cru)
+        cobertos = [e["sel"] for e in medida["elementos"] if not e["ok"]]
+        if cobertos:
+            raise RuntimeError(
+                "com o vídeo aberto, %s ficou atrás de outra coisa (faixa livre "
+                "de %dpx, bloco de %dpx). O vídeo no DOM não prova nada: o que "
+                "prova é o ponto que o dedo acerta."
+                % (", ".join(cobertos), medida["faixa_livre"], medida["bloco"])
+            )
+        self.captura("video")
 
     def tema_claro(self):
         self.ab("set", "media", "light")

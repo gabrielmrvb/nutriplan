@@ -112,3 +112,36 @@ jobs:
         run: |
           echo "resultado das fatias: ${{ needs.fatia.result }}"
           [ "${{ needs.fatia.result }}" = "success" ]
+
+  # RUFF É RELATÓRIO, NÃO PORTÃO (decisão do dono, 26/09/2026).
+  #
+  # Este job NÃO se chama "suíte rápida" e não é o check obrigatório de `main`
+  # — ele publica o número no resumo do run e só fica vermelho se a contagem
+  # SUBIR acima do piso de `ruff-baseline.txt`. Portão bloqueante fica para o
+  # dia em que o burndown zerar; até lá, barrar PR por dívida que ele não criou
+  # é cobrar do próximo quem passou por último.
+  ruff:
+    name: "ruff (relatório)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: "contagem contra o piso"
+        run: |
+          ATUAL=$(ruff check . --quiet --output-format concise | grep -c ":" || true)
+          PISO=$(tr -d '[:space:]' < ruff-baseline.txt)
+          {
+            echo "## ruff"
+            echo ""
+            echo "piso \`ruff-baseline.txt\`: **$PISO** · agora: **$ATUAL**"
+            echo ""
+            ruff check . --statistics || true
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ATUAL" -gt "$PISO" ]; then
+            echo "::error::ruff subiu de $PISO para $ATUAL"
+            exit 1
+          fi
+          echo "ruff em $ATUAL (piso $PISO)"

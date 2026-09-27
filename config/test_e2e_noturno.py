@@ -5,7 +5,7 @@ Sem navegador aqui — o `agent-browser` é trocado por um fake que grava os
 comandos. O que se prende:
 
 * o roteiro tem os passos da missão, na ordem: cadastro → onboarding (3) →
-  água → refeição → série → tema claro → excluir → login recusado;
+  água → refeição → série → vídeo → tema claro → excluir → login recusado;
 * a conta é descartável (`qa-e2e-<run>-<data>@nutriplan.invalid`), a senha é
   gerada e NUNCA impressa, e o roteiro só aceita um alvo que se anuncie
   como staging;
@@ -48,7 +48,16 @@ class NavegadorFalso(e2e.Navegador):
         if self.falhar_em and self.falhar_em in " ".join(args):
             raise RuntimeError("falha simulada em " + self.falhar_em)
         if args[0] == "eval":
-            return "0" if "getAnimations" in args[1] else "true"
+            if "getAnimations" in args[1]:
+                return "0"
+            # A régua geométrica do passo `video` devolve JSON, e não "true":
+            # um fake que responde "true" para tudo faria o roteiro passar
+            # com o vídeo atrás do bloco.
+            if "elementFromPoint" in args[1]:
+                return ('{"faixa_livre": 495, "bloco": 136, "elementos": '
+                        '[{"sel": ".agora__nome", "ok": true}, '
+                        '{"sel": "player", "ok": true}]}')
+            return "true"
         if args[0] == "get" and args[1] == "url":
             return "https://staging.exemplo/conta/entrar/"
         if args[0] == "snapshot":
@@ -67,12 +76,19 @@ class ORoteiroTests(SimpleTestCase):
         return cenario, ab, saida.getvalue(), codigo
 
     def test_os_passos_da_missao_na_ordem(self):
-        """TREZE passos desde 22/09/2026: `alimentacao` entrou entre a água e
-        a refeição, porque a tela Hoje virou duas — o painel do dia e o
-        cardápio — e marcar refeição deixou de acontecer na raiz."""
+        """CATORZE passos desde 24/09/2026.
+
+        `alimentacao` entrou em 22/09 entre a água e a refeição, porque a tela
+        Hoje virou duas — o painel do dia e o cardápio — e marcar refeição
+        deixou de acontecer na raiz. `video` entrou em 24/09 logo DEPOIS de
+        `serie`, e a ordem é o conteúdo do passo: é depois da primeira série
+        sem recarga que o `<script>` recriado sem nonce deixava de rodar e
+        "ver vídeo" parava de abrir.
+        """
         self.assertEqual(e2e.PASSOS, ("cadastro", "onboarding-1", "onboarding-2", "onboarding-3", "home",
-                                      "agua", "alimentacao", "refeicao", "serie", "tema-claro",
+                                      "agua", "alimentacao", "refeicao", "serie", "video", "tema-claro",
                                       "movimento-reduzido", "excluir", "login-recusado"))
+        self.assertLess(e2e.PASSOS.index("serie"), e2e.PASSOS.index("video"))
         for passo in e2e.PASSOS:
             self.assertTrue(callable(getattr(e2e.E2E, passo.replace("-", "_"))), passo)
 
@@ -167,6 +183,29 @@ class ORoteiroTests(SimpleTestCase):
         ab = e2e.Navegador("s", executar=lambda c, t: "false" if c[3] == "eval" else "")
         with self.assertRaisesMessage(RuntimeError, "input[name=transferencia]"):
             ab.marcar("input[name=transferencia]")
+
+    def test_ir_espera_o_link_aparecer_antes_de_clicar(self):
+        """O lote das 15:22 de 24/09/2026 reprovou em `serie` com "Element not
+        found: a[href^='/treino/agora/']" — o clique na ficha chegou antes de
+        a tela existir. `ir` clicava direto; `marcar` já esperava desde o
+        primeiro run do Actions, e a razão é a mesma: o runner é mais lento
+        que esta máquina, e o app anima a troca de página (durante a view
+        transition o `elementFromPoint` devolve `<html>` por ~300 ms, medido
+        no Chrome 153 e escrito no `CLAUDE.md`).
+
+        Reproduzido ao contrário: o caminho painel → primeira ficha → execução
+        está ÍNTEGRO com o perfil que o roteiro cria (sete dias, ABC) —
+        `scratchpad/repro_e2e_serie.py` devolve o link da execução na ficha.
+        Não é o app; é o roteiro clicando cedo demais."""
+        gravados = []
+        ab = e2e.Navegador("s", executar=lambda c, t: gravados.append(c[3:]) or (
+            "https://staging.exemplo/treino/ficha/1/" if c[3:5] == ["get", "url"] else "true"))
+        cenario = e2e.E2E("https://staging.exemplo", RAIZ / "artifacts" / "_capturas_teste", "r", ab=ab)
+        cenario.ir("a[href^='/treino/agora/']", "/treino/agora/")
+        ordem = [c[0] for c in gravados]
+        self.assertLess(ordem.index("wait"), ordem.index("click"),
+                        "o clique não pode chegar antes de o elemento existir")
+        self.assertEqual(gravados[ordem.index("wait")][1], "a[href^='/treino/agora/']")
 
     def test_o_agent_browser_recebe_a_sessao_em_todo_comando(self):
         gravados = []
