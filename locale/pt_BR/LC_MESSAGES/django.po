@@ -133,5 +133,8 @@ msgstr ""
 
 #: templates/workouts/exercicios_feitos.html
 msgid "Última vez:"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
 msgid "recorde"
 msgstr ""
