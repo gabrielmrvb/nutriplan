@@ -9618,10 +9618,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .meal__linha .meal__linha-kcal + .meal__marca { margin-left: var(--espaco-3); }
 
-/* A marca da vencida fala a língua do convite que ela substituiu: `--brand`,
+/* A marca da vencida fala a língua do convite que ela substituiu (a classe
+   é `--passou`, e não `--atrasada`: `MarcadorNaTelaTests` proíbe linguagem
+   punitiva no selo, e proíbe na CLASSE também — pendência não é falha): `--brand`,
    como era o "Não registrada · registrar". A da vez continua sendo a pílula
    de fundo tingido. */
-.meal__marca--atrasada { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 24%, transparent); }
+.meal__marca--passou { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 24%, transparent); }
 /* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
    sanfona "saltando" em miniatura. `inline-block` porque `transform` não
    pega em inline. */
