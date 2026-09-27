@@ -174,6 +174,26 @@ class OPainelMostraORecomendadoTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.context["hoje"].label, "A")
 
+    def test_o_painel_traz_o_selo_recomendado_e_o_seletor_de_letra(self):
+        """A tela do dia: o selo "recomendado" (é sugestão), "Fazer outro
+        treino" com POST para escolher a letra, e as OUTRAS letras."""
+        with _janela(SEGUNDA):
+            html = self.client.get(reverse("workouts:routine")).content.decode()
+        self.assertIn("hoje__recomendado", html)
+        self.assertIn("Fazer outro treino", html)
+        self.assertIn(reverse("workouts:escolher_letra"), html)
+        outras = self.client.get(reverse("workouts:routine")).context["hoje"].outras_letras
+        self.assertEqual({o["letra"] for o in outras}, {"B", "C"})
+
+    def test_o_selo_recomendado_some_quando_a_pessoa_escolhe(self):
+        """Escolhida a letra, ela é da pessoa — o selo "recomendado" sai."""
+        with _janela(SEGUNDA):
+            linha_a = next(s for s in self.plan.sessions.all() if s.label == "A")
+            services.registrar_escolha(self.user, linha_a, linha_a.opcoes[0], dia=SEGUNDA)
+            resposta = self.client.get(reverse("workouts:routine"))
+            self.assertFalse(resposta.context["hoje"].recomendado)
+            self.assertNotIn("hoje__recomendado", resposta.content.decode())
+
     def test_pulou_a_quarta_e_o_painel_recomenda_c_na_quinta(self):
         with _janela(SEGUNDA + timedelta(days=3)):  # quinta
             fazer(self.user, self.plan, "A", SEGUNDA)
