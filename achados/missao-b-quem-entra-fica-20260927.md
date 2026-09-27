@@ -20,6 +20,16 @@ Vocabulário de evidência: `[EXECUTADA]` · `[OBSERVADA]` · `[LIDA NO CÓDIGO]
 | **4** — o app de quem não levanta peso | aba "Treino", etapa 3 oferecendo Treino, "ficha montados", Progresso com "Treinos 0", e-mail mandando abrir a ficha, zero conquistas possíveis | aba Corrida, etapa 3 sem Treino, frase pelo banco, Progresso com Corrida antes, e-mail em três versões, 4 conquistas de corrida, porta da corrida no `/treino/` | `accounts/test_app_de_quem_nao_levanta_peso.py` (32); 8 sabotagens |
 | **5** — etapa 2 limpa | equipamento pré-marcado; divisão perguntada a iniciante; erro sem rolar até o campo | nada pré-marcado; divisão só para intermediário/avançado; "FOCO NO ERRO" alcança a etapa 2; aceite acima do CRIAR CONTA | `accounts/test_etapa_2_limpa.py` |
 
+**O merge de `main` (`1b115fd`, 81 arquivos), e os seis conflitos:**
+
+| arquivo | conflito | resolução |
+|---|---|---|
+| `CHANGELOG.md` | as duas branches abriram seção nova | as duas seções ficam, 27 antes de 26 — e as SEIS linhas dos itens 3 e 4 foram para a seção do dia 27, que é quando eles entraram |
+| `static/css/app.css` | as duas acrescentaram seção no fim | as duas ficam; a de `main` primeiro (já publicada), a 55 no fim |
+| `templates/email/boas_vindas.{txt,html}` | `main` reescreveu o passo 2, esta branch condicionou o 1 e o 3 | a frase nova do 2 com as condições dos outros dois |
+| `templates/workouts/routine.html` | `main` reestruturou (o `aside` virou o quarto item da grade e o `</div>` de `.split__main` saiu) | fica a LINHA da corrida, sem aquele `</div>` |
+| `workouts/services.py` | `main` tirou `SEGUNDOS_*` do import, esta branch pôs `Aparelho` | só `Aparelho` (os usos de `SEGUNDOS_*` saíram com eles) |
+
 **Commits, um por item:** `36e78bd` (item 1), `76db7e0` (item 5), `0e32afa`
 (item 2), `efd98d4` (ajuste dos testes do 2), `a04c3cf` (doutrina 1/2/5),
 `a198c1c` (item 0), `2f82fea` (item 3), `e2ee923` (item 4).
