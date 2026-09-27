@@ -1,0 +1,18 @@
+{% load i18n %}{% comment %}
+  AS SÉRIES DE UM DIA, cada uma com a carga dela (24/09/2026).
+
+  Uma parcial e não duas cópias: a mesma linha desenha o histórico do
+  exercício em foco e o do original, quando a pessoa trocou por outra forma
+  do movimento ("No lugar de X"). As duas divergiriam na primeira mudança —
+  e foi assim que a carga máxima do dia chegou às duas listas.
+
+  Sem carga só as repetições aparecem, e a régua é o VALOR e não o
+  exercício: `ExerciseLog.weight_kg` é NOT NULL, o peso do corpo grava ZERO,
+  e "0,00 × 8" seria o mesmo defeito ao contrário — um número que não
+  descreve nada. Quem decide é a série, não o `sem_carga` de quem inclui:
+  assim a parcial serve as duas listas (o exercício e o original da troca)
+  sem receber um sinalizador que as duas poderiam responder diferente.
+
+  O volume leva ponto de milhar (`-2g`): é a mesma régua do placar, onde
+  "8008" contra "8.008" foi o achado #16 das personas.
+{% endcomment %}{% for serie in sessao.series %}{% if not forloop.first %} · {% endif %}{% if serie.carga %}{{ serie.carga|floatformat:"-2" }} × {% endif %}{{ serie.reps|default_if_none:"—" }}{% endfor %}{% if sessao.volume %}<span class="hint"> · {{ sessao.volume|floatformat:"-2g" }} {% translate "kg no total" %}</span>{% endif %}
