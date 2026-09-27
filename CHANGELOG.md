@@ -6,6 +6,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **A tela de Alimentação abre com o cardápio, não com um cartão repetido.** O cartão AGORA mostrava a mesma refeição que estava logo abaixo, com o mesmo botão. Ele continua na Hoje, que é a tela do dia.
+- **Nenhuma refeição nasce aberta.** Todas viram uma linha — hora, nome e o alvo — e você abre a que quiser. A da vez ganha o selo "Agora" e a que passou, "Ficou para trás", sem precisar abrir nada. A tela encolheu de 2.568 para 1.561 px num celular de 390 px.
+- **O botão diz o que faz: "Registrar".** Era "Comi esta" — o card já mostra qual receita é.
+- **As duas opções têm o mesmo peso.** Nenhuma das duas é "a certa": a sugestão do dia agora é um selo no card ("sugestão de hoje") em vez de um botão verde.
+- **"Não comi" e "Comi outra coisa" viraram botões de verdade.** Eram dois links pequenos no rodapé do cartão; agora são duas ações do mesmo tamanho, e "Comi outra coisa" abre um campo com os alimentos do catálogo.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
 - **Um clique para treinar.** O botão do painel de Treino — e o cartão do treino na Home — leva direto ao exercício: "Começar treino" quando o dia ainda não tem série, "Continuar treino (3 de 8)" quando já tem. Ver a lista antes continua sendo um toque, logo abaixo, em "Ver ficha".
 - **O placar diz quanto tempo você treinou.** Era "1 min entre o primeiro e o último registro"; agora é o tempo da primeira série até você tocar em "Encerrar treino". E ele conta: "5 de 8 exercícios feitos", com os que ficaram de fora na ordem da ficha.

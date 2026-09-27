@@ -9669,7 +9669,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .meal__secundarias {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  /* `stretch` (o padrão da grade) e não `start`: "do mesmo tamanho" inclui a
+     altura, e a 390px "Comi outra coisa" quebra em duas linhas enquanto "Não
+     comi" fica numa. Medido: 52px contra 68px lado a lado. */
+  align-items: stretch;
   gap: var(--espaco-3);
   margin-top: var(--espaco-4);
   padding-top: var(--espaco-3);
@@ -9684,6 +9687,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    ocupa a largura toda — o formulário de dentro tem campo de texto, três
    pares de alimento e quantidade, e meia coluna o espremeria. A caixa de
    superfície própria volta AQUI, onde ela de fato delimita um formulário. */
+/* O botão do "Não comi" mora dentro de um `<form>`, e é o FORM que é filho
+   da grade: sem esta linha o `stretch` estica o formulário e o botão fica na
+   altura natural dele — 52px contra os 68 do vizinho, que quebra em duas
+   linhas a 390px. */
+.meal__secundarias .meal__pulei { display: grid; }
+
 .meal__secundarias .fora { margin-top: 0; background: none; border-color: transparent; }
 .meal__secundarias .fora[open] {
   grid-column: 1 / -1;
