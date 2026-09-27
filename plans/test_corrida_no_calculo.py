@@ -48,12 +48,12 @@ class OFatorDeAtividadeContaACorridaTests(TestCase):
         """Sessão é sessão. A faixa existe para acomodar a frequência, e o
         corpo não pergunta se o esforço foi com barra ou na rua."""
         self.assertEqual(activity_factor("light", 0, 3), activity_factor("light", 3, 0))
-        self.assertEqual(activity_factor("moderate", 1, 2), activity_factor("moderate", 3, 0))
+        self.assertEqual(activity_factor("active", 1, 2), activity_factor("active", 3, 0))
 
     def test_quem_nao_respondeu_recebe_exatamente_o_de_antes(self):
         """A pergunta nova não mexe em conta nenhuma de quem já tem conta:
         zero corridas é o que toda linha do banco tem hoje."""
-        for nivel in ("sedentary", "light", "moderate"):
+        for nivel in ("sedentary", "light", "active"):
             for dias in range(0, 6):
                 with self.subTest(nivel=nivel, dias=dias):
                     self.assertEqual(
@@ -91,18 +91,22 @@ class ACorridaEEntradaDoPlanoTests(TestCase):
         perfil.corrida = CorridaPerfil.SIM
         perfil.corrida_dias = 3
         perfil.save(update_fields=["corrida", "corrida_dias"])
-        self.plano = services.sync_active_plan(self.user)
+        self.plano, _ = services.sync_active_plan(self.user)
 
     def test_o_retrato_guarda_as_corridas(self):
         self.assertEqual(self.plano.corrida_dias, 3)
 
     def test_mudar_a_frequencia_invalida_o_plano(self):
-        self.assertTrue(services.plan_is_current(self.plano, self.user))
+        self.assertTrue(
+            services.plan_is_current(self.plano, services.build_inputs(self.user))
+        )
         perfil = self.user.profile
         perfil.corrida_dias = 5
         perfil.save(update_fields=["corrida_dias"])
         self.user.refresh_from_db()
-        self.assertFalse(services.plan_is_current(self.plano, self.user))
+        self.assertFalse(
+            services.plan_is_current(self.plano, services.build_inputs(self.user))
+        )
 
     def test_responder_nao_zera_a_entrada(self):
         perfil = self.user.profile
@@ -125,10 +129,12 @@ class ACorridaNaoEntraDuasVezesTests(TestCase):
             perfil.corrida = CorridaPerfil.SIM
             perfil.corrida_dias = 3
             perfil.save(update_fields=["corrida", "corrida_dias"])
-        plano = services.sync_active_plan(user)
+        plano, _ = services.sync_active_plan(user)
+        comeco = timezone.now() - timedelta(hours=2)
         Corrida.objects.create(
             user=user,
-            comecou_em=timezone.now() - timedelta(hours=2),
+            comecou_em=comeco,
+            terminou_em=comeco + timedelta(minutes=30),
             duracao_s=1800,
             distancia_m=5000,
         )
@@ -169,6 +175,12 @@ class AOfensivaContaACorridaComoTreinoTests(TestCase):
     """Já era verdade antes desta missão (a régua é "moveu-se", não "fez a
     letra"), e fica preso: a corrida de hoje fecha o treino do dia."""
 
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+
+        call_command("seed_workouts", verbosity=0)
+
     def test_o_dia_de_treino_fecha_com_uma_corrida(self):
         from plans import streaks
 
@@ -179,9 +191,11 @@ class AOfensivaContaACorridaComoTreinoTests(TestCase):
         import workouts.services as treino
 
         treino.create_routine(user)
+        comeco = timezone.now() - timedelta(hours=1)
         Corrida.objects.create(
             user=user,
-            comecou_em=timezone.now() - timedelta(hours=1),
+            comecou_em=comeco,
+            terminou_em=comeco + timedelta(minutes=30),
             duracao_s=1800,
             distancia_m=5000,
         )
