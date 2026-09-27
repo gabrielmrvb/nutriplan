@@ -278,9 +278,9 @@ class TelaDeProgressoTests(TestCase):
             )
         html = self._html()
         # A LISTA DE PROGRESSÃO (60 → 62,50 kg) saiu no redesenho de
-        # 23/09/2026, e "Seus recordes" ficou no lugar. O que este teste
+        # 23/09/2026, e "Melhores cargas" ficou no lugar. O que este teste
         # protegia continua protegido — o meio quilo não pode virar um número
-        # que não existe —, agora no recorde: 62,5 é carga real de anilha, e
+        # que não existe —, agora na melhor carga: 62,5 é anilha de verdade, e
         # 63 não é.
         linha = html.split("Supino reto com barra", 1)[1].split("</li>", 1)[0]
         linha = " ".join(linha.split())
@@ -289,14 +289,15 @@ class TelaDeProgressoTests(TestCase):
 
     def test_o_treino_aparece_na_tela(self):
         """O buraco que a V2 fechou: cada série estava no banco e nenhuma
-        aparecia numa tela chamada Métricas. Desde 23/09/2026 quem mostra é
-        "Seus recordes" (carga máxima por exercício, com data) no lugar da
-        lista de progressão de 14 dias — a mudança está registrada no
-        relatório da missão."""
+        aparecia numa tela chamada Métricas. Desde 23/09/2026 quem mostra é a
+        lista de cargas por exercício, com data, no lugar da progressão de 14
+        dias; em 24/09 ela passou a se chamar "Melhores cargas", porque
+        "recorde" tem régua própria e é outra coisa (ver
+        `plans/test_melhores_cargas.py`)."""
         html = self._html()
 
         self.assertIn("Supino reto com barra", html)
-        self.assertIn("Seus recordes", html)
+        self.assertIn("Melhores cargas", html)
 
     def test_a_tela_nao_chama_frequencia_de_aderencia(self):
         """`TrainingDay` é o que a pessoa DECLAROU; `ExerciseLog` é o que ela

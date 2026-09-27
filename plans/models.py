@@ -168,6 +168,22 @@ class OptionLabel(models.TextChoices):
     B = "B", "Opção B"
 
 
+#: O nome que a LISTA DE COMPRAS dá a cada opção (24/09/2026).
+#:
+#: "Opção A" e "Opção B" eram o último lugar do app que pedia para a pessoa
+#: escolher entre duas coisas cujo nome ela nunca viu: o card de receita
+#: parou de escrever a letra em 23/09, e a lista continuou com os dois chips.
+#: A primeira opção projetada para o dia é a que o cardápio sugere (é o
+#: `forloop.first` que vira `receita--sugerida` na Alimentação), e é isso que
+#: o rótulo passou a dizer. A LETRA continua sendo a identidade — banco,
+#: `?opcao=`, rodízio —, e é por isso que ela não some daqui: o que muda é só
+#: o nome de tela, que é o que esta classe sempre disse que era.
+ROTULOS_DA_LISTA_DE_COMPRAS = {
+    OptionLabel.A: "Com a sugestão do dia",
+    OptionLabel.B: "Com a outra opção",
+}
+
+
 class MealOption(models.Model):
     """Uma receita escalada para caber no alvo de um slot."""
 

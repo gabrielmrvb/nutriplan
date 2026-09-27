@@ -55,6 +55,7 @@ from .models import (
     MealSlot,
     MealStatus,
     OptionLabel,
+    ROTULOS_DA_LISTA_DE_COMPRAS,
     ItemAvulsoDaLista,
     ItemDaListaMarcado,
 )
@@ -722,8 +723,12 @@ class TodayView(PlanRequiredMixin, TemplateView):
                     min(100, int(bebido * 100 / meta_agua)) if meta_agua else 0
                 ),
                 "agua_completa": bool(meta_agua) and bebido >= meta_agua,
-                "ofensiva": streaks.calcular(
-                    self.request.user, hoje=today, meta_agua_ml=meta_agua,
+                # A PORTA ÚNICA (24/09/2026): a meta de água sai do plano
+                # DENTRO de `para_a_tela`, e não de cada tela — era o
+                # chamador que tinha de lembrar, e as Conquistas esqueciam.
+                # `plano=` evita a consulta: a Home já o carregou.
+                "ofensiva": streaks.para_a_tela(
+                    self.request.user, hoje=today, plano=self.plan,
                     ja_lido=streaks.JaLido(
                         previstos={linha.weekday for linha in estado_treino.linhas}
                         if estado_treino.tem_ficha else set(),
@@ -1623,7 +1628,7 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
                 "plan": self.plan,
                 "aisles": aisles,
                 "label": label,
-                "labels": OptionLabel.choices,
+                "labels": [(v, ROTULOS_DA_LISTA_DE_COMPRAS[v]) for v in OptionLabel.values],
                 "days": shopping.DAYS,
                 "total_items": sum(aisle["count"] for aisle in aisles),
             }

@@ -345,7 +345,14 @@
       <p class="vis-oculto" role="status" aria-live="polite" data-descanso-aviso></p>
     {% endif %}
 
-    <section class="card agora">
+    {% comment %}
+      A CLASSE DIZ QUE O DESCANSO ESTÁ NA TELA, e ela vem do SERVIDOR.
+      O relógio é `sticky` no topo e come 64px da faixa livre — e é
+      justamente enquanto ele roda que a pessoa olha o vídeo. `:has()`
+      resolveria e é proibido aqui: onde o navegador não suporta, a regra
+      inteira some (já derrubou a navegação uma vez).
+    {% endcomment %}
+    <section class="card agora{% if estado.descanso_restante %} agora--com-descanso{% endif %}">
       <header class="agora__topo">
         {# O título é a porta para a leitura do exercício (demonstração, dica, músculos), como na ficha. #}
         <h1 class="agora__nome"><a class="agora__nome-link" href="{% url 'workouts:exercicio' atual.exercise.pk %}?de=agora">{{ atual.exercise.name }}</a></h1>
@@ -409,7 +416,16 @@
         (avaliação de 16/09/2026, B32). O que a pessoa toca e o que muda com
         o toque ficam juntos, e nada da caixa cobre a fileira.
       {% endcomment %}
-      <div class="agora__registro" id="registro" tabindex="-1">
+      {% comment %}
+        O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta
+        nota aparece. Ele mora AQUI, e não dentro do bloco preso: é status, não
+        controle, e o bloco tem teto de altura — MEDIDO em 24/09/2026, com o
+        selo ligado o conteúdo passava 32px da caixa (`overflow: visible`) e o
+        "Concluir série" saía dela, sem o fundo do bloco por baixo.
+      {% endcomment %}
+      <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
+
+      <div class="series__historico">
           {% comment %}
             Uma pastilha por série prescrita, e o texto dentro dela é a carga.
 
@@ -469,8 +485,55 @@
             {% endif %}
           {% endfor %}
 
-      {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta nota aparece. #}
-      <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
+      </div>
+
+      {% comment %}
+        O BLOCO PRESO ENCOLHEU, E O QUE SAIU FOI O QUE NÃO SE TOCA ENTRE
+        DUAS SÉRIES (24/09/2026). Ele media 335px — pastilhas (77), carga
+        (73), reps (65), concluir (53), "Anotar algo" (44) — e a 375×667
+        sobravam 178px de faixa livre: músculos, "ver vídeo", a dica e
+        "Série N de M" ficavam DEBAIXO dele, e o botão do vídeo nem era
+        clicável.
+
+        Ficam aqui só os três controles que o dedo usa de pé, entre uma
+        série e outra: carga (com os dois passos), reps na MESMA linha, e
+        "Concluir série". As pastilhas são HISTÓRICO e voltaram para o
+        fluxo, acima; "Anotar algo" é opcional e recolhido, e desce para
+        depois do botão.
+
+        A B32 de 16/09 não foi desfeita, foi respondida de outro jeito: lá
+        o formulário `sticky` cobria as pastilhas do fluxo, e a saída foi
+        engoli-las. Com o bloco em ~130px e `scroll-margin-bottom` do
+        tamanho dele, elas cabem acima sem serem cobertas — e a tela volta
+        a mostrar o exercício, que era o que a B32 custou.
+      {% endcomment %}
+      {% comment %}
+        "ANOTAR ALGO" FICA NO FLUXO, ACIMA DO BLOCO (24/09/2026).
+
+        Ele é opcional, recolhido, e aberto cresce ~90px. Dentro do bloco
+        preso — que agora tem teto de altura — ele vazaria por cima do
+        exercício, que é o defeito desta missão com outro nome.
+
+        Os dois campos continuam viajando no MESMO corpo da série: o
+        `form="registro-serie"` os associa ao formulário de baixo, e
+        `new FormData(form)` — que é o que `fila.js` e o envio sem recarga
+        usam — inclui elemento associado por atributo. O contrato da fila
+        offline não muda; o que muda é onde eles ficam na tela.
+      {% endcomment %}
+      {% if not concluido or extra %}
+      <details class="registro__nota">
+          <summary class="registro__nota-abrir">Anotar algo desta série</summary>
+          <label class="registro__falha">
+            <input type="checkbox" name="falhou" value="1" form="registro-serie">
+            <span>Falhei nesta série</span>
+          </label>
+          <input class="registro__nota-campo" type="text" name="nota" maxlength="120" form="registro-serie"
+                 placeholder="dor no ombro, pegada aberta…"
+                 aria-label="Observação desta série">
+        </details>
+      {% endif %}
+
+      <div class="agora__registro" id="registro" tabindex="-1">
 
       {# ---- Registrar a série: dois campos e um botão ---- #}
       {% if concluido and not extra %}
@@ -480,6 +543,7 @@
       </p>
       {% else %}
       <form class="registro registro--agora" method="post" data-sem-recarga
+            id="registro-serie"
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}
         <input type="hidden" name="exercise_id" value="{{ atual.exercise.pk }}">
@@ -613,20 +677,12 @@
           abaixo da faixa pode ser aquecimento, drop set ou anotação
           parcial. Só quem estava lá sabe que a barra parou no meio.
         {% endcomment %}
-        <details class="registro__nota">
-          <summary class="registro__nota-abrir">Anotar algo desta série</summary>
-          <label class="registro__falha">
-            <input type="checkbox" name="falhou" value="1">
-            <span>Falhei nesta série</span>
-          </label>
-          <input class="registro__nota-campo" type="text" name="nota" maxlength="120"
-                 placeholder="dor no ombro, pegada aberta…"
-                 aria-label="Observação desta série">
-        </details>
+        
 
         <button type="submit" class="btn btn--primary agora__concluir">
           Concluir série {{ atual.serie_prevista }}
         </button>
+
       </form>
       {% endif %}
       {% comment %}
@@ -980,6 +1036,11 @@
   })();
   </script>
   <script nonce="{{ csp_nonce }}">
+  /* O NONCE DESTA RESPOSTA, guardado antes de qualquer callback:
+     `document.currentScript` só vale enquanto o script executa. É ele que a
+     troca devolve aos `<script>` que recria — ver "E RECRIADOS PRECISAM DO
+     NONCE", abaixo. */
+  var NONCE_DA_PAGINA = (document.currentScript && document.currentScript.nonce) || "";
   /* "CONCLUIR SÉRIE" SEM RECARREGAR A PÁGINA (decisão do dono, 20/09/2026;
      nasceu no protótipo `proto/execucao-sem-recarga` da sessão auditoria).
      "Concluir série" e "desfazer" com REDE deixam de recarregar a página.
@@ -1084,9 +1145,28 @@
         if (manteve) trocarMantendo(main, novoMain, demoVivo, demoNovo);
         else main.replaceChildren.apply(main, Array.prototype.slice.call(novoMain.childNodes));
         /* Os scripts do <main> (degraus de carga, descanso, vídeo) não rodam
-           num innerHTML; recriados, rodam — sobre os nós novos. */
+           num innerHTML; recriados, rodam — sobre os nós novos.
+
+           E RECRIADOS PRECISAM DO NONCE (24/09/2026). A CSP de 22/09 é
+           `script-src 'self' 'nonce-…'` SEM `unsafe-inline`, e um elemento
+           feito por `createElement` não herda nonce nenhum. O `velho` aqui
+           veio do HTML BUSCADO e carrega o nonce DAQUELA resposta — que não
+           é o que o navegador desta página exige; quem vale é o desta.
+
+           MEDIDO em 24/09: na carga inicial os 3 scripts do <main> tinham
+           nonce; depois de UMA série sem recarga, zero — e o navegador os
+           recusava calado. "Ver vídeo" ficava na tela sem abrir nada, os
+           degraus de carga (−2,5/+2,5) paravam e o relógio de descanso
+           congelava no número que o servidor mandou. E esta troca TAMBÉM
+           mora no <main>: sem o nonce ela morria junto, a série seguinte
+           voltava a ser POST com recarga e a tela se consertava sozinha —
+           que é o que fazia o defeito parecer intermitente. */
         main.querySelectorAll("script").forEach(function (velho) {
           var novo = document.createElement("script");
+          Array.prototype.forEach.call(velho.attributes, function (a) {
+            if (a.name !== "nonce") novo.setAttribute(a.name, a.value);
+          });
+          if (NONCE_DA_PAGINA) novo.nonce = NONCE_DA_PAGINA;
           novo.textContent = velho.textContent;
           velho.replaceWith(novo);
         });
