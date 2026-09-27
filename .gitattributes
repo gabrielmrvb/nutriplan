@@ -39,6 +39,13 @@
 #      gerência. Ninguém perde linha; a ordem dentro do dia é que sai
 #      estranha, e a revisão do PR é onde isso se conserta.
 #
+# E ISTO VALE PARA UM ARQUIVO DE UMA LINHA POR ITEM, SÓ. Medido no mesmo
+# dia, resolvendo um conflito de `locale/pt_BR/LC_MESSAGES/django.po` do
+# mesmo jeito (ficar com os dois lados): o corte caiu DENTRO de uma entrada
+# e o `msgid "Última vez:"` ficou sem o `msgstr` — arquivo com entrada de
+# várias linhas quebra em silêncio. Por isso a linha abaixo nomeia UM
+# arquivo, e não um padrão.
+#
 # O que o union NÃO faz: julgar conteúdo. Duas sessões que editem A MESMA
 # linha continuam num merge errado e silencioso — por isso a regra do
 # `CLAUDE.md` é só ACRESCENTAR linha, nunca reordenar nem reescrever a linha
