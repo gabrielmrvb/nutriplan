@@ -299,3 +299,41 @@ class OHelperDoGitHubTests(SimpleTestCase):
         fila = regras["merge_queue"]
         self.assertEqual(fila["merge_method"], "MERGE")
         self.assertLessEqual(fila["max_entries_to_merge"], 2)
+
+
+class OChangelogMergeiaPorUniaoTests(SimpleTestCase):
+    """Duas sessões escrevendo no mesmo dia não é conflito, é append.
+
+    Em 27/09/2026 o `CHANGELOG.md` conflitou DUAS vezes em poucas horas
+    entre branches paralelas — e nas duas o "conflito" era só as duas linhas
+    do dia querendo existir. `merge=union` faz o git ficar com os dois lados
+    do trecho, sem marcador; a régua aqui é só que a linha não suma do
+    `.gitattributes` num arquivo que ninguém lê por semanas.
+
+    Medido antes de entrar (três repositórios de laboratório, `git merge` de
+    verdade): seção que já existe, seção nova nas duas branches e blocos de
+    tamanhos diferentes — nos três, merge limpo, as linhas das duas, e
+    nenhum `## data` duplicado. A tabela está no `.gitattributes`.
+    """
+
+    ATRIBUTOS = RAIZ / ".gitattributes"
+
+    def test_o_changelog_declara_merge_union(self):
+        linhas = [
+            linha.strip()
+            for linha in self.ATRIBUTOS.read_text(encoding="utf-8").splitlines()
+            if linha.strip() and not linha.lstrip().startswith("#")
+        ]
+        self.assertIn(
+            "CHANGELOG.md merge=union", linhas,
+            "sem esta linha, duas sessões que escrevem no mesmo dia voltam a "
+            "conflitar — e a regra do CLAUDE.md ('só acrescentar linha') "
+            "passa a depender de ninguém errar.",
+        )
+
+    def test_a_regra_de_maos_esta_escrita_onde_se_le(self):
+        """A trava é dupla: o git resolve, e o `CLAUDE.md` diz o que o git
+        NÃO resolve (editar a linha de outra sessão, reordenar a lista)."""
+        doutrina = (RAIZ / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn("CHANGELOG.md merge=union", doutrina)
+        self.assertIn("só ACRESCENTA linha sob a data do dia", doutrina)
