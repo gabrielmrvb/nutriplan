@@ -134,6 +134,84 @@ Alimentação (1) e voltar "Comi esta" na folha da receita (3).
 
 ---
 
+## A revisão adversarial, e o que ela achou
+
+A revisão de branch (opus, somente leitura) devolveu **NEEDS ONE FIX WAVE**
+com um achado crítico que o meu QA não pegou — e a explicação de por que não
+pegou é a parte que vale guardar.
+
+### O defeito: a linha da refeição vencida espremia o nome a zero
+
+Na `pendente`, a linha fechada ficou com DOIS rótulos longos e
+não-encolhíveis lado a lado: o convite `"Não registrada · registrar"`
+(`flex: none`) e a marca nova `"Ficou para trás"` (`flex: none;
+white-space: nowrap`). `.meal__linha` é `display: flex` **sem `flex-wrap`**,
+e o único filho com `min-width: 0` é o nome da refeição — que foi espremido a
+**0 px**, virando uma letra por linha.
+
+Medido a 390 px, no navegador, com o relógio congelado às 20h:
+`"14:30 Almoço · Ficou para trás"` com **145 px de altura** e nome com
+**0 px** de largura.
+
+**Por que o meu QA não pegou:** a tabela de prova trazia "rolagem lateral:
+nenhuma". Isso não prova nada neste app — `html` tem `overflow-x: hidden` na
+raiz, então transbordo horizontal é **recortado**, nunca vira barra. E eu
+medi a altura da PÁGINA, não a de cada linha. O estado `pendente` só existe
+depois que uma refeição vence, e a captura das 9h — a que eu olhei — não
+tinha nenhuma.
+
+### O conserto: uma marca por linha
+
+Na `pendente` a marca **substitui** o convite (os dois diziam a mesma coisa
+com palavras diferentes), e `.meal__linha .meal__marca` passou a encolher
+antes do nome (`flex: 0 1 auto`, `min-width: 0`, `text-overflow: ellipsis`).
+
+| | antes da onda | depois |
+|---|---|---|
+| linha `pendente`, 390 px | 145 px de altura, nome 0 px | **44 px**, nome 50 px |
+| transbordo horizontal | 23–82 px (recortado) | **0** |
+
+E a régua que faltava: `test_a_linha_fechada_nao_espreme_o_nome_da_refeicao`
+exige no CSS que a marca ceda antes do nome, e no HTML que a pendente traga
+UM rótulo à direita. Sabotada (devolvendo o convite ao lado da marca), fica
+vermelha.
+
+### O resto da onda
+
+- **As duas saídas tinham tamanhos diferentes de verdade.** `.fora__abrir`
+  declara `min-height`, `padding`, `font-weight` e vem 3.000 linhas depois do
+  `.btn` com a mesma especificidade — então vencia: 44 px contra 52, 16 px de
+  texto contra 14,4. A igualdade que eu medi (70/68 px) era acidente da
+  largura daquela coluna. Agora as duas medem **143×73 e 141×71, as duas com
+  14,4 px**.
+- **A Ajuda ensinava um botão que não existe mais** ("Pulei"), na mesma área
+  do app em que o CHANGELOG anuncia o renome. Corrigida, junto com a vitrine
+  da gestão e o README.
+- **A régua do rótulo virou varredura de `templates/`** em vez de cinco
+  rotas: a promessa escrita é "tela nenhuma", e uma tela nova com o rótulo
+  velho passava.
+- **Ramo morto no cabeçalho da refeição** (inalcançável desde que o cabeçalho
+  virou só de quem tem `log`), com o rótulo antigo "Pendente" dentro. Apagado.
+- **`CLAUDE.md` com dois números errados**: o alvo das secundárias (3,25 rem
+  do `.btn`, não 44 px) e o teto de consultas (19, não 18 — e é TETO).
+
+## A suíte completa
+
+**4.506 testes, 2 falhas**, e nenhuma delas é da branch:
+
+1. `plans.tests.HojeV2ViewTests.test_a_primeira_dobra_traz_uma_acao` — prendia
+   o cartão AGORA NESTA tela. A missão previa o caso ("se algum teste prende o
+   AGORA aqui, ele passa a prender a AUSÊNCIA"): virou
+   `test_a_primeira_dobra_e_o_anel_e_nao_um_cartao_repetido`, que exige o anel
+   e a ausência do cartão.
+2. `config.tests.ResponseCompressionTests.test_no_rule_targets_a_class_the_templates_never_render`
+   — **ambiental**. A régua de CSS órfão ignora arquivos `.py` sob
+   `scratchpad/`, e este worktree mora em `scratchpad/wt-alim`: os `.py` do
+   app inteiro ficam de fora, e `senha__titulo`/`senha__regras` (que nascem em
+   `accounts/forms.py`) parecem órfãs. Reproduzido idêntico num worktree do
+   commit base, **sem nenhuma mudança minha**. No CI e em qualquer worktree
+   fora de `scratchpad/` passa.
+
 ## Decisões que tomei sozinha
 
 1. **Os dois CTAs de contorno, não os dois verdes** (o dono deixou a escolha
@@ -152,6 +230,12 @@ Alimentação (1) e voltar "Comi esta" na folha da receita (3).
 6. **`align-items: stretch` + `display: grid` no formulário do "Não comi"**
    para as duas saídas terem a mesma altura quando uma quebra em duas linhas
    (medido: 52 px contra 68 antes do ajuste).
+
+7. **Uma marca por linha na pendente** (25/09): a marca substituiu o convite
+   "Não registrada · registrar" em vez de somar-se a ele. O convite dizia o
+   que fazer; a marca diz quando era — e abrir a linha, que é um toque, mostra
+   os botões. Vetável: trazer o convite de volta exige a linha quebrar
+   (`flex-wrap`), e aí ela deixa de ser uma linha.
 
 ## O que não mudou
 
@@ -184,6 +268,14 @@ compras, `OptionLabel` no banco e o orçamento de 18 consultas de
 - **`git checkout --` para desfazer sabotagem apaga trabalho não commitado.**
   Uma restauração levou junto três tarefas. O script de sabotagem passou a
   guardar cópia antes de quebrar.
+- **"Não rola na horizontal" não prova nada neste app.** A raiz tem
+  `overflow-x: hidden`: o transbordo é recortado, e a medida que denuncia é
+  `scrollWidth - clientWidth` de cada ELEMENTO, ou a altura da linha. Foi o
+  que escondeu o defeito crítico desta missão.
+- **Medir a página inteira esconde o defeito de uma linha.** A altura caiu
+  1.000 px e, no meio disso, uma linha tinha triplicado. Meça o componente que
+  você mexeu, no estado em que ele aparece (aqui: `pendente`, que só existe
+  depois que uma refeição vence).
 
 ## O que preciso de você
 
