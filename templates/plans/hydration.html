@@ -2,6 +2,11 @@
 
 {% block title %}Hidratação · NutriPlan{% endblock %}
 
+{% comment %} A LARGURA DO DESKTOP (24/09/2026): medido a 1280, o `<main>`
+   desta tela tinha 480px (440 úteis) enquanto Hoje, Progresso, Alimentação e
+   Corridas já usavam 1024. Uma linha, a mesma das outras. {% endcomment %}
+{% block container_class %}largo{% endblock %}
+
 {% block content %}
   {% comment %}
     Esta tela responde as perguntas que não cabiam no cartão do Hoje: "bebi
@@ -20,8 +25,17 @@
     </p>
   </div>
 
-  <div class="split">
-    <div class="split__main stack">
+  {% comment %}
+    DUAS COLUNAS NO DESKTOP (24/09/2026), com a mesma grade do Progresso
+    (`stack--duas-colunas`): o cartão de HOJE — anel, os três toques e o
+    campo livre — atravessa as duas colunas, porque é a ação que traz a
+    pessoa aqui e meia largura o apertaria; embaixo, os goles de hoje de um
+    lado e a semana do outro, com "Sobre a meta" fechando. A ordem do HTML
+    não muda, então a leitura e o foco continuam na ordem de antes (WCAG
+    1.3.2 e 2.4.3), e a 390px isto segue sendo uma pilha: a regra mora
+    dentro do `@media` de desktop.
+  {% endcomment %}
+  <div class="stack stack--duas-colunas">
 
       {# ---------------- O dia ---------------- #}
       {% comment %}
@@ -302,6 +316,5 @@
         </p>
       </section>
 
-    </div>
   </div>
 {% endblock %}

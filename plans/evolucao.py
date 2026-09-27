@@ -25,6 +25,7 @@ acima.
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from django.db.models import BooleanField, Case, F, Max, OuterRef, Subquery, Value, When
 from django.db.models import Count as _Count
 from django.utils import timezone
 
@@ -459,22 +460,67 @@ def mapa_de_corrida(user, janela: Janela) -> list:
     return mapa, por_dia
 
 
-# --------------------------------------------------------------- recordes
+# --------------------------------------------- melhores cargas, e o recorde
 def recordes(user, quantos=5) -> list:
-    """A carga máxima por exercício, com a data — e de SEMPRE, não do período.
+    """A maior carga de cada exercício, com a data — e de SEMPRE, não do
+    período. Marca que expira com o seletor não é marca; o que o período
+    recorta é a evolução.
 
-    Recorde que expira com o seletor não é recorde; o que o período recorta é
-    a evolução, não a marca. `DISTINCT ON` é do PostgreSQL, que é o banco
-    deste projeto em dev, staging e produção: uma consulta devolve a linha
-    inteira do máximo de cada exercício, com data, sem um segundo passe.
+    `e_recorde` diz se aquela carga SUPEROU O MÁXIMO das datas anteriores,
+    que é a régua de `achievements.services` ("estreia não é recorde",
+    `weight_kg > maior anterior`, `date__lt`).
+    Sem ela a tela mentia: a varredura de 24/09/2026 mediu uma conta com UMA
+    série (40 kg × 6) e viu o Progresso escrever "Seus recordes · 40 kg" ao
+    lado das Conquistas dizendo "0 recordes" — as duas certas dentro da
+    própria definição, e a palavra igual nas duas. Hoje o título é o que a
+    lista É (a melhor carga), e "recorde" só aparece onde houve marca.
+
+    `DISTINCT ON` é do PostgreSQL, que é o banco deste projeto em dev,
+    staging e produção: UMA consulta devolve a linha inteira do máximo de
+    cada exercício, com data — e a subconsulta do máximo anterior viaja
+    nela, sem segundo passe (há teste de `assertNumQueries`).
     """
     from workouts.models import ExerciseLog
 
+    # O MÁXIMO de todas as datas anteriores, e não "existe alguma menor".
+    #
+    # A primeira versão usava `Exists(... weight_kg__lt ...)`, e a revisão
+    # adversarial desta missão achou o caso em que as duas contas divergem —
+    # um treino comum, não um caso de laboratório: 60 kg em julho (o pico),
+    # 50 em agosto (um deload) e 60 de novo em setembro. O `DISTINCT ON`
+    # escolhe a linha mais RECENTE entre as empatadas em 60, e ali existe SIM
+    # uma data anterior com carga menor (o deload) — então `Exists` dizia
+    # "recorde" para um dia que só EMPATOU com o próprio pico. É o mesmo
+    # defeito que o item 5 veio consertar, com outro gatilho.
+    #
+    # `achievements.services.supera_recorde` compara com o máximo anterior
+    # (`weight_kg > agregado["maior"]`), e esta é a mesma régua. Sem data
+    # anterior a subconsulta é NULL, e `Case` devolve `False`: estreia não é
+    # recorde. Mesmo dia continua fora, pelo `date__lt`.
+    maior_antes = (
+        ExerciseLog.objects.filter(
+            user=user,
+            exercise_id=OuterRef("exercise_id"),
+            date__lt=OuterRef("date"),
+        )
+        .values("exercise_id")
+        .annotate(maior=Max("weight_kg"))
+        .values("maior")[:1]
+    )
     melhores = (
         ExerciseLog.objects.filter(user=user, weight_kg__gt=0)
+        .annotate(maior_antes=Subquery(maior_antes))
+        .annotate(
+            e_recorde=Case(
+                When(maior_antes__isnull=True, then=Value(False)),
+                When(weight_kg__gt=F("maior_antes"), then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
+        )
         .order_by("exercise_id", "-weight_kg", "-date")
         .distinct("exercise_id")
-        .values("exercise__name", "weight_kg", "reps", "date")
+        .values("exercise__name", "weight_kg", "reps", "date", "e_recorde")
     )
     return sorted(melhores, key=lambda r: r["weight_kg"], reverse=True)[:quantos]
 
@@ -494,12 +540,15 @@ def tile_de_treino(mapa, dias_combinados) -> Tile:
     previstos = sum(1 for dia in mapa if dia.estado in (FEITO, FALTOU))
     if not previstos:
         return Tile(chave="treino", titulo="Treinos", valor=str(feitos),
-                    frase="Sem dia de treino combinado no período.")
+                    frase="Sem dia de treino previsto no período.")
     direcao = SUBINDO if feitos >= previstos else (PARADO if feitos else CAINDO)
     return Tile(
         chave="treino", titulo="Treinos", valor=str(feitos),
         unidade="de %d" % previstos, direcao=direcao,
-        frase="%d dia%s combinado%s no período"
+        # "combinado" é palavra de contrato, e ninguém combinou nada com
+        # ninguém: a pessoa DECLAROU os dias no cadastro (achado 7b da
+        # varredura de 24/09/2026).
+        frase="%d dia%s previsto%s no período"
               % (previstos, "s" if previstos > 1 else "", "s" if previstos > 1 else ""),
     )
 

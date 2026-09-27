@@ -385,12 +385,9 @@ compras é feita deles).
 - **O ESTADO DA REFEIÇÃO VEM DO SERVIDOR NUMA PALAVRA.** `plans/agora.py`
   escreve `slot.estado` ao lado do `marcador`: `resolvida` · `agora` ·
   `pendente` · `futura`. A tela desenha quatro coisas a partir dela e não
-  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). **Só a
-  `agora` nasce aberta** — a decisão de 20/09 sobre a Home compacta vale
-  para a vencida também, e esta reforma quase a desfez: com cards de receita
-  no lugar das linhas, abrir `pendente` poria dois cardápios na tela às 15h.
-  Quem segurou foi `test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar`.
-  Fechada, a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
+  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). Até 23/09 a
+  `agora` nascia ABERTA; desde 24/09/2026 **nenhuma nasce** (abaixo). Fechada,
+  a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
   registrar"): 150 → 86 px, medidos a 390.
 - **A opção é um CARD DE RECEITA**, não uma linha com sanfona: ilustração,
   nome, caloria, os TRÊS macros, tempo e os ingredientes com a porção numa
@@ -398,7 +395,7 @@ compras é feita deles).
   já fazia — zero consulta nova). A linha ABREVIA a medida ("6,5 col. de
   sopa"); a receita escreve por extenso. O rótulo A/B **saiu da interface** —
   é nome interno do rodízio; `OptionLabel` continua no banco e na lista de
-  compras. O CTA é "Comi esta", e só a sugestão do dia é verde.
+  compras. O CTA e o peso dos dois botões são de 24/09/2026 (abaixo).
 - **A RECEITA É UM MARKUP SÓ EM TRÊS LUGARES** (`templates/plans/_receita.html`):
   a tela `/refeicao/<slot>/receita/<opcao>/`, a folha do celular e o painel
   da direita no desktop. A folha e o painel são a seção `#receita`
@@ -1716,6 +1713,51 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
 
+**A ALIMENTAÇÃO SUGERE, NÃO IMPÕE (24/09/2026).** Cinco decisões do dono
+depois de usar o app. Elas SUBSTITUEM, com data e motivo, três regras
+anteriores: "só a refeição da vez nasce aberta" (20/09, reforçada em 23/09),
+"só a sugestão do dia é verde" e "o CTA é Comi esta" (as duas de 23/09). As
+três foram boas decisões para a tela que existia quando foram tomadas — uma
+refeição aberta custava quatro linhas de texto, não dois cards de receita.
+
+- **O cartão AGORA é da Hoje, e só dela.** Na Alimentação ele repetia a
+  refeição que estava logo abaixo, com o mesmo botão: o herói e o primeiro
+  card eram a mesma coisa dita duas vezes. A tela abre com o anel (meta e
+  saldo) e o cardápio. `_agora.html` perdeu o ramo `sugestao`, que só a
+  Alimentação usava — na Hoje ele é PONTEIRO ("Ver refeição"), e a única
+  ação que executa é a água.
+- **Nenhuma refeição nasce aberta; a da vez é MARCADA.** Toda refeição em
+  aberto é uma linha, e quem abre é a pessoa. A linha da `agora` traz o selo
+  "Agora" e a da `pendente`, "Ficou para trás" — dentro do próprio
+  `<summary>`, sem custar altura. **Uma marca por linha:** na `pendente` ela
+  SUBSTITUI o convite "Não registrada · registrar" (25/09). Dois rótulos
+  `flex: none` na mesma linha espremiam o nome da refeição a zero — 145px de
+  altura a 390px, com uma letra por linha, e o transbordo recortado pelo
+  `overflow-x` da raiz, que é o motivo de nenhuma barra de rolagem denunciar.
+  `test_a_linha_fechada_nao_espreme_o_nome_da_refeicao` é a régua. Medido a 390px com a conta de QA: **2.568 →
+  1.561 px às 9h, 2.580 → 1.773 às 14h, 2.596 → 2.131 às 20h**.
+- **O botão diz a AÇÃO: "Registrar".** "Comi esta" saiu de toda tela — o
+  card já é a receita, e na folha aberta por link não havia "esta" a que
+  apontar. `config/test_linguagem.py` cobra a ausência da frase no cardápio e
+  na folha; o `aria-label` continua nomeando receita e horário.
+- **As duas opções pesam igual, e a sugestão vira CHIP.** Os dois CTAs são
+  `btn--ghost`: o verde só na primeira lia como "faça a primeira", e com
+  cinco refeições por dia seriam dez primários na mesma tela. O rodízio
+  continua escolhendo — é ele que equilibra a lista de compras — e diz qual
+  escolheu num chip "sugestão de hoje" dentro do card.
+- **"Não comi" e "Comi outra coisa" são duas ações do mesmo tamanho.** Eram
+  um link de 15px de texto e um resumo disfarçado de link; viraram dois
+  `btn--ghost` lado a lado (grade de duas colunas, uma só abaixo de 24rem),
+  com a altura de 3,25rem do `.btn` — que o `.fora__abrir` precisa REPETIR,
+  porque ele declara `min-height` 3.000 linhas depois e vencia a cascata. Secundárias pelo CONTORNO e pela posição, não
+  pelo tamanho. O `<details>` aberto ocupa a largura toda. Contrato intacto:
+  mesma URL, `status=skipped`/`off_plan`, mesmo `data-celebra`, mesma
+  idempotência da fila offline.
+
+Continuam valendo: o card de receita e a folha, o anel e o `topo.modo`, a
+lista de compras, `OptionLabel` no banco e o teto de consultas de
+`plans:alimentacao` (`plans/test_stress.py`, hoje 19 — é TETO, e tirar
+trabalho da tela só pode baixá-lo).
 **O CARTÃO DE HOJE CONTA O TREINO DE HOJE, E NÃO A REFERÊNCIA DA SEMANA
 (24/09/2026).** `TrainingSession.total_sets` e `estimated_minutes` são da
 OPÇÃO 1 — o retrato da LETRA, que é o que os cartões das outras mostram e o
@@ -1734,6 +1776,47 @@ ficha do mesmo dia — nunca um número escrito à mão, que envelhece com o
 catálogo — e o teste que protege o significado da referência tem controle
 positivo: a letra A dá 59 min nas duas opções, e sem uma letra que as
 distinga a sabotagem passava verde.
+**RECORDE É O QUE SUPEROU UMA DATA ANTERIOR — NAS DUAS TELAS (24/09/2026).**
+O Progresso listava a maior carga de cada exercício sob o título "Seus
+recordes"; `achievements` só chama de recorde o que passou de uma data
+anterior ("estreia não é recorde"). A varredura de 24/09 mediu uma conta com
+UMA série (40 kg × 6) e viu as duas telas juntas: "Seus recordes ·
+Agachamento livre 40 kg" e "0 recordes". As duas certas dentro da própria
+definição, e a palavra igual nas duas. Decisão do dono: **a primeira série
+não é recorde em lugar nenhum**. A lista virou "Melhores cargas" — título
+que diz o que ela É — e `evolucao.recordes` devolve `e_recorde` por linha,
+comparando com o MÁXIMO das datas anteriores daquele exercício (`date__lt`:
+subir a anilha entre a série 1 e a 2 do mesmo treino é aquecimento, não
+marca). **É o máximo, e não "existe alguma menor"** — a revisão adversarial
+achou onde as duas contas divergem, e não é caso de laboratório: 60 kg em
+julho, 50 em agosto (deload), 60 em setembro; o `DISTINCT ON` fica com a
+linha mais recente das empatadas em 60, e ali existe SIM uma data anterior
+com carga menor, então o `Exists` chamava de recorde um dia que só empatou
+com o próprio pico. `achievements` sempre comparou com o máximo. A
+subconsulta viaja no `DISTINCT ON` que já existia —
+UMA consulta, com teste de `assertNumQueries`, porque `plans:history` tem
+teto medido. Preço na tela, medido a 390: a `pill` de "recorde" empurra o
+valor para a segunda linha nas linhas de nome curto (25 → 52 px); para quem
+já treina há semanas quase toda linha tem a marca, e é verdade que tem —
+quem estreia é que precisa ver a ausência dela.
+
+**A LISTA DE COMPRAS NÃO FALA "OPÇÃO A" (24/09/2026).** Era o último lugar
+do app que pedia para a pessoa escolher entre duas coisas cujo nome ela
+nunca viu — o card de receita parou de escrever a letra em 23/09. Os chips
+viraram "Com a sugestão do dia" e "Com a outra opção"
+(`plans.models.ROTULOS_DA_LISTA_DE_COMPRAS`), porque a primeira opção
+projetada do dia é a que o cardápio sugere. A LETRA continua sendo
+identidade — banco, `?opcao=`, rodízio — e é isso que `OptionLabel` sempre
+disse que era: rótulo de tela de um lado, identidade de dado do outro.
+
+**VALOR QUE É PALAVRA NÃO USA A FONTE DO NÚMERO (24/09/2026).** Os quatro
+`painel__valor` de palavra da Home ("Descanso", "Sem ficha", "Nenhuma
+ainda", "Sem pesagem") saíam em display 900 a 28 px — estado vazio em
+manchete, contra os outros 16 do app. Eles ganharam
+`painel__valor--palavra` (mesmo degrau, outra família: `var(--font)`, 700,
+`--texto-lg`), e a regra é **a mesma, copiada verbatim** da branch da Home
+(#138), para as duas mergearem sem briga. Medido depois: 18 px em Archivo na
+palavra, 28 px em Big Shoulders no número.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -2542,6 +2625,28 @@ dela ANTES do merge, na própria branch — e uma linha só entra quando a
 mudança que ela descreve está na mesma branch ou já em `main` (a linha
 do placar saiu deste PR por isso e entra no dele).
 
+**E O ARQUIVO É APPEND DE VÁRIAS SESSÕES AO MESMO TEMPO, ENTÃO A REGRA É DO
+GIT E NÃO DA DISCIPLINA (27/09/2026).** Com sessões em paralelo, duas
+branches escrevem embaixo do mesmo `## AAAA-MM-DD` no mesmo dia; o git vê
+duas inserções no mesmo lugar e chama de conflito, e em 27/09 isso
+aconteceu DUAS vezes em poucas horas — nas duas o "conflito" era só as
+duas linhas querendo existir. Combinar quem escreve quando é pedir
+sincronização a quem trabalha em paralelo de propósito, então o arquivo
+ganhou `CHANGELOG.md merge=union` no `.gitattributes`: no trecho em
+conflito o git fica com OS DOIS LADOS, sem marcador. Medido em três
+cenários com `git merge` de verdade (a tabela está no próprio
+`.gitattributes`): seção que já existe, seção nova nas duas branches, e
+blocos de tamanhos diferentes — nos três, merge limpo e nenhum cabeçalho
+`## data` duplicado.
+
+O que o union NÃO faz é julgar conteúdo, e é daí que sai a regra de mão:
+**cada sessão só ACRESCENTA linha sob a data do dia — nunca reordena a
+lista, nunca reescreve a linha de outra sessão, nunca move item entre
+dias.** Editar a mesma linha em duas branches continua produzindo merge
+errado e SILENCIOSO (o union não avisa), e reordenar vira duplicata. A
+rede de segurança do cabeçalho duplicado é `ajuda.tests` ("uma seção por
+dia"), que roda no gate de todo PR; para o resto, a régua é esta frase.
+
 **O GLÚTEO É GRUPO PRÓPRIO DESDE 21/09/2026 (`MuscleGroup.GLUTES`), E
 NENHUMA FICHA MUDOU POR ISSO.** A elevação pélvica, a elevação pélvica no
 banco e as duas pontes de glúteo saíram de "posterior de coxa e glúteo"
@@ -3012,6 +3117,18 @@ Armadilha recorrente neste repositório: **o seletor do JavaScript e o marcador
 do HTML são a mesma string.** `assertNotIn("data-x", html)` passa por acidente
 porque `data-x` também está dentro do `<script>`. Ancore na classe
 (`class="card resumo"`) ou no texto visível.
+
+**Régua de varredura recorta caminho RELATIVO À RAIZ (24/09/2026).** A
+checagem de classe órfã (`config.tests`) lê os `.py` do projeto e descarta
+`artifacts/` e `scratchpad/` — e fazia isso com `caminho.parts`, que olha o
+caminho ABSOLUTO. O worktree de uma sessão do Claude Code mora dentro de um
+diretório chamado `scratchpad`, então ali o filtro descartava TODOS os
+arquivos do repositório: zero `.py` lidos, e as duas classes que
+`accounts/forms.py` escreve com `mark_safe` (`senha__regras`,
+`senha__titulo`) viravam órfãs. Verde no CI, vermelho na máquina, e uma hora
+procurando o defeito no app. Quem escrever a próxima varredura recorta por
+`caminho.relative_to(RAIZ).parts`: régua que muda de veredito com o lugar do
+checkout não é régua.
 
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).

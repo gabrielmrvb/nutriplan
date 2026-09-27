@@ -54,6 +54,7 @@ from .models import (
     MealSlot,
     MealStatus,
     OptionLabel,
+    ROTULOS_DA_LISTA_DE_COMPRAS,
     ItemAvulsoDaLista,
     ItemDaListaMarcado,
 )
@@ -670,7 +671,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # afirma que o dia fechou empatado — e o app não sabe disso,
                 # porque ninguém comeu ainda.
                 #
-                # A porta é `marked`, e não `consumed_kcal`: quem marcou "Pulei"
+                # A porta é `marked`, e não `consumed_kcal`: quem marcou "Não comi"
                 # nas cinco refeições consumiu zero E registrou o dia inteiro.
                 # Mandar essa pessoa registrar seria pedir o que ela já fez.
                 # Registro ausente e consumo zero são estados diferentes.
@@ -996,7 +997,7 @@ class ReceitaView(OnboardingRequiredMixin, TemplateView):
     A PORÇÃO chega por `?porcao=` e a conta é do SERVIDOR. Fazê-la no
     navegador daria o número na hora e faria a tela e o registro discordarem
     no instante em que a rede caísse — e é o mesmo número que vai para o
-    histórico quando a pessoa toca "Comi esta".
+    histórico quando a pessoa toca "Registrar".
     """
 
     template_name = "plans/receita.html"
@@ -1015,7 +1016,7 @@ class ReceitaView(OnboardingRequiredMixin, TemplateView):
             slot__plan__user=self.request.user,
             slot__plan__is_active=True,
         )
-        # O registro de HOJE daquele horário: a tela que oferece "Comi esta"
+        # O registro de HOJE daquele horário: a tela que oferece "Registrar"
         # para uma refeição já registrada oferece uma ação que só pode dar
         # errado. Uma consulta, e ela responde a pergunta que a pessoa faria.
         log = MealLog.objects.filter(
@@ -1626,7 +1627,7 @@ class ShoppingListView(PlanRequiredMixin, TemplateView):
                 "plan": self.plan,
                 "aisles": aisles,
                 "label": label,
-                "labels": OptionLabel.choices,
+                "labels": [(v, ROTULOS_DA_LISTA_DE_COMPRAS[v]) for v in OptionLabel.values],
                 "days": shopping.DAYS,
                 "total_items": sum(aisle["count"] for aisle in aisles),
             }

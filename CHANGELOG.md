@@ -10,6 +10,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **A tela de Alimentação abre com o cardápio, não com um cartão repetido.** O cartão AGORA mostrava a mesma refeição que estava logo abaixo, com o mesmo botão. Ele continua na Hoje, que é a tela do dia.
+- **Nenhuma refeição nasce aberta.** Todas viram uma linha — hora, nome e o alvo — e você abre a que quiser. A da vez ganha o selo "Agora" e a que passou, "Ficou para trás", sem precisar abrir nada. A tela encolheu de 2.568 para 1.561 px num celular de 390 px.
+- **O botão diz o que faz: "Registrar".** Era "Comi esta" — o card já mostra qual receita é.
+- **As duas opções têm o mesmo peso.** Nenhuma das duas é "a certa": a sugestão do dia agora é um selo no card ("sugestão de hoje") em vez de um botão verde.
+- **"Não comi" e "Comi outra coisa" viraram botões de verdade.** Eram dois links pequenos no rodapé do cartão; agora são duas ações do mesmo tamanho, e "Comi outra coisa" abre um campo com os alimentos do catálogo.
 - **Nada mais cobre o exercício durante o treino.** O bloco de registro preso no rodapé ocupava quase metade da tela: num iPhone SE ele tapava os músculos, o "ver vídeo" e a dica, e com o descanso rodando não sobrava nada. Agora ele tem só a carga, as repetições e o "Concluir série"; as bolinhas das séries e o "Anotar algo" voltaram para a página, logo acima. O vídeo abre do tamanho do espaço que sobra e sobe junto com o nome do exercício.
 - **"Ver vídeo" volta a funcionar depois da primeira série.** Ao concluir uma série, os botões da tela de treino paravam de responder até a página recarregar sozinha: o vídeo não abria, o −2,5/+2,5 não mexia na carga e o relógio de descanso ficava parado no mesmo número.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
@@ -21,10 +26,16 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Nível e equipamento agora são perguntas obrigatórias** para quem diz que faz musculação: o Perfil dizia "não informada" e a ficha era montada com um padrão que ninguém escolheu. Quem já tem conta e não respondeu vê qual padrão está valendo, em vez de um espaço em branco.
 - **A lista de corridas usa a largura do monitor**, como Hoje, Alimentação e Progresso.
 - **O painel e a ficha param de discordar sobre o treino de hoje.** No dia em que a sua letra cai na segunda versão, o cartão do painel dizia "~57 min · 24 séries" e a ficha do mesmo dia dizia "~60 min" — os dois falam do mesmo treino agora.
+- **Treino, Hidratação, Conquistas e Lista de compras também usam a largura do monitor.** Eram as quatro telas que sobravam numa coluna de 440 px no meio de um monitor de 1280, com a lista de compras pedindo quatro rolagens de tela para ser lida inteira.
 - **Um só "Registrar peso" na Home.** Eram três caminhos para o mesmo campo; o cartão do Progresso voltou a levar ao Progresso.
 - **O histórico de um exercício mostra cada série com a carga dela.** Quem fez 60 kg × 8, 62,5 × 7 e 62,5 × 6 lia "62,50 × 8, 7, 6" — a carga mais pesada do dia aplicada às três. Agora a linha é "60 × 8 · 62,50 × 7 · 62,50 × 6", com o total levantado no fim ("1.292,50 kg").
 - **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
 - **A dica da Alimentação parou de falar em "A e B".** O rótulo das opções saiu da tela em 23/09; a frase abaixo do cardápio, a pergunta da Ajuda e o e-mail de boas-vindas ainda citavam as letras. Agora dizem "as duas opções", sem mudar o sentido.
+- **Os números do gráfico de peso ficaram legíveis no celular.** Os valores do eixo e as datas saíam pequenos demais para ler (9px, abaixo do piso do app); agora saem no mesmo tamanho mínimo do resto da interface.
+- **"Melhores cargas", e recorde é o que você superou.** O Progresso listava a sua maior carga de cada exercício sob o título "Seus recordes" — e as Conquistas, na mesma conta e no mesmo dia, diziam "0 recordes". Agora o título diz o que a lista é, e a palavra "recorde" aparece só na carga que passou do seu melhor anterior.
+- **A lista de compras diz o que cada botão traz.** "Opção A" e "Opção B" viraram "Com a sugestão do dia" e "Com a outra opção" — a letra não aparece mais em tela nenhuma.
+- **Estado vazio não grita.** "Nenhuma ainda", "Sem pesagem", "Sem ficha" e "Descanso" saíram da fonte de número, de 72 px, e viraram texto.
+- **O Progresso fala de dias previstos**, e não de "dias combinados": os dias de treino você declarou no cadastro, não combinou com ninguém.
 
 *(gerência, não aparece para quem usa)*
 

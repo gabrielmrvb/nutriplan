@@ -2593,7 +2593,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 /* "desfazer" media 20px de altura — e é justamente o link que a pessoa
-   procura no segundo seguinte a errar o toque em "Pulei". O alvo cresce por
+   procura no segundo seguinte a errar o toque em "Não comi". O alvo cresce por
    padding e a margem negativa devolve o espaço ao layout: o link continua
    visualmente discreto ao lado do texto, e o dedo passa a ter 44px. */
 /* A largura também. `TouchTargetTests` cobra a altura desta regra e a régua do
@@ -5252,7 +5252,18 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
      `align-items: start` porque cartão não se estica para acompanhar o
      vizinho: "Conquistas" tem 188px de conteúdo e esticá-lo até os 1.094 do
      Peso abriria exatamente o buraco que P2-4 veio fechar. */
-  .container.largo .split__main.stack--duas-colunas {
+  /* O SELETOR PERDEU O `.split__main` EM 24/09/2026, e a razão é medida.
+     As Conquistas são três cartões soltos no `.container`, sem lado de
+     consulta nenhum — e pô-las num `.split__main` só para casar com o
+     seletor mudava o CELULAR: `.split__main` é flex com `gap: var(--gap)` E
+     os cartões dentro ainda pegam `.card + .card`, então o espaço entre eles
+     ia de 16px para 32 (medido a 390: a página crescia 32px). Com
+     `.stack stack--duas-colunas` direto no container, o celular fica byte a
+     byte igual — `.stack > * + *` e `.card + .card` declaram o MESMO
+     `var(--gap)` — e o desktop ganha a grade. Quem já usava a classe
+     (Progresso, e desde hoje Treino e Lista de compras) continua casando:
+     `.split__main` é um `.stack` também. */
+  .container.largo .stack--duas-colunas {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -5260,7 +5271,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   }
   /* A faixa de três números atravessa as duas colunas: ela é o resumo da
      tela, e meia largura a apertaria de volta para 2+1. */
-  .container.largo .split__main.stack--duas-colunas > :first-child { grid-column: 1 / -1; }
+  .container.largo .stack--duas-colunas > :first-child { grid-column: 1 / -1; }
 
   .container { padding: 1.9rem var(--pad) 3rem; }
   .tabbar { display: none; }
@@ -5759,7 +5770,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  *
  * `aria-busy` e não uma classe: o estado é exatamente o que o atributo
  * descreve, e quem usa leitor de tela recebe "ocupado" sem eu escrever nada a
- * mais. A regra pega qualquer botão de envio do app — "Comi esta", "Pulei",
+ * mais. A regra pega qualquer botão de envio do app — "Registrar", "Não comi",
  * "Continuar" do wizard — porque todos têm o mesmo problema numa rede de
  * academia: o POST leva segundos e a tela não se mexe. */
 [type="submit"][aria-busy="true"] {
@@ -7502,7 +7513,6 @@ body:not(.tem-tabbar) .agora__registro {
 .ficha-item__trocar,
 .registro__nota-abrir,
 .ficha-item__ver,
-.agora__ver,
 .folha-receita__fechar,
 .receita-folha__outra,
 .receita__abrir,
@@ -7527,7 +7537,6 @@ body:not(.tem-tabbar) .agora__registro {
 .ficha-item__trocar:active,
 .registro__nota-abrir:active,
 .ficha-item__ver:active,
-.agora__ver:active,
 .folha-receita__fechar:active,
 .receita-folha__outra:active,
 .receita__abrir:active,
@@ -7554,7 +7563,6 @@ body:not(.tem-tabbar) .agora__registro {
   .ficha-item__trocar,
   .registro__nota-abrir,
   .ficha-item__ver,
-  .agora__ver,
   .folha-receita__fechar,
   .receita-folha__outra,
   .receita__abrir,
@@ -7578,7 +7586,6 @@ body:not(.tem-tabbar) .agora__registro {
   .ficha-item__trocar:active,
   .registro__nota-abrir:active,
   .ficha-item__ver:active,
-  .agora__ver:active,
   .folha-receita__fechar:active,
   .receita-folha__outra:active,
   .receita__abrir:active,
@@ -9415,6 +9422,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   letter-spacing: -.02em;
 }
 
+/* O valor que é uma PALAVRA ("Dia de descanso", "Sem ficha") não usa a
+   display: ela é a fonte dos números deste app — caixa alta, 900, tracking
+   negativo — e uma frase nela lê como manchete de jornal dentro de um
+   cartão. Mesmo degrau de hierarquia, outra família. */
+.painel__valor--palavra {
+  font-family: var(--font);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
 .painel__de {
   font-family: var(--font);
@@ -9601,6 +9620,33 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   overflow-wrap: anywhere;
 }
 .meal__linha-kcal { margin-left: auto; color: var(--text-mute); flex: none; }
+/* A MARCA DENTRO DA LINHA FECHADA (24/09/2026). Ela nasceu no `.meal__head`,
+   onde `margin-left: auto` a empurrava para a ponta; aqui quem já empurra é o
+   kcal (ou o convite a registrar), que vem antes dela. Sem esta linha a marca
+   e o kcal disputariam o mesmo `auto` e a linha quebraria em duas a 320px. */
+/* A MARCA DENTRO DA LINHA FECHADA (24/09/2026). Ela nasceu no `.meal__head`,
+   onde `margin-left: auto` a empurrava para a ponta; aqui quem já empurra é o
+   kcal, que vem antes dela.
+
+   `flex-shrink` e `min-width: 0` (25/09): `.meal__marca` é `flex: none` por
+   herança do cabeçalho, e numa linha sem espaço isso espremia o NOME a zero —
+   uma letra por linha, 145px de altura, medido a 390px. Aqui ela cede antes
+   do nome, e `text-overflow` corta com reticências em vez de empurrar. */
+.meal__linha .meal__marca {
+  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meal__linha .meal__linha-kcal + .meal__marca { margin-left: var(--espaco-3); }
+
+/* A marca da vencida fala a língua do convite que ela substituiu (a classe
+   é `--passou`, e não `--atrasada`: `MarcadorNaTelaTests` proíbe linguagem
+   punitiva no selo, e proíbe na CLASSE também — pendência não é falha): `--brand`,
+   como era o "Não registrada · registrar". A da vez continua sendo a pílula
+   de fundo tingido. */
+.meal__marca--passou { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 24%, transparent); }
 /* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
    sanfona "saltando" em miniatura. `inline-block` porque `transform` não
    pega em inline. */
@@ -9660,6 +9706,21 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   stroke-width: 1.6;
 }
 
+/* O CHIP DA SUGESTÃO (24/09/2026). Ele diz o que a cor do botão dizia antes —
+   qual das duas o rodízio escolheu para hoje —, e diz informando: contorno
+   fino, minúsculas, sem preenchimento. Não é o `.chip` tocável do resto do app
+   (aquele é caixa alta e tem alvo de toque); este é rótulo, e mora dentro do
+   link que abre a receita. */
+.receita__chip {
+  align-self: start;
+  padding: var(--espaco-1) var(--espaco-3);
+  border: 1px solid var(--fio-forte);
+  border-radius: var(--quina-p);
+  color: var(--text-dim);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+}
+
 .receita__nome {
   margin: 0;
   font-size: var(--texto-md);
@@ -9711,40 +9772,70 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 /* -- As ações secundárias ------------------------------------------------ */
 
-/* Uma linha, dois links de texto. Eram dois botões de 48px com o mesmo peso
-   do CTA principal. O alvo de 44px continua vindo do `.btn-link`, que já o
-   garante com margem negativa — o que muda é o PESO, não o toque. */
+/* DUAS AÇÕES DO MESMO TAMANHO, lado a lado (decisão do dono, 24/09/2026).
+
+   Elas já foram dois botões de 48px com o peso do CTA (12/09) e uma linha de
+   dois links de texto (23/09). O primeiro empatava com o registrar; o segundo
+   sumia — e quem não comeu o que estava no cardápio é metade dos dias de
+   qualquer pessoa. Agora são dois botões de CONTORNO: o que as mantém
+   secundárias é não serem preenchidas e virem abaixo dos cards.
+
+   Grade de duas colunas iguais, porque é isso que "do mesmo tamanho" quer
+   dizer quando os rótulos têm comprimentos diferentes ("Não comi" e "Comi
+   outra coisa"). Abaixo de 24rem viram uma coluna: a 320px dois botões lado a
+   lado deixariam "Comi outra coisa" em três linhas. */
 .meal__secundarias {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--espaco-3) var(--espaco-6);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* `stretch` (o padrão da grade) e não `start`: "do mesmo tamanho" inclui a
+     altura, e a 390px "Comi outra coisa" quebra em duas linhas enquanto "Não
+     comi" fica numa. Medido: 52px contra 68px lado a lado. */
+  align-items: stretch;
+  gap: var(--espaco-3);
   margin-top: var(--espaco-4);
   padding-top: var(--espaco-3);
   border-top: 1px solid var(--fio);
 }
-.meal__secundarias .btn-link { margin-inline: 0; }
-.meal__secundarias .fora { flex: 1 0 auto; min-width: 0; }
 
-/* "Comi outra coisa" era uma CAIXA de superfície própria, centralizada e do
-   tamanho da linha — do lado de "Pulei", ela continuava sendo o elemento mais
-   pesado do rodapé. Aqui ela vira texto, com a mesma cara do link ao lado; a
-   caixa volta quando abre, onde ela de fato delimita um formulário.
-
-   O alvo de 44px fica: `min-height` continua no `.fora__abrir` de origem, e
-   é só o FUNDO e o alinhamento que mudam. */
-.meal__secundarias .fora__abrir {
-  justify-content: flex-start;
-  padding-inline: 0;
-  background: none;
-  /* O slot vale zero, e é ele que diz isso: um `0` escrito à mão abriria o
-     precedente que a régua de quinas existe para fechar. */
-  border-radius: var(--quina-p);
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: .2em;
+@media (max-width: 24rem) {
+  .meal__secundarias { grid-template-columns: minmax(0, 1fr); }
 }
-.meal__secundarias .fora[open] .fora__abrir { text-decoration: none; }
+
+/* O `<details>` é uma das duas colunas enquanto está fechado; aberto, ele
+   ocupa a largura toda — o formulário de dentro tem campo de texto, três
+   pares de alimento e quantidade, e meia coluna o espremeria. A caixa de
+   superfície própria volta AQUI, onde ela de fato delimita um formulário. */
+/* O botão do "Não comi" mora dentro de um `<form>`, e é o FORM que é filho
+   da grade: sem esta linha o `stretch` estica o formulário e o botão fica na
+   altura natural dele — 52px contra os 68 do vizinho, que quebra em duas
+   linhas a 390px. */
+.meal__secundarias .meal__pulei { display: grid; }
+
+.meal__secundarias .fora { margin-top: 0; background: none; border-color: transparent; }
+.meal__secundarias .fora[open] {
+  grid-column: 1 / -1;
+  background: var(--surface-2);
+  border-color: var(--fio);
+}
+
+/* O resumo é o botão: o `.btn--ghost` do HTML desenha contorno, altura e
+   alinhamento. O que sobra para esta regra é o que o `<summary>` traz de
+   fábrica e o botão não quer — a seta do marcador nativo já sai em
+   `.fora__abrir`, e aqui só se ajusta o que a caixa de superfície tinha. */
+/* O resumo É o botão: quem manda em altura, padding, peso e tamanho de texto
+   é o `.btn`. `.fora__abrir` declara todos esses valores e vem 3.000 linhas
+   DEPOIS do `.btn`, com a mesma especificidade — então vencia, e as duas
+   saídas saíam com 44px contra 52px e 16px contra 14,4px (medido). Aqui cada
+   um deles é devolvido ao `.btn` por `revert-layer`… que não existe em CSS
+   plano: o jeito honesto é repetir o valor do `.btn`. */
+.meal__secundarias .fora__abrir {
+  min-height: 3.25rem;
+  padding: var(--espaco-4) var(--espaco-6);
+  background: none;
+  color: inherit;
+  font-size: var(--texto-md);
+  font-weight: 700;
+}
 
 /* -- O topo em modo PLANO, e a resposta depois de registrar -------------- */
 
@@ -9767,29 +9858,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .today-hero__proteina--atras { color: var(--terra); }
 
 /* -- O herói que registra, na tela de Alimentação ------------------------ */
-
-/* A receita sugerida entre o detalhe e o CTA: ilustração pequena à esquerda,
-   nome e números à direita. A ilustração aqui é um SELO (2,5rem) e não a
-   faixa do card — o herói já tem título, horário e alvo, e uma segunda faixa
-   de desenho empurraria o botão para fora da primeira dobra, que é
-   exatamente o que este cartão existe para evitar. */
-.agora__sugestao {
-  display: flex;
-  align-items: center;
-  gap: var(--espaco-4);
-  margin: var(--espaco-4) 0;
-  min-width: 0;
-}
-.agora__ilu { flex: none; color: var(--brand); }
-.agora__ilu svg { display: block; width: 3.4rem; height: 2.5rem; stroke-width: 1.6; }
-.agora__receita { min-width: 0; }
-.agora__receita-nome { display: block; min-width: 0; overflow-wrap: anywhere; }
-.agora__receita-num { display: block; color: var(--text-dim); font-size: var(--texto-sm); }
-
-/* "Ver as duas opções" é a saída de quem quer comparar antes de decidir, e
-   por isso é link e não botão: dois botões no herói seriam duas ações com o
-   mesmo peso, e a ação do herói é uma só. */
-.agora__ver { display: inline-block; margin-top: var(--espaco-3); }
 
 /* --------------------------------------------------------------------------
    A PORTA DO CARD — o bloco de cima é um link para a receita
@@ -10096,7 +10164,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    no lugar em que a futura mostra o alvo em kcal. A decisão de 20/09/2026
    (só a refeição da vez nasce aberta) vale para ela também: o que a vencida
    ganha é o convite, e não o card inteiro aberto. */
-.meal__linha-aberta { margin-left: auto; color: var(--brand); flex: none; }
 
 /* ==========================================================================
    53. PROGRESSO — a tela de evolução (23/09/2026)

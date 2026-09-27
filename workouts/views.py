@@ -217,14 +217,16 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # que não há treino. Com treino hoje, o próximo é ruído.
                 "proximo": proximo_treino(tira, plan, hoje_data, linhas, user=user, seq=seq) if hoje is None else None,
                 "week": week_overview(tira),
-                # A tira mostra a rotação da SEMANA CORRENTE (as cópias vestidas
-                # de `sessoes_da_semana`), mas sem dizer que ela GIRA a pessoa
-                # lê a tira como fixa e estranha o "próximo treino" da semana que
-                # vem cair noutra letra (achado da avaliação de UX, 20/09/2026:
-                # tira SEG=A × próximo=C). A legenda só entra quando o ciclo roda
-                # — plano antigo/ajustado fica preso ao dia da semana, e ali
-                # dizer "gira" seria mentira.
-                "ciclo_continuo": services.ciclo_roda(plan),
+                # A tira é a PROJEÇÃO por presença (feito/pulado/hoje/futuro), e
+                # a legenda que a explica segue a MESMA régua da projeção:
+                # `presenca` (`usa_presenca`), não `ciclo_roda`. As duas divergem
+                # no plano de antes da rotação (`inicio_do_ciclo` em branco, não
+                # customizado): ele projeta por presença mas não "gira" no sentido
+                # antigo — e sem a legenda o painel marcava feito/pulado sem dizer
+                # por quê (visto em produção, d965c07, no demo antigo). Só o plano
+                # CUSTOMIZADO fica preso ao dia da semana, e aí a legenda some,
+                # porque "continua de onde você parou" seria mentira.
+                "ciclo_continuo": presenca,
                 # O que a pessoa pediu, o que foi aplicado e por quê — só
                 # quando divergem. Ver `services.divisao_explicada`.
                 #
