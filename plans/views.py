@@ -19,7 +19,6 @@ from django.utils import timezone
 
 from .porcoes import PORCAO_ESCRITA, PORCOES, passos_do_preparo, porcao_valida
 from .weight_trend import TETO_DIARIO_ML
-from django.views import View
 from django.views.generic import TemplateView, View
 
 from accounts.models import (

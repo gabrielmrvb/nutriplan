@@ -301,6 +301,61 @@ class OFluxoDoGitHubNaoVazaODumpTests(SimpleTestCase):
         self.assertIsNotNone(achado)
         self.assertLessEqual(int(achado.group(1)), 30)
 
+    def test_o_bloco_on_tem_schedule_e_workflow_dispatch(self):
+        """Decisão do dono de 27/09/2026: o backup roda todo dia, e não só
+        pelo botão. `workflow_dispatch` continua — é o que permite pedir um
+        backup fora do horário sem esperar o relógio."""
+        linhas = self.fluxo().splitlines()
+        inicio = linhas.index("on:")
+        fim = linhas.index("permissions:")
+        gatilhos = " ".join(
+            linha for linha in linhas[inicio:fim]
+            if linha.strip() and not linha.strip().startswith("#")
+        )
+
+        self.assertIn("schedule:", gatilhos)
+        self.assertIn("workflow_dispatch", gatilhos)
+        self.assertRegex(gatilhos, r'cron:\s*"0 6 \* \* \*"')
+
+    def test_usa_o_papel_so_leitura_e_nao_a_url_de_producao(self):
+        """`BACKUP_DATABASE_URL` é o mesmo papel SOMENTE LEITURA
+        (`nutriplan_leitor`) que `restaurar-mensal.yml` já usa — nenhum
+        segredo novo de banco entra no repositório por causa deste fluxo."""
+        texto = self.fluxo()
+
+        self.assertIn("secrets.BACKUP_DATABASE_URL", texto)
+        self.assertNotIn("secrets.DATABASE_URL", texto)
+
+    def test_recusa_backup_passphrase_vazio_antes_do_despejo(self):
+        """Sem `BACKUP_PASSPHRASE` o backup não presta (fica em claro seria o
+        desastre; sem a segunda trava o run só descobriria isso depois de já
+        ter despejado o banco de produção à toa). A mensagem de erro dá o
+        comando exato para criar o segredo.
+
+        Achado da revisão de 27/09/2026: confirmar que o TEXTO do comando
+        aparece antes de `scripts/backup.sh` não prova que o passo RECUSA —
+        apagar o `exit 1` (ou o `test -n ... ||`) deixaria o passo imprimir a
+        mensagem e seguir, e aquele teste continuaria verde. Por isso o passo
+        é RECORTADO — do seu `- name:` até o próximo — e o `test -n` e o
+        `exit 1` têm de estar os DOIS dentro dele."""
+        texto = self.fluxo()
+        inicio = texto.index("- name: Conferir a senha do backup")
+        fim = texto.index("- name:", inicio + 1)
+        passo = texto[inicio:fim]
+
+        self.assertIn('test -n "$BACKUP_PASSPHRASE"', passo)
+        self.assertIn("exit 1", passo)
+
+        comando = "scripts/github.py segredo BACKUP_PASSPHRASE"
+        sem_comentarios = "\n".join(
+            linha for linha in texto.splitlines() if not linha.lstrip().startswith("#")
+        )
+
+        self.assertIn(comando, sem_comentarios)
+        guarda = sem_comentarios.index(comando)
+        despejo = sem_comentarios.index("scripts/backup.sh")
+        self.assertLess(guarda, despejo, "a recusa tem de vir ANTES do despejo")
+
 
 @sem_bash
 class OArquivoPelaMetadeNaoSobreviveTests(SimpleTestCase):

@@ -18,7 +18,6 @@ from accounts.models import (
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     Profile,
-    User,
     WeightEntry,
 )
 from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
@@ -623,7 +622,6 @@ class DemoCargasDeHojeTests(TestCase):
         nenhuma guarda de "está vazio?" os pegava.
         """
         hoje = timezone.localdate()
-        ontem = hoje - timedelta(days=1)
 
         for registro in ExerciseLog.objects.filter(user=self.pessoa):
             registro.date = registro.date - timedelta(days=1)
