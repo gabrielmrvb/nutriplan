@@ -84,6 +84,23 @@ ABAS = (
     },
 )
 
+#: A ABA DE QUEM NÃO FAZ MUSCULAÇÃO (item 4, 26/09/2026).
+#:
+#: A terceira aba dizia "Treino" e levava a uma tela que, para essa pessoa,
+#: existe para dizer "você não tem ficha aqui". O que ela tem é corrida — e
+#: Corrida é pilar, não subfunção de Treino (é a docstring de `Pilar`).
+#:
+#: Substitui a aba de treino NA POSIÇÃO dela: a barra continua com as MESMAS
+#: CINCO abas (são cinco desde 22/09/2026, e a conta de largura a 320px foi
+#: refeita ali), então nada de layout muda. `icone-bicicleta` é o símbolo que
+#: os cartões do onboarding já usam para Corrida (`escolhas.DETALHES`) — o
+#: sprite não cresce. O MAPA de áreas não tem ícone nenhum, por decisão
+#: escrita no `CLAUDE.md`.
+ABA_DE_CORRIDA = {
+    "chave": "corrida", "rotulo": "Corrida", "rota": "workouts:corridas",
+    "icone": "icone-bicicleta", "navs": ("running",),
+}
+
 
 @register.inclusion_tag("partials/abas.html", takes_context=True)
 def abas(context, onde="tabbar"):
@@ -97,10 +114,48 @@ def abas(context, onde="tabbar"):
     """
     atual = context.get("nav")
     itens = []
-    for aba in ABAS:
+    for aba in abas_de(context.get("user"), shell_offline=context.get("shell_offline")):
         endereco = endereco_da_area(aba["rota"])
         itens.append({**aba, "endereco": endereco, "ativa": atual in aba["navs"]})
     return {"abas": itens, "onde": onde}
+
+
+def abas_de(usuario, *, shell_offline=False):
+    """As cinco abas desta pessoa — e o único lugar em que a troca acontece.
+
+    CUSTO: zero consulta nas telas que passam por `OnboardingRequiredMixin`,
+    que lê `request.user.profile` PELO DESCRITOR e o deixa em cache para a
+    renderização inteira (é a decisão escrita em "A HOME LÊ CADA TABELA UMA
+    VEZ"). E UMA consulta, constante, nas telas com barra que NÃO passam por
+    ele: `workouts:corridas` (`HistoricoDeCorridasView`, que é o destino da
+    própria aba nova), `ajuda:index` e `avisos:preferencias`. Nenhuma das três
+    tem teto em `plans/test_stress.TETOS`; quem puser uma delas num orçamento
+    medido conta esta consulta. A segunda chamada da tag na mesma página
+    (barra de cima e de baixo) é grátis — o descritor já guardou. As telas de
+    login, cadastro e onboarding não desenham barra (`sem_tabbar`).
+
+    O SHELL DE OFFLINE NÃO LÊ O PERFIL, pela mesma razão que o selo de área
+    principal não entra nele: a página é pré-cacheada e servida a quem pegar
+    o aparelho depois, e "esta pessoa não faz musculação" é identidade. Lá a
+    barra é a canônica.
+    """
+    perfil = None if shell_offline else getattr(usuario, "profile", None)
+    if perfil is None or not perfil.nao_faz_musculacao:
+        return ABAS
+    trocadas = []
+    for aba in ABAS:
+        if aba["chave"] == "treino":
+            trocadas.append(ABA_DE_CORRIDA)
+        elif aba["chave"] == "mais":
+            # Corrida ganhou aba própria, então "Mais" para de acender por
+            # ela: com `running` nas duas, as duas acendiam ao mesmo tempo e
+            # `aria-current="page"` aparecia duplicado na mesma barra.
+            trocadas.append(
+                {**aba, "navs": tuple(n for n in aba["navs"] if n != "running")}
+            )
+        else:
+            trocadas.append(aba)
+    return tuple(trocadas)
 
 
 #: O que a barra de baixo já alcança direto. UX-01: Áreas NÃO repete isso.

@@ -738,12 +738,26 @@
   if (revela) {
     var minimo = parseInt(revela.dataset.diasMinimos, 10) || 0;
     var dias = document.querySelectorAll('input[name="weekdays"]');
+    /* E ELA NÃO É PERGUNTADA A QUEM ESTÁ COMEÇANDO (26/09/2026).
+     *
+     * "Quantos grupos musculares por dia?" é escolha de quem já montou
+     * treino — o achado #13 das personas. Para o iniciante quem decide é o
+     * motor (corpo inteiro em casa, divisão por frequência na academia), e
+     * o servidor decide igual: `mostrar_divisao` devolve falso e nem exige
+     * o formulário. Aqui o bloco some no mesmo toque, sem enviar e voltar. */
+    var niveis = document.querySelectorAll('input[name="experiencia"]');
+    function comecando() {
+      var sim = false;
+      niveis.forEach(function (n) { if (n.checked && n.value === "iniciante") sim = true; });
+      return sim;
+    }
     function acertarDivisao() {
       var marcados = 0;
       dias.forEach(function (d) { if (d.checked) marcados++; });
-      revela.hidden = marcados < minimo;
+      revela.hidden = comecando() || marcados < minimo;
     }
     dias.forEach(function (d) { d.addEventListener("change", acertarDivisao); });
+    niveis.forEach(function (n) { n.addEventListener("change", acertarDivisao); });
     acertarDivisao();
   }
 
@@ -752,6 +766,21 @@
    * (`[data-so-musculacao]`) e a nota `[data-sem-musculacao]` aparece; o
    * servidor ignora o bloco do mesmo jeito, então sem JavaScript nada
    * quebra — só fica mais comprido. */
+  /* ONBOARDING — "você corre?" revela a frequência (26/09/2026). Mesma
+   * mecânica da pergunta da musculação, e o servidor decide igual: com
+   * "não" (ou sem resposta) o `clean` zera os dois campos. */
+  var soCorrida = document.querySelector("[data-so-corrida]");
+  if (soCorrida) {
+    var corre = document.querySelectorAll('input[name="corrida"]');
+    function acertarCorrida() {
+      var sim = false;
+      corre.forEach(function (r) { if (r.checked && r.value === "corre") sim = true; });
+      soCorrida.hidden = !sim;
+    }
+    corre.forEach(function (r) { r.addEventListener("change", acertarCorrida); });
+    acertarCorrida();
+  }
+
   var soMusculacao = document.querySelector("[data-so-musculacao]");
   if (soMusculacao) {
     var respostas = document.querySelectorAll('input[name="musculacao"]');
@@ -2250,5 +2279,266 @@
       })
       .catch(function () { location.href = link.href; })
       .then(function () { link.removeAttribute("aria-busy"); });
+  });
+})();
+
+/* BUSCA DE ALIMENTO (26/09/2026): "comi outra coisa" que acha o que a pessoa
+   digitou.
+   ------------------------------------------------------------------------
+   O campo era `<input list>` sobre um `<datalist>` com todos os nomes ativos.
+   Dois defeitos medidos: o `<datalist>` casa por prefixo do nome INTEIRO, e a
+   TACO escreve o nome invertido ("Queijo, requeijão, cremoso") — quem digitava
+   "requeijao" não achava nada; e com os 583 alimentos da tabela ele seriam
+   ~20 kB de `<option>` no HTML desta tela, em toda visita.
+
+   Aqui a sugestão vem de `/alimentos/buscar/?q=` — prefixo primeiro, sem
+   acento, no mínimo duas letras, no máximo oito. O que o servidor decide, o
+   servidor decide: este arquivo não normaliza nome nenhum, senão haveria duas
+   normalizações para divergir.
+
+   SEM REDE NÃO QUEBRA: `fetch` que falha é "sem sugestão", e o campo continua
+   sendo texto livre — o casamento do nome é do SERVIDOR, e acontece quando a
+   fila offline drena (`/refeicao/<id>/marcar/` está em `ROTAS`).
+
+   DELEGADO NO `document`, como a lista de compras: os campos nascem dentro de
+   `<details>` que a pessoa abre depois, e um ouvinte por campo no
+   carregamento perderia os que ainda não existiam na tela.                */
+(function () {
+  "use strict";
+
+  var ESPERA_MS = 220;     /* o tempo entre a tecla e a busca */
+  var MINIMO = 2;          /* o mesmo de `busca.MINIMO_DE_LETRAS` no servidor */
+  /* Por termo, no processo: corrigir uma letra e voltar não pede a mesma coisa
+     duas vezes. `Object.create(null)` e não `{}`: com `{}` os termos
+     "constructor", "toString" e "__proto__" achavam `Object.prototype`, o `if`
+     do cache dava verdadeiro sem resposta guardada e `pintar` estourava. */
+  var cache = Object.create(null);
+  var aberto = null;       /* o `.busca__lista` visível, um por vez */
+  var pedido = 0;          /* ordem dos pedidos: resposta atrasada não pinta */
+  var relogio = null;
+
+  function bloco(alvo) {
+    return alvo && alvo.closest ? alvo.closest("[data-busca-alimento]") : null;
+  }
+
+  function fechar() {
+    if (!aberto) return;
+    var campo = aberto.parentNode.querySelector("[data-busca-campo]");
+    aberto.hidden = true;
+    aberto.innerHTML = "";
+    if (campo) {
+      campo.setAttribute("aria-expanded", "false");
+      campo.removeAttribute("aria-activedescendant");
+    }
+    aberto = null;
+  }
+
+  /* O item da vez. Uma marcação só — `aria-selected` — para o teclado e o
+     mouse não discordarem na tela. */
+  function marcar(lista, item) {
+    var campo = lista.parentNode.querySelector("[data-busca-campo]");
+    Array.prototype.forEach.call(lista.children, function (li) {
+      var b = li.firstChild;
+      if (b && b.setAttribute) {
+        b.setAttribute("aria-selected", b === item ? "true" : "false");
+      }
+    });
+    if (item) {
+      if (campo) campo.setAttribute("aria-activedescendant", item.id);
+      /* `nearest` porque a lista rola só quando um nome longo quebra em duas
+         linhas: rolar sempre faria a lista pular a cada seta. */
+      if (item.scrollIntoView) item.scrollIntoView({ block: "nearest" });
+    } else if (campo) {
+      campo.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function selecionado(lista) {
+    return lista.querySelector("[aria-selected=true]");
+  }
+
+  /* O aviso mora no card da refeição, ao lado do campo — não na faixa de
+     mensagens do topo, que no celular fica fora da vista e não diz de qual
+     linha está falando. */
+  function avisar(b, texto) {
+    var p = b && b.querySelector("[data-busca-vazio]");
+    if (!p) return;
+    /* SÓ O TEXTO MUDA. A região `aria-live` precisa já estar na árvore de
+       acessibilidade quando o texto chega — ligar `hidden` depois de escrever
+       é a INSERÇÃO da região, que os leitores de tela não anunciam de forma
+       confiável, e a pessoa que não enxerga não ouvia o "não encontramos". */
+    p.textContent = texto;
+  }
+
+  function escolher(campo, nome) {
+    if (!campo) return;
+    campo.value = nome;
+    var b = bloco(campo);
+    fechar();
+    avisar(b, "");
+    /* O foco vai para as GRAMAS: escolhido o alimento, a pergunta seguinte é
+       quanto — e é o que a pessoa faria com o dedo de todo jeito. */
+    var gramas = b && b.querySelector("[name=gramas]");
+    if (gramas) gramas.focus();
+  }
+
+  function pintar(b, dados, termo) {
+    var lista = b.querySelector("[data-busca-lista]");
+    var campo = b.querySelector("[data-busca-campo]");
+    if (!lista || !campo) return;
+    lista.innerHTML = "";
+    if (!dados.itens.length) {
+      fechar();
+      /* NÃO ENCONTRADO, e a saída dita: registrar assim mesmo. A refeição
+         entra pela descrição; o que fica de fora é a caloria desta linha. */
+      avisar(b, "Não encontramos “" + termo + "” no catálogo. Você "
+        + "pode registrar assim mesmo — a refeição fica salva sem "
+        + "contar a caloria deste item.");
+      return;
+    }
+    avisar(b, "");
+    dados.itens.forEach(function (item, i) {
+      var li = document.createElement("li");
+      /* `presentation` no `<li>`: o `listbox` precisa ter as `option` como
+         FILHAS na árvore de acessibilidade, e um `listitem` no meio deixava o
+         listbox sem opção nenhuma e o item sem lista (axe
+         `aria-required-children` e `aria-required-parent`) — a decisão que
+         `choice_cards.html` registrou em 20/09/2026 do outro lado. */
+      li.setAttribute("role", "presentation");
+      var botao = document.createElement("button");
+      botao.type = "button";     /* dentro de um <form>: sem isso, ENVIA */
+      /* Fora da ordem de Tab: com `aria-activedescendant` o foco fica NO
+         CAMPO, e as opções se percorrem pelas setas. Sem isto, Tab a partir
+         do campo passava pelos oito botões antes de chegar às gramas. */
+      botao.tabIndex = -1;
+      botao.className = "busca__item";
+      botao.id = lista.id + "-" + i;
+      botao.setAttribute("role", "option");
+      botao.setAttribute("aria-selected", "false");
+      var nome = document.createElement("span");
+      nome.className = "busca__nome";
+      nome.textContent = item.nome;
+      var kcal = document.createElement("span");
+      kcal.className = "busca__kcal";
+      kcal.textContent = item.kcal + " kcal/100 g";
+      botao.appendChild(nome);
+      botao.appendChild(kcal);
+      li.appendChild(botao);
+      lista.appendChild(li);
+    });
+    if (aberto && aberto !== lista) fechar();
+    lista.hidden = false;
+    campo.setAttribute("aria-expanded", "true");
+    aberto = lista;
+    /* A PRIMEIRA JÁ VEM DESTACADA (decisão do dono, 27/09/2026): com a lista
+       aberta sempre há uma sugestão da vez, e o Enter a escolhe — como o
+       `<datalist>` nativo fazia. Sem isso o Enter com oito sugestões na tela
+       ENVIAVA o formulário e registrava a refeição sem a caloria do item. */
+    marcar(lista, lista.querySelector(".busca__item"));
+  }
+
+  function buscar(b, termo) {
+    var meu = ++pedido;
+    if (cache[termo]) { pintar(b, cache[termo], termo); return; }
+    /* O endereço vem do SERVIDOR (`data-busca-url`, escrito por `{% url %}`), e
+       não daqui: sob `/demo/` o app inteiro vive com prefixo, e um caminho
+       escrito à mão saía dele, caía anônimo no login e a busca morria calada
+       na vitrine do produto (revisão do PR #162). */
+    var url = b.getAttribute("data-busca-url");
+    if (!url) { fechar(); return; }
+    fetch(url + "?q=" + encodeURIComponent(termo), {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      credentials: "same-origin"
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (dados) {
+        if (!dados || meu !== pedido) return;   /* resposta velha não pinta */
+        cache[termo] = dados;
+        pintar(b, dados, termo);
+      })
+      .catch(function () {
+        /* Sem rede: nenhuma sugestão, e nenhum aviso de "não encontramos" — o
+           app não sabe se encontraria. O campo continua aceitando o nome. */
+        fechar();
+      });
+  }
+
+  document.addEventListener("input", function (e) {
+    var b = bloco(e.target);
+    if (!b || !e.target.matches("[data-busca-campo]")) return;
+    var termo = e.target.value.trim();
+    clearTimeout(relogio);
+    if (termo.length < MINIMO) { fechar(); avisar(b, ""); return; }
+    relogio = setTimeout(function () { buscar(b, termo); }, ESPERA_MS);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var b = bloco(e.target);
+    if (!b || !e.target.matches("[data-busca-campo]")) return;
+    var lista = b.querySelector("[data-busca-lista]");
+    if (!lista || lista.hidden) return;
+    var itens = lista.querySelectorAll(".busca__item");
+    if (!itens.length) return;
+    var atual = selecionado(lista);
+    var i = Array.prototype.indexOf.call(itens, atual);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      var passo = e.key === "ArrowDown" ? 1 : -1;
+      var proximo = i < 0 ? (passo > 0 ? 0 : itens.length - 1) : i + passo;
+      if (proximo < 0) proximo = itens.length - 1;
+      if (proximo >= itens.length) proximo = 0;
+      marcar(lista, itens[proximo]);
+    } else if (e.key === "Enter") {
+      /* COM A LISTA ABERTA, O ENTER ESCOLHE — nunca envia (decisão do dono,
+         27/09/2026). A sugestão da vez sempre existe (a primeira vem
+         destacada), então este ramo sempre escolhe; escolher FECHA a lista,
+         e o Enter seguinte cai fora daqui (lista fechada) e é o do formulário:
+         Enter para escolher, Enter de novo para enviar. */
+      e.preventDefault();
+      escolher(e.target, (atual || itens[0]).querySelector(".busca__nome").textContent);
+    } else if (e.key === "Escape") {
+      /* Esc FECHA a lista e não envia nada — o `preventDefault` segura o Esc
+         dentro do campo (numa sobreposição ele fecharia outra coisa). */
+      e.preventDefault();
+      fechar();
+    }
+  });
+
+  /* O TOQUE NA SUGESTÃO NÃO TIRA O FOCO DO CAMPO. Safari e iOS não focam um
+     `<button>` no toque: sem isto o campo perdia o foco no `mousedown`, o
+     `focusout` fechava a lista e o `click` chegava a um item que já não
+     existia. `preventDefault` no `mousedown` segura o foco onde ele está (o
+     `click` continua vindo) — é o padrão de combobox com
+     `aria-activedescendant`, em que o foco nunca sai do campo. */
+  document.addEventListener("mousedown", function (e) {
+    if (e.target.closest && e.target.closest(".busca__item")) e.preventDefault();
+  });
+
+  /* O clique na sugestão, e o clique FORA dela. `mousedown` fecharia antes do
+     `click` do próprio item; por isso o fora usa `click` e checa o alvo. */
+  document.addEventListener("click", function (e) {
+    var item = e.target.closest ? e.target.closest(".busca__item") : null;
+    if (item) {
+      var b = bloco(item);
+      escolher(b.querySelector("[data-busca-campo]"),
+               item.querySelector(".busca__nome").textContent);
+      return;
+    }
+    if (aberto && !bloco(e.target)) fechar();
+  });
+
+  /* Sair do campo fecha a lista — depois do clique, senão a escolha pelo dedo
+     nunca aconteceria. */
+  document.addEventListener("focusout", function (e) {
+    if (!e.target.matches || !e.target.matches("[data-busca-campo]")) return;
+    setTimeout(function () {
+      /* Fecha sempre que o foco não estiver NA LISTA — e não "no bloco".
+         As gramas são do mesmo bloco: com a régua do bloco, quem digitava o
+         nome inteiro e ia direto para "g" deixava a lista aberta por cima do
+         "Registrar", e o toque no botão acertava uma sugestão. */
+      var ativo = document.activeElement;
+      var naLista = ativo && ativo.closest && ativo.closest("[data-busca-lista]");
+      if (aberto && !naLista) fechar();
+    }, 0);
   });
 })();

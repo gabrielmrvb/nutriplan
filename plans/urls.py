@@ -24,6 +24,13 @@ urlpatterns = [
     # `agua/` é a AÇÃO (só POST) e `hidratacao/` é a TELA. Nomes diferentes
     # porque são coisas diferentes: uma escreve, a outra lê.
     path("hidratacao/", views.HydrationView.as_view(), name="hydration"),
+    # A busca de alimento de "comi outra coisa" (item 3, 26/09/2026). Só GET,
+    # só com sessão, e fora de `ROTAS_PUBLICAS` — quem indexa não entra.
+    path(
+        "alimentos/buscar/",
+        views.BuscarAlimentoView.as_view(),
+        name="buscar_alimento",
+    ),
     path("lista-de-compras/", views.ShoppingListView.as_view(), name="shopping"),
     path(
         "lista-de-compras/marcar/",

@@ -118,6 +118,26 @@
       {% endif %}
 
       <section class="card opcao" id="ficha">
+        {% comment %}
+          A NOTAÇÃO DITA POR EXTENSO, UMA VEZ (24/09/2026).
+
+          "3 × 6-10" é a linguagem de quem já treina. A persona 1 chegou ao
+          primeiro treino sem nunca ter visto uma ficha, e a dose era o
+          número que ela não sabia ler — nem quantas vezes repetir, nem o
+          que fazer entre uma e outra.
+
+          Uma vez no topo, e não em cada card: oito repetições da mesma
+          frase é ruído para quem já entendeu na primeira. E só enquanto
+          `ficha.estreando` — quem já registrou carga em algum destes
+          exercícios não precisa mais dela.
+        {% endcomment %}
+        {% if ficha.estreando %}
+          <p class="ficha__legenda">
+            <b>3&nbsp;×&nbsp;6-10</b> quer dizer <b>3 séries</b> de
+            <b>6 a 10 repetições</b> — faça as repetições, descanse o tempo
+            indicado, e repita.
+          </p>
+        {% endif %}
         <ol class="ficha-lista" data-escalonado>
           {% for item in ficha.principais %}
             {% include "workouts/_item_da_ficha.html" with item=item ordem=forloop.counter hoje=ficha.executavel rapida=rapida %}

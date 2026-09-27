@@ -36,27 +36,28 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
         contexto = super().get_context_data(**kwargs)
         user = self.request.user
 
-        # Avaliar AQUI, e a razão é retroatividade.
+        # ESTA TELA NÃO GRAVA MAIS (26/09/2026, item 0 da missão "quem entra
+        # não desiste").
         #
-        # O desbloqueio acontecia num lugar só: o POST que registra carga. Quem
-        # já tinha histórico quando as conquistas nasceram nunca era avaliado —
-        # e como esta tela calcula o progresso ao vivo, ela mostrava "1/1" em
-        # "Próximas": progresso completo e conquista trancada, lado a lado. A
-        # pessoa via que cumpriu a condição e que o app não reconheceu.
+        # Ela chamava `avaliar` no GET — o catálogo inteiro, com escrita —
+        # e o Progresso chamava `resumo`, que desbloqueava a regra a 100 %.
+        # Duas leituras dos mesmos dados podiam devolver números diferentes,
+        # e uma requisição que a pessoa não pediu (um prefetch, um "abrir em
+        # nova aba") mudava o banco. Nenhum GET CRIA conquista, e desde
+        # 27/09/2026 nenhum GET marca o anúncio como visto: o "visto" é o
+        # POST de `marcar_vistas`, que `conquista.js` manda com a página
+        # visível (`config/test_get_nao_grava.py`).
         #
-        # A avaliação continua FORA dos demais requests, que era a decisão
-        # original e segue valendo. Aqui ela é proporcional: é a página que
-        # trata do assunto, e a pessoa entra nela de vez em quando.
+        # O que a avaliação daqui resolvia — RETROATIVIDADE, quem já tinha
+        # histórico quando as conquistas nasceram — continua resolvido, por
+        # outro caminho: toda conquista nasce no POST QUE CRIA O FATO, e são
+        # esses POSTs que a missão passou a cobrir (série, carga, refeição,
+        # água e corrida). O "1/1 com a conquista trancada" que a avaliação
+        # daqui existia para evitar não volta, porque a barra só chega a
+        # 100 % depois de um desses POSTs — e ele desbloqueia na hora.
         #
-        # `avaliar` é idempotente — `get_or_create` mais a constraint de
-        # unicidade —, então abrir a tela dez vezes não cria dez conquistas.
-        #
-        # E o que nasce AQUI é anunciado AQUI: até 16/09/2026 a página
-        # desbloqueava em silêncio, e a pessoa via a medalha na lista sem
-        # nunca ter visto "Conquista desbloqueada" (avaliação B5). O aviso
-        # sai do processador de contexto, que lê a sessão nesta mesma
-        # renderização.
-        services.anunciar(self.request, services.avaliar(user))
+        # `services.anunciar` continua sendo chamado onde a conquista NASCE,
+        # e o aviso aparece na primeira tela depois dela.
 
         ganhas = list(UserAchievement.objects.filter(user=user))
         por_slug = {}

@@ -3400,6 +3400,20 @@ ul.data-list { padding: 0; list-style: none; }
 
 .ficha__progresso { margin: 0; color: var(--text-dim); font-size: var(--texto-sm); }
 
+/* A LEGENDA DA NOTAÇÃO (24/09/2026): "3 × 6-10" por extenso, uma vez, para
+   quem está lendo a primeira ficha da vida. Fica sobre a superfície de
+   apoio, como as notas explicativas do resto do app — não é aviso nem
+   erro, é a frase que falta à primeira leitura. */
+.ficha__legenda {
+  margin: 0 0 var(--espaco-3);
+  padding: var(--espaco-3);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: var(--texto-sm);
+  line-height: 1.5;
+}
+.ficha__legenda b { color: var(--text); }
+
 /* -- A ficha como tela de pré-treino (22/09/2026) -------------------------- */
 
 /* O equipamento no cabeçalho é um checklist de quem está saindo de casa. */
@@ -5399,6 +5413,17 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
    * A faixa de 0fr dá altura zero à LINHA da grade; quem transborda dela é o
    * conteúdo, e é o conteúdo que precisa cortar. */
   .fora__interno { overflow: hidden; }
+
+  /* ABERTO, O RECORTE SAI (revisão do PR #162, 27/09/2026). Ele existe para
+   * esconder o formulário quando a linha é `0fr`; com a linha em `1fr` o
+   * conteúdo cabe e não há o que cortar — mas a lista de sugestões de
+   * "Comi outra coisa" é `position: absolute` dentro de `.busca`, que é
+   * DESCENDENTE deste bloco, e `overflow: hidden` num ancestral recorta o
+   * absoluto. Medido na captura do QA a 390 px: quatro das oito sugestões
+   * visíveis na primeira linha, a lista cortada na borda do formulário. A
+   * sanfona do `pwa.js` põe `overflow: clip` em linha enquanto anima e o tira
+   * ao terminar, então a animação continua recortada. */
+  .fora[open] .fora__interno { overflow: visible; }
 }
 
 .fora__interno {
@@ -7181,6 +7206,24 @@ body:not(.tem-tabbar) .agora__registro {
   box-shadow: none;
 }
 .registro--agora .registro__campo--reps { grid-area: reps; }
+
+/* SEM CARGA, AS REPS TOMAM A LINHA (revisão do PR #162, 27/09/2026). O item 1
+   tirou o campo de carga do exercício de peso do corpo, e as TRILHAS da grade
+   continuaram lá: a coluna `minmax(0, 1fr)` da carga ficava vazia e o campo de
+   Reps — o único da tela naquele exercício — era empurrado para a faixa
+   `.6fr` da direita, com ~200 px de nada à esquerda (visto na captura do QA a
+   390 px, numa flexão). Uma coluna só, e a mesma ordem de leitura. */
+.registro--agora.registro--sem-carga {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+}
+/* Sem áreas nomeadas, e cada filho de volta ao fluxo: a ordem da tela passa a
+   ser a do DOM — "última vez", Reps, Concluir. Com áreas "reps"/"cta" o
+   `.registro__ultima` (que não tem área) caía numa linha implícita DEPOIS do
+   botão. A especificidade (0,2,0 e 0,3,0) é o que vence o `grid-area: cta` de
+   `.agora__concluir`. */
+.registro--agora.registro--sem-carga > *,
+.registro--agora.registro--sem-carga .agora__concluir { grid-area: auto; }
 
 .registro__reps {
   width: 100%;
@@ -10584,3 +10627,102 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .day-chip--feito .day-chip__label { color: var(--brand); }
 .day-chip--pulado { opacity: .55; }
 .day-chip--pulado .day-chip__label { color: var(--text-dim); }
+
+/* ==========================================================================
+   55. A BUSCA DE ALIMENTO — "comi outra coisa" que acha (26/09/2026)
+   ==========================================================================
+
+   O campo era `<input list>` com um `<datalist>` de todos os nomes ativos.
+   Dois defeitos, e os dois medidos: o `<datalist>` casa por prefixo do nome
+   INTEIRO (quem digita "requeijao" não acha "Queijo, requeijão, cremoso", que
+   é como a TACO escreve), e com os 583 alimentos da tabela ele seriam ~20 kB
+   de `<option>` no HTML desta tela, toda visita.
+
+   A lista de sugestões é FLUTUANTE e ancorada no campo, `position: absolute`
+   dentro de `.busca` — e não um bloco que empurra o resto. Empurrando, o
+   formulário crescia 350 px enquanto a pessoa digitava, e o botão
+   "Registrar" fugia do dedo a cada tecla. `--camada-flutuante` é o degrau
+   certo: acima do conteúdo, abaixo da barra de baixo, que é a regra da escala
+   de empilhamento.
+
+   `max-height: 22rem` é o teto de oito linhas de UMA linha só: oito × 44 px
+   dão 352 px, e 352 px são 22 rem. A aritmética só vale onde o nome cabe numa
+   linha: a 320–390 px a coluna do nome tem ~60–120 px (o `.busca__kcal` é
+   `flex: none`), e "Carne, bovina, contra-filé, com gordura, grelhada" quebra
+   em três ou quatro — ali a lista chega ao teto com duas ou três sugestões e
+   passa a rolar. Quem rola é a LISTA, nunca a página.
+
+   Alvo de toque: cada sugestão tem 44 px de altura e a largura inteira do
+   campo. A régua mede as duas.  */
+.busca {
+  position: relative;
+  min-width: 0;
+}
+
+.busca__lista {
+  position: absolute;
+  z-index: var(--camada-flutuante);
+  top: calc(100% + var(--espaco-1));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background: var(--surface-2);
+  border: var(--traco) solid var(--fio-forte);
+  border-radius: var(--quina-p);
+  box-shadow: var(--shadow-deep);
+}
+
+.busca__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--texto-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.busca__item + .busca__item { border-top: 1px solid var(--fio); }
+
+/* O item da vez é o mesmo estado para o dedo, para o mouse e para a seta do
+   teclado: uma marcação só, `aria-selected`, escrita pelo JavaScript. Com
+   `:hover` de um lado e uma classe do outro, o teclado e o mouse discordavam
+   na tela. */
+.busca__item:hover,
+.busca__item[aria-selected="true"] {
+  background: var(--brand-soft);
+}
+
+.busca__nome { min-width: 0; }
+
+.busca__kcal {
+  flex: none;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* O AVISO DE NÃO ENCONTRADO mora no card da refeição, colado no campo,
+   DENTRO de `.busca` — e sempre na árvore, porque é região `aria-live` (ver o
+   comentário no template). Vazio, ele não tem altura nem margem; a margem só
+   nasce quando há texto. */
+.busca__vazio {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  line-height: 1.4;
+}
+
+.busca__vazio:not(:empty) { margin-top: var(--espaco-1); }

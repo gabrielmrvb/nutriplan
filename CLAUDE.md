@@ -778,8 +778,9 @@ topo do script (dentro de um callback `currentScript` é `null`).
 vale para a PRÓXIMA tela que trocar HTML por fetch — `config/test_csp.py` lê
 o TEMPLATE, e script criado em tempo de execução não passa por lá.
 
-- **O iniciante do peso do corpo começa no degrau 3 ou abaixo**
-  (`services.ajustar_degrau_do_iniciante`, `DEGRAU_DO_INICIANTE = 3`;
+- **O iniciante do peso do corpo começa no degrau mais fácil**
+  (`services.ajustar_degrau_do_iniciante`; `DEGRAU_DO_INICIANTE` foi 3 de
+  22 a 24/09/2026 e hoje é 1 — ver "A ficha de quem começa em casa";
   doutrina no `TREINO.md`, "O degrau do iniciante no peso do corpo"): a
   persona recebia paralelas (4), parada de mão (5) e flexão arqueiro (5).
   Só `iniciante` + `peso_corporal`; item acima do degrau é trocado pelo
@@ -1828,6 +1829,357 @@ manchete, contra os outros 16 do app. Eles ganharam
 `--texto-lg`), e a regra é **a mesma, copiada verbatim** da branch da Home
 (#138), para as duas mergearem sem briga. Medido depois: 18 px em Archivo na
 palavra, 28 px em Big Shoulders no número.
+
+**A FICHA DE QUEM COMEÇA EM CASA (missão "quem entra não desiste", item 1,
+24–26/09/2026).** A persona 1 do relatório de experiência — iniciante, 78 kg,
+treina em casa só com o peso do corpo, três dias por semana — fechava o app
+no PRIMEIRO treino. O que ela recebia, medido: divisão `abc2`, e portanto um
+dia inteiro da semana chamado "Costas e bíceps" que, sem barra fixa, tinha
+DOIS exercícios e dezessete minutos; cinco barras fixas seguidas na letra B;
+mergulho nas paralelas e parada de mão na parede numa casa; os movimentos no
+meio da escada de progressão; oito exercícios e ~60 minutos. Quatro mudanças,
+e cada uma com a régua que impede a volta (`workouts/test_ficha_de_casa.py`):
+
+- **O CATÁLOGO DIZ O QUE O EXERCÍCIO EXIGE ALÉM DO CORPO** (`Exercise.
+  aparelho`, `workouts.models.Aparelho`, migration `workouts.0037` por NOME).
+  `Equipment` responde "que CARGA", e uma barra fixa não é carga: é aparelho —
+  a flexão de braço e a barra fixa pronada eram a MESMA COISA para o motor,
+  as duas `bodyweight`. Onze exercícios marcados: seis de barra fixa, três de
+  barra baixa, paralelas e inversão. O mapa de quem tem o quê é a tabela
+  "Mapa de aparelho" do `TREINO.md`, lida por `doutrina.aparelhos_de`, e o
+  corte é de produto: **barra fixa, paralelas e inversão saem de casa; a
+  barra baixa FICA**, porque a remada invertida se faz sob a mesa e sem ela o
+  perfil fica com ZERO exercício de costas. Banco, cadeira e parede não
+  viraram valor — todo perfil os tem, e classificá-los seria curadoria que
+  ninguém conferiu.
+
+  O motor obedece pelo MESMO caminho do equipamento, e sem parâmetro novo:
+  `permitidos` virou **a sacola do perfil** — equipamento E aparelho no mesmo
+  conjunto, porque os dois vocabulários não colidem. Quem lê separa com
+  `equipamentos_do_perfil`, `aparelhos_fora_do_perfil`, `perfil_inteiro` e
+  `dentro_do_perfil`; `in permitidos` cru passou a ser errado, e é o tipo de
+  linha que responde "sim" para um aparelho quando a pergunta era sobre
+  equipamento. `full A` ganhou uma remada horizontal ("Remada baixa na
+  polia") para a substituição ter o que trocar: sem ela o corpo inteiro em
+  casa saía SEM COSTAS, porque as duas puxadas do modelo eram verticais e a
+  única puxada de casa é horizontal.
+
+- **O INICIANTE EM CASA TREINA O CORPO INTEIRO até três dias por semana**
+  (`split_for(dias, preferencia, nivel, equipamento)`,
+  `DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE = 3`, `PERFIS_DE_CASA`). Com três
+  sessões, `abc2` dá UM estímulo por grupo na semana e o corpo inteiro dá
+  três. **"Em casa" faz parte da régua**: numa academia completa a letra de
+  "Costas e bíceps" do iniciante tem quatro exercícios de verdade, e é a
+  ficha que o teste DOURADO cobra — o corpo inteiro conserta o que o catálogo
+  de casa quebra e não mexe no que já estava certo. Quatro dias ou mais é a
+  tabela de sempre: corpo inteiro quatro vezes por semana é volume que um
+  iniciante não recupera.
+
+  E `rotina_invalida` compara com AS DUAS RÉGUAS — a nova e a de antes —,
+  porque "plano ativo antigo nunca remonta sozinho": quem tinha `abc2`
+  montado pela régua anterior continua válido, e recebe a nova quando mexer
+  numa entrada de verdade.
+
+- **A PRIMEIRA FICHA DE QUEM DECLARA "INICIANTE" NASCE NA FAIXA RÁPIDO**
+  (`TrainingForm.save`, só quando ainda não há ficha ativa). Medido: o corpo
+  inteiro em casa dá 8 exercícios e ~60 min no Padrão, e 4 exercícios em ~28
+  min no Rápido — agachar, empurrar, puxar e dobrar o quadril, que são os
+  movimentos que importam. Meia hora três vezes por semana é o programa que
+  se cumpre. Só na PRIMEIRA: quem já tem ficha pode ter escolhido a faixa na
+  área de Treino, e sobrescrever aquilo seria o app desfazer uma resposta.
+
+  O que tornou os quatro movimentos possíveis foi **o piso de série do
+  relógio virar o do NÍVEL** (`piso_de_serie`, lido do `TREINO.md`):
+  `PISO_COMPOSTO = 3` continua para quem não declarou nível e para
+  intermediário e avançado, e o iniciante desce a 2 porque a tabela A dele
+  diz 2–3. Com o piso em 3 a sessão fechava em TRÊS exercícios de três
+  séries e ficava sem cadeia posterior.
+
+- **O DEGRAU DO INICIANTE É 1, e o substituto é o degrau mais BAIXO LIVRE**
+  (`DEGRAU_DO_INICIANTE`, decisão do dono). Era 3 — a versão "padrão" do
+  movimento —, e a ficha abria com flexão de braço completa e afundo. E o
+  filtro do substituto deixou de ser "≤ o teto" e passou a ser "abaixo do
+  degrau do item": com o teto em 1, toda escada sem degrau 1 (o mergulho vai
+  de 2 a 4) perdia o substituto, e as paralelas voltavam a entrar — o
+  defeito que a régua existe para impedir, pela porta do teto. Subir é um
+  toque em "Trocar", que mostra a escada com "você está aqui".
+
+Duas telas mudaram junto: a execução **não desenha mais o campo "Carga"**
+para exercício de peso do corpo (ele já nascia vazio e sem `required`, e
+ainda assim era uma pergunta sem resposta certa — a persona digitou zero e
+fechou o treino em "0 kg levantados"; o servidor continua gravando 0 sozinho
+nesse caso), e a ficha abre com a **legenda da notação** — "3 × 6-10 quer
+dizer 3 séries de 6 a 10 repetições" — uma vez no topo, enquanto nenhum
+exercício daquela ficha tiver última vez (`ficha.estreando`, zero consulta).
+
+**A ETAPA 2 NÃO RESPONDE NO LUGAR DE NINGUÉM (missão "quem entra não
+desiste", item 5, 26/09/2026).** Duas perguntas da etapa 2 estavam erradas de
+formas opostas — uma vinha respondida, a outra era feita a quem não tem como
+responder:
+
+- **o equipamento abria MARCADO em "academia completa"**, porque
+  `Profile.equipamento` nascia com esse valor. Desde 24/09 o campo é
+  OBRIGATÓRIO para quem faz musculação, e as duas coisas juntas são uma
+  contradição: a tela exige a resposta e já a dá. O default virou `""`
+  (migration `accounts.0040`, só o default — **nenhuma linha é tocada**, e
+  quem tem "completa" gravado continua com ela, que era a verdade de quem
+  tinha ficha antes de a pergunta existir). Vazio é "ainda não respondeu",
+  como em `experiencia`: `services.equipamento_de` traduz para "completa" na
+  hora de montar a ficha, e o Perfil mostra o padrão DIZENDO que é padrão —
+  a mesma forma que o nível já tinha;
+- **"Quantos grupos musculares por dia?" era perguntada a quem nunca montou
+  um treino** (achado #13 das personas). Para o iniciante quem decide é o
+  motor — corpo inteiro em casa, divisão por frequência na academia —, então
+  a pergunta não tem consequência: `EtapaCompostaView.mostrar_divisao`
+  devolve falso para `iniciante` (e por isso o formulário da divisão também
+  não é exigido), e `pwa.js` some com o bloco no mesmo toque em que a pessoa
+  marca "iniciante", sem enviar e voltar. A régua dos DIAS continua ao lado:
+  abaixo do mínimo, toda preferência dá a mesma divisão.
+
+O nível ("iniciante") é lido do ENVIO antes do perfil (`nivel_pedido`): a
+etapa 2 pergunta as duas coisas na mesma tela, e quem marca "iniciante" e
+manda o formulário não pode receber de volta a pergunta da divisão só porque
+o perfil ainda estava vazio. `accounts/test_etapa_2_limpa.py` prende as duas,
+com controle positivo em cada uma, e mais a ordem do cadastro — o aceite dos
+Termos é a última coisa antes de "Criar conta", que já era verdade e agora
+tem régua.
+
+**A CORRIDA ENTRA NA CONTA (missão "quem entra não desiste", item 2,
+26/09/2026).** `calculations.activity_factor` conta SESSÕES por semana, e as
+sessões eram só as de academia (`len(session_minutes)`, que vem de
+`TrainingDay`): quem corre três vezes e não levanta peso recebia o piso da
+faixa — a meta de quem não treina (persona 3 do relatório de experiência).
+
+- **`Profile.corrida` / `corrida_dias` / `corrida_minutos`** (migration
+  `accounts.0041`, sem backfill), perguntados na etapa 2 e no Perfil, que é a
+  mesma tela. A pergunta-porta é a segunda da etapa ("Você corre, pedala ou
+  nada?"), e ela **não é obrigatória**, ao contrário da musculação: sem a
+  resposta da musculação a etapa não sabe o que mostrar, e sem esta o cálculo
+  fica exatamente como estava. Uma segunda pergunta obrigatória cobraria de
+  todo frequentador de academia uma resposta sobre corrida para não mudar
+  nada.
+- **`Corrida` vale `"corre"`/`"nao_corre"`, e NÃO `"sim"`/`"nao"`** (revisão
+  do PR #162). `accounts.templatetags.escolhas.DETALHES` é chaveado pelo VALOR
+  CRU da opção, sem o nome do campo, e `"sim"`/`"nao"` já são de `Musculacao`:
+  a pergunta da corrida desenhava os dois cartões da musculação, na etapa em
+  que duas das três personas desistiam. Pergunta nova de sim/não: valor
+  próprio, ou entrada própria em `DETALHES` — nunca o `"sim"` de outra.
+- **Os DIAS entram no fator; os MINUTOS não.** A doutrina de
+  `plans/calculations.py` recusa somar MET por fora, e a razão vale igual
+  aqui: a precisão daquela soma depende de a pessoa saber quantos minutos
+  realmente corre. Os minutos existem para o dia de corrida e para a pessoa
+  ver o que declarou. Medido: 3 corridas movem o fator de 1,40 para 1,430
+  numa mulher de 62 kg — +40 kcal/dia, o mesmo que 3 musculações moveriam.
+- **QUEM DECLARA A CORRIDA DEIXA DE RECEBER O CRÉDITO DO DIA**
+  (`tracking.day_summary`), e esse é o defeito que a mudança quase criou: o
+  gasto da corrida passou a estar na meta de TODO dia, e somar a corrida
+  registrada por cima contaria o mesmo esforço duas vezes — ~40 kcal/dia de
+  fator mais ~300 kcal de uma corrida de 5 km. A régua é **"você declarou,
+  entra na meta; não declarou, entra no dia"**: quem não respondeu a
+  pergunta continua recebendo o crédito por cima, exatamente como antes, e a
+  comparação é com `plan.corrida_dias` (o RETRATO), não com o perfil de
+  agora — o número da tela tem de bater com o plano que o produziu.
+- **A meta de ÁGUA do dia sobe meio litro quando houve corrida**
+  (`weight_trend.hidratacao_do_dia_ml`). Só o que a tela mostra e cobra no
+  dia: a OFENSIVA continua medindo pela meta base, de propósito — ela
+  compara muitos dias com uma régua só, e uma régua que sobe justamente no
+  dia em que a pessoa se esforçou mais tornaria o dia de corrida o mais
+  difícil de fechar.
+- **A corrida já contava como treino do dia na ofensiva** desde antes desta
+  missão ("a régua é moveu-se, não fez a letra"), e agora tem teste próprio.
+
+O que NÃO foi feito, e por quê: **o "lanche extra de carboidrato no dia de
+corrida" não virou um sexto `MealSlot`**. O cardápio é retrato do PLANO e os
+slots valem todo dia — um slot a mais apareceria também nos dias sem corrida,
+mudaria o denominador da aderência de todos os dias (`previstas_por_plano`) e
+daria calorias que a meta não previu justamente a quem já tem a corrida
+dentro dela. A alternativa honesta (mais carboidrato na divisão de macros de
+quem declara corrida, sem refeição nova) é decisão de produto e está no
+relatório como "recomendo rever".
+
+
+**NENHUM GET CRIA CONQUISTA (missão "quem entra não desiste", item 0, 26/09/2026).**
+`achievements.resumo` desbloqueava a regra que chegou a 100 % DENTRO de uma
+requisição GET, e `ConquistasView` chamava `avaliar` — o catálogo inteiro,
+com escrita — também num GET. Duas consequências reais: a primeira leitura do
+Progresso num dia podia devolver um número diferente da segunda com os mesmos
+dados ("mesmos dados, números diferentes" pela porta de trás, item 2 da lista
+que a missão A deixou), e uma requisição que ninguém pediu — um prefetch, um
+"abrir em nova aba" — mudava o banco.
+
+E O ANÚNCIO TAMBÉM SAIU DO GET (decisão do dono, 27/09/2026, revisão do PR
+#162). `achievements.context_processors.conquistas_pendentes` marcava como
+VISTA (`UPDATE seen_at`) a conquista que anunciava, e tirava o id da sessão:
+um prefetch, uma pré-renderização ou um "abrir em nova aba" com anúncio
+pendente o CONSUMIA sem ninguém ver. Hoje ele só LÊ (filtra `seen_at` nulo,
+para a sessão velha de outra aba não reanunciar), e o "visto" é o POST de
+`achievements:marcar_vistas` que `static/js/conquista.js` manda com
+`keepalive` — **só com a página visível e fora de pré-renderização**
+(`visibilityState`, `document.prerendering`, e os dois eventos que o
+reavaliam). A razão de 20/09 continua servida: o aviso some depois de ser
+visto uma vez, e não fica eterno cobrindo o CONCLUIR SÉRIE. Sem JavaScript o
+anúncio volta nas telas seguintes até o "Continuar", que sempre foi POST. A
+régua é `config/test_get_nao_grava.py` com um anúncio PENDENTE na sessão — a
+varredura antiga abria as telas sem nada a anunciar, e por isso não via.
+
+A saída não é um botão "resgatar", que ninguém tocaria: é **toda conquista
+nascer no POST QUE CRIA O FATO**, que é o que a doutrina de
+`ConcluirSerieView` já dizia desde 16/09/2026 ("a conquista é avaliada na
+primeira série do dia e no recorde, e anunciada onde nasce"). A regra passou a
+valer para as outras portas:
+
+- `services.sincronizar` é o laço que morava em `resumo` — `reunir` mais duas
+  consultas por regra que fecha, e nada quando nenhuma fecha. Ele é chamado
+  pelo POST da refeição, pelo da água (**só no ramo que SOMA**: zerar e
+  desfazer não fecham dia, e o reenvio da fila já devolveu em `ja_aplicada`) e
+  pelos dois da corrida (só quando ela NASCE);
+- **não é `avaliar`**: `sincronizar` só enxerga as regras com progresso
+  mensurável (primeiro treino, N treinos, N dias de ofensiva) — as repetíveis
+  (recorde, semana completa) nascem de um treino, e o POST da série continua
+  chamando `avaliar`, que roda o catálogo inteiro. Somar o catálogo a cada
+  copo d'água seria pagar 50 consultas para descobrir que nada mudou;
+- `resumo` e `ConquistasView` ficaram de LEITURA. O "1/1 com a conquista
+  trancada" que a avaliação no GET existia para evitar (avaliação B35) não
+  volta, porque a barra só chega a 100 % depois de um desses POSTs — e ele
+  desbloqueia na hora;
+- **a RETROATIVIDADE virou um comando de build**: `manage.py
+  desbloquear_pendentes` avalia quem tem treino e ZERO conquistas — uma vez
+  por pessoa, porque depois da primeira ela sai do filtro. Numa base sem
+  pendente custa UMA consulta. Ele não anuncia nada, e isso é de propósito:
+  não há sessão num build, e acerto de contas não é celebração.
+
+`achievements/test_o_get_nao_grava.py` varre as quatro telas que leem
+conquista e prova que nenhuma grava; o controle positivo do arquivo é o POST
+da série e o da refeição desbloqueando na hora.
+
+**"COMI OUTRA COISA" ACHA O QUE FOI DIGITADO (missão "quem entra não
+desiste", item 3, 26/09/2026).** A busca comparava o nome digitado com os 102
+alimentos CURADOS — os que o motor usa para montar receita — por `casefold()`
+e mais nada. Dois defeitos somados, e os dois achados pelas personas (#2):
+quem comeu pão de queijo, açaí, cuscuz ou coxinha não casava com NADA, e quem
+escreveu "feijao" também não casou, porque no teclado do celular o acento é o
+que ninguém digita. Nos dois casos a refeição entrava no histórico com ZERO
+caloria, e o dia não mexia um número.
+
+- **A TABELA TACO ENTRA NO CATÁLOGO**: 583 alimentos da 4ª edição
+  (NEPA/UNICAMP, 2011), pela cópia normalizada de github.com/brolesi/taco
+  (MIT, DOI 10.5281/zenodo.22145839), por `manage.py seed_taco` — no
+  `build.sh` DEPOIS do `seed_catalog`, porque na colisão de nome o curado
+  ganha e é o importado que pula. Fonte, versão e o que ficou de fora estão
+  na chave `fonte` do próprio `catalog/data/taco.json`. **14 das 597 linhas
+  foram DESCARTADAS** e a régua está lá: linha sem energia publicada (o leite
+  de vaca integral vem vazio nessa cópia — o curado cobre) e linha cuja
+  energia não fecha com os macros dentro de 15 % (a feijoada, 140 contra
+  117). A exceção é a categoria Bebidas: o etanol carrega 7 kcal/g e não é
+  macro, então a soma nunca fecha numa aguardente, e a energia publicada
+  continua certa.
+- **A NORMALIZAÇÃO É UMA SÓ, e mora em `catalog/busca.py`.** `normalizar`
+  escreve a coluna `Food.busca` (migration `catalog.0009`, preenchida pela
+  própria migration e pelos dois seeds — `bulk_create` e `update` não passam
+  pelo `save()`), e é a MESMA função que a busca da tela e o casamento do que
+  foi digitado usam. Coluna e não `unaccent` do Postgres: a extensão precisa
+  de `CREATE EXTENSION`, que o role do app não tem no Neon, e a migration que
+  a criasse falharia no BUILD, não no teste. O JSON já teve uma chave `busca`
+  pré-calculada, e ela era uma SEGUNDA fonte da mesma regra — a sabotagem que
+  estragou `normalizar` passou VERDE por causa dela. A chave saiu do arquivo.
+- **O `<datalist>` DE TODOS OS NOMES SAIU.** Com a TACO ele seriam ~20 kB de
+  `<option>` na tela do cardápio em toda visita, e ele casa por prefixo do
+  nome INTEIRO — "requeijao" não acha "Queijo, requeijão, cremoso", que é
+  como a tabela escreve (ela inverte o nome). No lugar,
+  `plans:buscar_alimento` (GET, com sessão, `private, max-age=300`, mínimo de
+  duas letras, até oito sugestões, prefixo antes de "contém", com a caloria
+  por 100 g ao lado do nome) e o bloco "BUSCA DE ALIMENTO" do `pwa.js`:
+  delegado no `document` (os campos nascem dentro de `<details>` que a pessoa
+  abre depois), `role="listbox"`, setas, Enter que escolhe sem enviar o
+  formulário, e o foco indo para as GRAMAS ao escolher.
+- **SEM REDE A TELA NÃO QUEBRA, e o aviso de "não encontramos" NÃO aparece**:
+  `fetch` que falha é "sem sugestão", e o app não sabe se encontraria. O campo
+  continua texto livre, e o casamento é do SERVIDOR quando a fila offline
+  drena (`/refeicao/<id>/marcar/` está em `ROTAS`). É por isso que UMA
+  sugestão em cache no processo não substitui a busca: o que precisa
+  funcionar offline é o REGISTRO, não a sugestão.
+- **O AVISO DE NÃO ENCONTRADO FICA NO CARD**, ao lado do campo
+  (`[data-busca-vazio]`, `aria-live="polite"`), e diz a saída: "você pode
+  registrar assim mesmo — a refeição fica salva sem contar a caloria deste
+  item". No topo, a faixa de mensagens sai da vista no celular e não diz de
+  qual das três linhas está falando.
+- **Preço medido**: `_itens_descritos` carregava o catálogo INTEIRO para
+  comparar em Python, com a razão escrita ("são 61 alimentos ativos") — com a
+  TACO seriam 685 objetos em todo registro de "comi outra coisa". Passou a ser
+  uma consulta do que foi pedido (`busca.por_nome_digitado`), e o contexto da
+  tela perdeu a consulta do `<datalist>`.
+- **O que NÃO foi feito**: sugestão offline. Um `<datalist>` reduzido ao lado
+  da busca seriam DUAS listas no mesmo campo, e no celular as duas abrem
+  juntas. Está no relatório como "recomendo rever".
+
+**O APP DE QUEM NÃO LEVANTA PESO (missão "quem entra não desiste", item 4,
+26/09/2026).** A pergunta "você faz musculação?" entrou em 22/09 e resolveu
+UMA tela: o painel de treino parou de cobrar "Cadastrar meus dias". O resto do
+app continuou de academia — a aba dizia "Treino", a etapa 3 oferecia "Treino"
+como área para acompanhar, o fim do cadastro anunciava "ficha montados", o
+Progresso abria com "Treinos 0 — Sem dia de treino combinado", o e-mail de
+boas-vindas mandava abrir a ficha de hoje, e as onze conquistas eram todas de
+treino, ofensiva e recorde de carga: quem só corre não tinha conquista nenhuma
+para ganhar, nem a primeira.
+
+- **A REGRA MORA EM `Profile.nao_faz_musculacao`**, e não em cada tela. Branco
+  continua valendo `False` DE PROPÓSITO: branco é "não perguntado", e
+  tratá-lo como "não faz" mudaria a navegação de toda conta anterior à
+  pergunta — a mesma razão de `prioridade == ""` não inferir nada.
+- **A terceira ABA vira Corrida** (`navegacao.abas_de`, `ABA_DE_CORRIDA`), na
+  POSIÇÃO da de treino: a barra continua com as MESMAS CINCO abas (o QA de
+  navegador leu `['Hoje', 'Alimentação', 'Corrida', 'Progresso', 'Mais']`;
+  a primeira versão desta frase dizia "quatro", que é o número de antes de
+  22/09/2026), então nada de layout muda. `icone-bicicleta` é o símbolo que o mapa já usa, então o
+  sprite não cresce. "Mais" perde `running` dos `navs` — com o pilar nas duas,
+  as duas acendiam e `aria-current="page"` saía duplicado na mesma barra. Custo
+  ZERO: as telas do app leem `request.user.profile` pelo descritor no
+  `OnboardingRequiredMixin`, e as que não leem não desenham barra. **O shell de
+  offline fica com a barra canônica**, pelo mesmo motivo que o selo de área
+  principal não entra lá: a página é pré-cacheada e servida a quem pegar o
+  aparelho depois.
+- **A etapa 3 não oferece "Treino"** (`InteressesForm`): as choices saem das
+  duas listas, e `clean` descarta o valor que chega por `initial` — quem marcou
+  Treino, voltou à etapa 2 e disse que não faz. Sem isso, marcar ali dava um
+  selo de área principal apontando para a tela que diz "você não tem ficha".
+- **A frase do fim do cadastro diz o que FOI montado**: ela anunciava
+  "cardápio de exemplo e ficha montados" para todo mundo, inclusive para quem
+  terminou sem dia nenhum. A conta é do BANCO (`get_active_routine`), não da
+  resposta — uma consulta, uma vez, no fim do cadastro.
+- **O Progresso põe Corrida ANTES do treino, e o cartão de treino sai quando
+  não há dado** (`evolucao.reunir`). Quem treinou antes de mudar a resposta
+  continua vendo o próprio histórico: apagá-lo seria o app decidir que aquilo
+  não aconteceu. E o tile "Treinos 0 de 0" dá lugar a `tile_de_corrida`, sobre
+  o mapa de corrida que a tela já leu — zero consulta nova. `painel["areas"]`
+  deixou de ser lido por POSIÇÃO em `HistoryView`: `[0]` era uma aposta que
+  esta mudança quase perdeu em silêncio.
+- **QUATRO CONQUISTAS DE CORRIDA, para todo mundo** (`Familia.CORRIDA`, que
+  estava reservada e vazia): primeira corrida, 5 km numa corrida, 10 km numa
+  corrida e 100 km somados. Os marcos são os do mundo de quem corre — 5 e 10
+  km são as duas provas de rua mais comuns —, e nenhuma é `repetivel`: marco
+  que renasce a cada corrida mais longa é confete, o defeito que `_recorde`
+  nomeia. Custo: UMA agregação (`Count`+`Max`+`Sum` de `distancia_m`) em
+  `achievements.reunir`, a mesma para quem nunca correu; `plans:history` foi
+  de 31 para 32 com a razão escrita. "10 corridas" esteve na lista e saiu —
+  ela e os 100 km medem a mesma coisa.
+- **O e-mail de boas-vindas tem TRÊS versões**, e a que sai hoje é a do
+  branco: no cadastro a pergunta ainda não foi feita (ela é da etapa 2), então
+  o passo 3 diz o que vai acontecer sem prometer nada. As outras duas existem
+  para o dia em que o envio se mudar para depois da confirmação de e-mail — o
+  que a docstring de `boas_vindas` já anuncia —, e as três são renderizadas em
+  teste para nenhuma apodrecer calada.
+- **A porta da Corrida volta ao `/treino/` de quem TEM ficha**, como LINHA e
+  não como cartão — e só para quem não respondeu que NÃO corre
+  (`convida_a_correr`). Ela mora no MESMO item de grade da lista de sessões
+  (um `<div class="stack">` em volta dos dois): solta, a 60rem ela virava o
+  quinto filho de `.stack--duas-colunas` e empurrava o `<aside>` de coluna
+  (achado da revisão do PR #162, na resolução do merge com `main`). A decisão de 22/09 ("A CORRIDA SAIU DAQUI") tirou um cartão
+  de área da coluna lateral e continua de pé; o que ela produziu sem querer foi
+  um estado assimétrico — `_corrida.html` nos dois ramos de "sem ficha" e em
+  nenhum com ficha —, e quem levanta peso E corre ficou sem caminho daqui.
+- **O CARTÃO DA HOME NÃO FOI TOCADO**, por decisão do dono: o PR #138 redesenha
+  `templates/plans/today.html` e está segurado. "O cartão da Home vira Corrida"
+  é o único item da lista do dono que fica ADIADO, e está no relatório.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 

@@ -230,7 +230,13 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # não do tamanho do período — as barras da semana são somadas em
         # Python sobre o mapa do dia. `plans.test_evolucao` mede isso
         # diretamente, comparando "semana" com "3 meses".
-        "plans:history": 31,
+        # 31 -> 32 (26/09/2026, item 4): as quatro conquistas de CORRIDA. É UMA
+        # agregação (`Count`+`Max`+`Sum` de `distancia_m`) dentro de
+        # `achievements.reunir`, que o bloco de conquistas desta tela já
+        # chamava — constante, e a mesma para quem nunca correu. Até aqui a
+        # família CORRIDA estava reservada e vazia, e quem só corre não tinha
+        # conquista nenhuma para ganhar.
+        "plans:history": 32,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520
@@ -503,3 +509,136 @@ class StressSeedTests(TestCase):
         tendencia = weight_trend.analisar(self.user)
         deltas = [s.delta for s in tendencia.semanas if s.delta is not None]
         self.assertTrue(deltas, "nenhuma semana comparável")
+
+
+class OrcamentoDosRegistrosDeAguaERefeicaoTests(TestCase):
+    """A GUARDA DE `sincronizar` nos dois POSTs mais tocados do app.
+
+    Decisão do dono (27/09/2026, revisão do PR #162). `achievements.
+    sincronizar` custa ~12 consultas sobre 400 dias e rodava em TODO toque de
+    água e toda marcação de refeição. Um toque desses só destrava conquista
+    pela OFENSIVA, e só se o dia FECHOU agora — o que exige que o pilar tocado
+    tenha CRUZADO o limiar neste pedido (`streaks.agua_fechou_o_pilar`,
+    `streaks.dieta_fechou_o_pilar`). O caso comum — o segundo copo, a primeira
+    refeição — não cruza, e deixou de pagar.
+
+    MEDIDO no banco de desenvolvimento, toques equivalentes (não o primeiro do
+    dia), antes → depois da guarda:
+
+        água que não cruza o alvo        23 → 13 consultas
+        água que CRUZA o alvo            23 → 25  (+2: a releitura e o plano)
+        refeição que não cruza 80 %      25 → 16
+        refeição que CRUZA 80 %          25 → 28  (+3: o estado de antes, as
+                                                   feitas do dia, as previstas)
+
+    Os tetos abaixo são os mesmos números, medidos de novo nesta fixture; o
+    espião prova a outra metade: que a avaliação roda EXATAMENTE quando cruza.
+    """
+
+    #: `assertLessEqual`, como `ScreenQueryBudgetTests.TETOS`: baixar é
+    #: bem-vindo, subir exige a medição escrita ao lado.
+    TETO_AGUA_COMUM = 13
+    TETO_AGUA_CRUZA = 25
+    TETO_REFEICAO_COMUM = 16
+    TETO_REFEICAO_CRUZA = 28
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+
+    def setUp(self):
+        self.user = create_complete_user(email="orcamento-registro@exemplo.com")
+        self.plano = services.create_plan(self.user)
+        self.hoje = timezone.localdate()
+        # Um pouco de passado, para `sincronizar` ter o que ler.
+        HydrationLog.objects.bulk_create(
+            HydrationLog(user=self.user, date=self.hoje - timedelta(days=i), ml=3500)
+            for i in range(1, 15)
+        )
+        self.slots = list(self.plano.slots.order_by("time"))
+        self.alvo = (
+            weight_trend.hidratacao_ml(self.plano.weight_kg) * streaks.HIDRATACAO_MINIMA_PCT / 100
+        )
+        self.client.force_login(self.user)
+
+    def _contar(self, fn):
+        with CaptureQueriesContext(connection) as capturado:
+            resposta = fn()
+        self.assertEqual(resposta.status_code, 302)
+        return len(capturado.captured_queries)
+
+    def _espiao(self, fn):
+        with mock.patch("plans.views.conquistas.sincronizar") as espiao:
+            fn()
+        return espiao.call_count
+
+    def _beber(self, ml=250):
+        return self.client.post(reverse("plans:log_hydration"), {"ml": ml})
+
+    def _comer(self, slot, status=MealStatus.DONE):
+        corpo = {"status": status}
+        if status == MealStatus.DONE:
+            corpo["option"] = slot.options.first().pk
+        if status == MealStatus.OFF_PLAN:
+            corpo["notes"] = "comi fora"
+        return self.client.post(reverse("plans:mark_meal", args=[slot.pk]), corpo)
+
+    def _levar_a_agua_para(self, ml):
+        HydrationLog.objects.update_or_create(
+            user=self.user, date=self.hoje, defaults={"ml": ml}
+        )
+
+    def _feitas_ate(self, n):
+        for slot in self.slots[:n]:
+            self._comer(slot)
+
+    # -------------------------------------------------------------- água
+
+    def test_o_segundo_copo_nao_avalia_e_cabe_no_teto(self):
+        self._beber()
+        self.assertEqual(self._espiao(self._beber), 0)
+        n = self._contar(self._beber)
+        self.assertLessEqual(n, self.TETO_AGUA_COMUM, "água que não cruza: %d consultas" % n)
+
+    def test_o_copo_que_cruza_o_alvo_avalia(self):
+        self._levar_a_agua_para(int(self.alvo) - 100)
+        self.assertEqual(self._espiao(self._beber), 1)
+        self._levar_a_agua_para(int(self.alvo) - 100)
+        n = self._contar(self._beber)
+        self.assertLessEqual(n, self.TETO_AGUA_CRUZA, "água que cruza: %d consultas" % n)
+
+    def test_o_copo_depois_do_alvo_nao_avalia_de_novo(self):
+        """Já acima do alvo, o dia não fecha OUTRA vez."""
+        self._levar_a_agua_para(int(self.alvo) + 500)
+        self.assertEqual(self._espiao(self._beber), 0)
+
+    # ---------------------------------------------------------- refeição
+
+    def test_a_primeira_refeicao_nao_avalia_e_cabe_no_teto(self):
+        self._comer(self.slots[0])
+        self.assertEqual(self._espiao(lambda: self._comer(self.slots[1])), 0)
+        n = self._contar(lambda: self._comer(self.slots[2]))
+        self.assertLessEqual(n, self.TETO_REFEICAO_COMUM, "refeição que não cruza: %d" % n)
+
+    def test_a_refeicao_que_cruza_o_limiar_avalia(self):
+        import math
+
+        precisa = math.ceil(len(self.slots) * streaks.ADESAO_MINIMA_PCT / 100)
+        self._feitas_ate(precisa - 1)
+        self.assertEqual(self._espiao(lambda: self._comer(self.slots[precisa - 1])), 1)
+        MealLog.objects.filter(user=self.user, slot=self.slots[precisa - 1]).delete()
+        n = self._contar(lambda: self._comer(self.slots[precisa - 1]))
+        self.assertLessEqual(n, self.TETO_REFEICAO_CRUZA, "refeição que cruza: %d" % n)
+
+    def test_remarcar_a_mesma_refeicao_nao_avalia(self):
+        """Marcar de novo o que já estava feito não muda a contagem do dia —
+        mesmo em cima do limiar."""
+        import math
+
+        precisa = math.ceil(len(self.slots) * streaks.ADESAO_MINIMA_PCT / 100)
+        self._feitas_ate(precisa)
+        self.assertEqual(self._espiao(lambda: self._comer(self.slots[precisa - 1])), 0)
+
+    def test_pular_e_comer_outra_coisa_nao_avaliam(self):
+        self.assertEqual(self._espiao(lambda: self._comer(self.slots[0], MealStatus.SKIPPED)), 0)
+        self.assertEqual(self._espiao(lambda: self._comer(self.slots[1], MealStatus.OFF_PLAN)), 0)

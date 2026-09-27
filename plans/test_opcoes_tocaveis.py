@@ -148,7 +148,11 @@ class ARegistrarNaoMoraMaisDentroDaSanfonaTests(TestCase):
         espera (`o que você comeu`)."""
         fora = re.search(r'<details class="fora".*?</details>', self.html, re.S).group(0)
         self.assertIn('placeholder="o que você comeu"', fora)
-        self.assertIn('list="alimentos-do-catalogo"', fora)
+        # O `<datalist>` saiu (missão B, item 3): ~20 kB de `<option>` com a
+        # TACO, e ele casava por prefixo do nome inteiro. O campo agora é o
+        # combobox que busca no servidor.
+        self.assertIn('role="combobox"', fora)
+        self.assertIn("data-busca-url=", fora)
         botao = re.search(
             r"<button[^>]*>(.*?)</button>", fora, re.S
         ).group(1).strip()

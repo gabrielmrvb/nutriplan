@@ -691,12 +691,54 @@
                       isso, fica registrado sem contar caloria.
                     </p>
 
+                    {% comment %}
+                      A BUSCA DE ALIMENTO (item 3, 26/09/2026). Era `list=` num
+                      `<datalist>` com TODOS os nomes ativos; hoje é uma busca
+                      em `plans:buscar_alimento` — prefixo e sem acento, mínimo
+                      de duas letras, até oito sugestões —, escrita por
+                      `pwa.js` ("BUSCA DE ALIMENTO"). O `<datalist>` casava por
+                      prefixo do nome INTEIRO: quem digitava "requeijao" não
+                      achava "Queijo, requeijão, cremoso", que é como a TACO
+                      escreve. E com os 583 alimentos da tabela ele seriam
+                      ~20 kB de `<option>` em toda visita a esta tela.
+
+                      `role="combobox"` com a lista em `[data-busca-lista]`: os
+                      atributos que mudam (`aria-expanded`,
+                      `aria-activedescendant`) são do JavaScript, e o que nasce
+                      no HTML é o que vale sem ele — um campo de texto que
+                      continua aceitando o nome digitado, porque o casamento é
+                      do SERVIDOR.
+                    {% endcomment %}
                     {% for _ in itens_fora %}
-                      <div class="fora__item">
-                        <input class="field-input" type="text" name="alimento"
-                               list="alimentos-do-catalogo" autocomplete="off"
-                               placeholder="Alimento"
-                               aria-label="Alimento {{ forloop.counter }}">
+                      <div class="fora__item" data-busca-alimento data-busca-url="{% url 'plans:buscar_alimento' %}">
+                        <div class="busca">
+                          <input class="field-input" type="text" name="alimento"
+                                 autocomplete="off" role="combobox"
+                                 aria-expanded="false" aria-autocomplete="list"
+                                 aria-controls="busca-{{ slot.pk }}-{{ forloop.counter }}"
+                                 data-busca-campo
+                                 placeholder="Alimento"
+                                 aria-label="Alimento {{ forloop.counter }}">
+                          <ul class="busca__lista" role="listbox" hidden
+                              id="busca-{{ slot.pk }}-{{ forloop.counter }}"
+                              aria-label="Sugestões para o alimento {{ forloop.counter }}"
+                              data-busca-lista></ul>
+                          {% comment %}
+                            O AVISO DE NÃO ENCONTRADO FICA AQUI, no card da
+                            refeição e colado no campo — não no topo da página,
+                            onde a faixa de mensagens some da vista no celular e
+                            não diz de qual linha está falando.
+
+                            SEMPRE NA ÁRVORE, e sem `hidden` (revisão do PR #162):
+                            uma região `aria-live` tem de existir ANTES de o texto
+                            chegar, senão o que o leitor de tela vê é a inserção
+                            dela, que não é anunciada de forma confiável. Vazia, ela
+                            não ocupa altura — e por isso mora dentro de `.busca`,
+                            que é bloco, e não solta na grade de `.fora__item`,
+                            onde um filho vazio ainda custaria o `gap` de uma linha.
+                          {% endcomment %}
+                          <p class="busca__vazio" aria-live="polite" data-busca-vazio></p>
+                        </div>
                         <input class="field-input num" type="text" name="gramas"
                                inputmode="decimal" maxlength="5" placeholder="g"
                                aria-label="Quantidade em gramas do alimento {{ forloop.counter }}">
@@ -714,17 +756,6 @@
             {% endif %}
           </article>
         {% endfor %}
-
-        {% comment %}
-          O catálogo entra UMA vez na página, e todos os horários apontam para
-          ele — mesma decisão do sprite de ícones. Um `<select>` daria o id de
-          graça e custaria 61 opções por linha, vezes três linhas, vezes cinco
-          horários: 900 nós de DOM na tela mais visitada do app.
-        {% endcomment %}
-        <datalist id="alimentos-do-catalogo">
-          {# `alimentos` são NOMES (a lista em cache de `alimentos_do_catalogo`), não objetos — `food.name` saía vazio (#102, 21/09/2026). #}
-          {% for nome in alimentos %}<option value="{{ nome }}"></option>{% endfor %}
-        </datalist>
 
         {% comment %}
           A frase dizia "as duas opções são equivalentes" e "dá para trocar A
@@ -991,8 +1022,14 @@
           <div>
             <dt>
               Fator de atividade
+              {% comment %}
+                SESSÕES, e não "treinos" (26/09/2026): desde que a corrida
+                entrou na conta, o número aqui é academia MAIS corrida —
+                quem corre três vezes e não levanta peso tinha "0× por
+                semana" escrito na própria tela que explicava a meta dela.
+              {% endcomment %}
               <span class="muted">({{ breakdown.factor_min }}–{{ breakdown.factor_max }},
-              {{ breakdown.training_days }}× por semana)</span>
+              {{ breakdown.sessoes }}× por semana{% if breakdown.corrida_dias %} — {{ breakdown.training_days }} de academia e {{ breakdown.corrida_dias }} de corrida{% endif %})</span>
             </dt>
             <dd>×{{ breakdown.activity_factor }}</dd>
           </div>
@@ -1017,9 +1054,12 @@
         </dl>
         <p class="hint">
           O gasto vem da fórmula de Mifflin-St Jeor com o seu peso, altura, idade e sexo,
-          multiplicada por um fator de atividade que já inclui a academia. O fator é uma
-          faixa: quem não treina fica no piso dela, quem treina cinco vezes por semana
-          chega ao teto. Os valores são conservadores de propósito — meta inflada é a
+          multiplicada por um fator de atividade que já inclui as suas sessões —
+          <strong>academia e corrida contam igual</strong>, uma sessão é uma sessão. O
+          fator é uma faixa: quem não treina fica no piso dela, quem soma cinco sessões
+          por semana chega ao teto. Os minutos não entram: a conta usa a frequência,
+          porque somar calorias por minuto de esforço depende de um número que ninguém
+          sabe de cabeça e infla a meta. Os valores são conservadores de propósito — meta inflada é a
           razão mais comum de uma dieta não funcionar. O ritmo em quilos usa a convenção
           de 7.700 kcal por quilo de gordura.
         </p>
@@ -1036,6 +1076,15 @@
           <div><dt>Altura</dt><dd>{{ plan.height_cm }} cm</dd></div>
           <div><dt>Idade</dt><dd>{{ plan.age_years }} anos</dd></div>
           <div><dt>Rotina</dt><dd>{{ plan.get_activity_level_display }}</dd></div>
+          {% comment %}
+            A CORRIDA NO RETRATO (26/09/2026): ela move a meta, então ela é
+            um dado do cálculo como os dias de academia. Só aparece para
+            quem declarou — uma linha "Corrida: 0" seria ruído para quem
+            respondeu "não".
+          {% endcomment %}
+          {% if plan.corrida_dias %}
+            <div><dt>Corrida</dt><dd>{{ plan.corrida_dias }}× por semana</dd></div>
+          {% endif %}
           <div>
             <dt>Treinos</dt>
             <dd>

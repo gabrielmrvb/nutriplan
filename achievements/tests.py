@@ -378,11 +378,46 @@ class CatalogoTests(TestCase):
                 self.assertTrue(regra.emoji)
 
     def test_nao_ha_conquista_de_dado_que_o_app_nao_tem(self):
-        """Corrida, passos, medida corporal, sono e desafio não existem no
-        NutriPlan. Uma conquista sobre eles seria uma promessa quebrada."""
+        """Passos, medida corporal, sono e desafio não existem no NutriPlan.
+        Uma conquista sobre eles seria uma promessa quebrada.
+
+        CORRIDA SAIU DESTA LISTA em 26/09/2026 (item 4 da missão "quem entra
+        não desiste"), e saiu porque o DADO passou a existir:
+        `workouts.Corrida` guarda distância e tempo desde a campanha da
+        corrida. Enquanto ela estava aqui, quem só corre não tinha conquista
+        NENHUMA para ganhar — nem a primeira.
+
+        A régua não afrouxou: ela continua sendo "família com regra só onde há
+        dado". O que mudou foi o inventário de dados do app.
+        """
         familias = {regra.familia for regra in POR_SLUG.values()}
 
-        self.assertEqual(familias, {"treino", "ofensiva", "meta", "recorde"})
+        self.assertEqual(
+            familias, {"treino", "ofensiva", "meta", "recorde", "corrida"}
+        )
+
+    def test_toda_conquista_de_corrida_sai_de_dado_que_o_banco_tem(self):
+        """O outro lado da régua acima, e o controle positivo dela: as quatro
+        de corrida leem SÓ os três campos que `achievements.reunir` agrega de
+        `Corrida` (contagem, maior distância, soma). Uma que lesse ritmo,
+        altimetria ou frequência cardíaca seria a promessa quebrada."""
+        from achievements.regras import Dados, Familia
+
+        de_corrida = [r for r in POR_SLUG.values() if r.familia == Familia.CORRIDA]
+        self.assertEqual(len(de_corrida), 4)
+        vazio = Dados(hoje=SEGUNDA, dias_treinados=0, previstos=frozenset(), ofensiva=0)
+        cheio = Dados(
+            hoje=SEGUNDA, dias_treinados=0, previstos=frozenset(), ofensiva=0,
+            corridas=30, maior_corrida_m=12000, total_corrido_m=200000,
+        )
+        for regra in de_corrida:
+            with self.subTest(slug=regra.slug):
+                # Sem corrida nenhuma, nada nasce; com muitas, todas nascem.
+                # Se uma delas dependesse de um campo que `Dados` não tem, ela
+                # estouraria aqui em vez de ficar muda em produção.
+                self.assertEqual(regra.detectar(vazio), [])
+                self.assertEqual(len(regra.detectar(cheio)), 1)
+                self.assertFalse(regra.repetivel, regra.slug)
 
 
 class AcessoTests(BaseDeConquistas):
@@ -493,7 +528,12 @@ class AvisoTests(BaseDeConquistas):
         página — e na execução ele cobre o campo Reps e o CONCLUIR SÉRIE
         (toast em y=576, botão em 645–699 a 844 px). Um aviso ancorado que
         nunca expira vira obstáculo. Regra: anunciado onde nasce, e ali mesmo
-        marcado como visto; a tela seguinte já não o traz."""
+        marcado como visto; a tela seguinte já não o traz.
+
+        POR UM POST DESDE 27/09/2026 (decisão do dono, revisão do PR #162): o
+        GET não marca mais — um prefetch consumia o anúncio. Quem marca é o
+        `fetch` de `conquista.js` quando a página está visível; aqui ele é o
+        POST explícito entre as duas telas."""
         user = self.pessoa(weekdays=(0, 2, 4))
         self.client.force_login(user)
         exercicio = Exercise.objects.filter(is_active=True).first()
@@ -503,9 +543,17 @@ class AvisoTests(BaseDeConquistas):
         )
 
         primeira = self.client.get(reverse("workouts:routine")).content.decode()
-        segunda = self.client.get(reverse("plans:today")).content.decode()
-
         self.assertIn('class="conquista"', primeira)
+        # O "visto" que `conquista.js` manda com a página visível.
+        ids = list(
+            UserAchievement.objects.filter(user=user, seen_at__isnull=True)
+            .values_list("pk", flat=True)
+        )
+        self.client.post(
+            reverse("achievements:marcar_vistas"), {"id": ids},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        segunda = self.client.get(reverse("plans:today")).content.decode()
         self.assertNotIn('class="conquista"', segunda)
         self.assertFalse(
             UserAchievement.objects.filter(user=user, seen_at__isnull=True).exists(),
@@ -615,14 +663,22 @@ class PrivacidadeDoCardTests(BaseDeConquistas):
 class RetroatividadeTests(BaseDeConquistas):
     """Quem já treinava quando as conquistas nasceram não pode ficar de fora.
 
-    O desbloqueio acontecia num lugar só: o POST que registra carga. Todo mundo
-    com histórico anterior ao lançamento nunca era avaliado — e como a tela de
-    conquistas calcula o progresso AO VIVO, ela mostrava "1/1" em "Próximas".
-    Progresso completo e conquista trancada, lado a lado, sem nada que a pessoa
-    pudesse fazer a respeito: ela já tinha cumprido a condição.
+    O desbloqueio acontecia num lugar só — o POST que registra carga —, e
+    quem tinha histórico anterior ao lançamento nunca era avaliado: a tela
+    calcula o progresso AO VIVO e mostrava "1/1" em "Próximas", progresso
+    completo e conquista trancada lado a lado.
+
+    A CONTA CONTINUA PAGA, POR OUTRA PORTA (26/09/2026). Era `avaliar` no
+    GET da tela; virou `manage.py desbloquear_pendentes`, que roda no build
+    e avalia quem tem treino e ZERO conquistas — uma vez por pessoa, porque
+    depois da primeira ela sai do filtro. Nenhum GET cria conquista (item 0 da missão
+    "quem entra não desiste"), e daqui para frente toda conquista nasce no
+    POST que cria o fato.
     """
 
-    def test_historico_anterior_desbloqueia_ao_abrir_a_tela(self):
+    def test_historico_anterior_desbloqueia_no_comando_do_build(self):
+        from django.core.management import call_command
+
         user = self.pessoa()
         self.treinar(user, timezone.localdate())
 
@@ -630,21 +686,110 @@ class RetroatividadeTests(BaseDeConquistas):
         # antes de as conquistas existirem.
         self.assertEqual(self.slugs(user), [])
 
+        # E abrir a tela NÃO resolve mais — nem estraga nada.
         self.client.force_login(user)
         self.client.get(reverse("achievements:list"), secure=True)
+        self.assertEqual(self.slugs(user), [])
 
+        call_command("desbloquear_pendentes", verbosity=0)
         self.assertIn("primeiro-treino", self.slugs(user))
+
+    def test_quem_ja_tem_conquista_nao_e_reavaliado_pelo_comando(self):
+        """O filtro é o que torna o comando barato para sempre: depois da
+        primeira avaliação a pessoa sai da lista."""
+        from django.core.management import call_command
+        from io import StringIO
+
+        user = self.pessoa()
+        self.treinar(user, timezone.localdate())
+        call_command("desbloquear_pendentes", verbosity=0)
+        saida = StringIO()
+        call_command("desbloquear_pendentes", stdout=saida)
+        self.assertIn("0 pessoa(s)", saida.getvalue())
+
+    def _correr(self, user, metros=5200, atras=3):
+        from datetime import timedelta as _td
+
+        from workouts.models import Corrida
+
+        fim = timezone.now() - _td(days=atras)
+        return Corrida.objects.create(
+            user=user, op_id="retro-%d-%d" % (user.pk, atras),
+            comecou_em=fim - _td(minutes=30), terminou_em=fim,
+            distancia_m=metros, duracao_s=1800,
+        )
+
+    def test_quem_so_corre_ganha_a_primeira_corrida_no_comando(self):
+        """O CASO DO ITEM 4, e o que o filtro só por treino deixava de fora
+        (revisão do PR #162, revisores 1 e 3): quem só corre não tem
+        `ExerciseLog`, e "Primeira corrida 1/1" ficava trancada com a barra
+        cheia — o defeito B35 — até a pessoa registrar OUTRA corrida."""
+        from django.core.management import call_command
+
+        user = self.pessoa(email="so-corre-retro@exemplo.com")
+        self._correr(user)
+        self.assertEqual(self.slugs(user), [])
+        call_command("desbloquear_pendentes", verbosity=0)
+        self.assertIn("primeira-corrida", self.slugs(user))
+
+    def test_quem_ja_tinha_medalha_de_treino_tambem_ganha_a_de_corrida(self):
+        """O segundo buraco do mesmo filtro: `tem_conquista=False` excluía quem
+        já tinha "Primeiro treino", e as quatro regras novas de corrida nunca
+        eram avaliadas para essa pessoa."""
+        from django.core.management import call_command
+
+        user = self.pessoa(email="treino-e-corrida@exemplo.com")
+        self.treinar(user, timezone.localdate())
+        call_command("desbloquear_pendentes", verbosity=0)
+        self.assertIn("primeiro-treino", self.slugs(user))
+        self._correr(user, metros=10200)
+        call_command("desbloquear_pendentes", verbosity=0)
+        nascidas = set(self.slugs(user))
+        self.assertTrue({"primeira-corrida", "corrida-5k", "corrida-10k"} <= nascidas, nascidas)
+
+    def test_uma_conta_que_falha_nao_derruba_o_build(self):
+        """O comando itera dado de USUÁRIO dentro de um `build.sh` com
+        `errexit`. Uma conta que `avaliar` não digere é registrada e o laço
+        segue — antes, ela derrubaria todo deploy seguinte."""
+        from io import StringIO
+        from unittest import mock
+
+        from django.core.management import call_command
+
+        quebra = self.pessoa(email="quebra@exemplo.com")
+        boa = self.pessoa(email="boa@exemplo.com")
+        self.treinar(quebra, timezone.localdate())
+        self.treinar(boa, timezone.localdate())
+        original = services.avaliar
+
+        def avaliar(user, *a, **k):
+            if user.pk == quebra.pk:
+                raise RuntimeError("estado que reunir não digere")
+            return original(user, *a, **k)
+
+        saida = StringIO()
+        with mock.patch("achievements.services.avaliar", side_effect=avaliar):
+            with self.assertLogs(
+                "achievements.management.commands.desbloquear_pendentes", "ERROR"
+            ):
+                call_command("desbloquear_pendentes", stdout=saida)
+        self.assertIn("1 falha(s)", saida.getvalue())
+        self.assertIn("primeiro-treino", self.slugs(boa))
 
     def test_nada_fica_em_cem_por_cento_na_lista_de_proximas(self):
         """"1/1" numa medalha trancada é o app dizendo que não reconhece o que já viu.
 
         Esta é a asserção que descreve o defeito do ponto de vista de quem usa:
         não interessa por qual caminho, nada pode aparecer em "Próximas" com o
-        progresso cheio.
+        progresso cheio. O caminho mudou em 26/09/2026 (o build avalia quem
+        ficou para trás, e o POST avalia daqui para frente); a asserção, não.
         """
+        from django.core.management import call_command
+
         user = self.pessoa()
         for n in range(3):
             self.treinar(user, timezone.localdate() - timedelta(days=n))
+        call_command("desbloquear_pendentes", verbosity=0)
 
         self.client.force_login(user)
         resposta = self.client.get(reverse("achievements:list"), secure=True)
@@ -656,14 +801,16 @@ class RetroatividadeTests(BaseDeConquistas):
             cheios, [], "conquista com progresso cheio continuou em 'Próximas'"
         )
 
-    def test_abrir_a_tela_varias_vezes_nao_duplica(self):
-        """`avaliar` é idempotente, e a tela agora o chama a cada visita."""
+    def test_rodar_o_comando_varias_vezes_nao_duplica(self):
+        """`avaliar` é idempotente — `get_or_create` mais a constraint de
+        unicidade —, e o comando do build roda a cada deploy."""
+        from django.core.management import call_command
+
         user = self.pessoa()
         self.treinar(user, timezone.localdate())
-        self.client.force_login(user)
 
         for _ in range(3):
-            self.client.get(reverse("achievements:list"), secure=True)
+            call_command("desbloquear_pendentes", verbosity=0)
 
         self.assertEqual(
             UserAchievement.objects.filter(user=user, slug="primeiro-treino").count(),

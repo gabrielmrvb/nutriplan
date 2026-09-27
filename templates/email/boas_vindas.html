@@ -6,12 +6,22 @@
             22/09/2026). "Num lugar, sem promessa" era doutrina interna
             vazando para quem usa.
           {% endcomment %}
-          <p style="margin:0 0 16px">O NutriPlan é o seu dia inteiro: a refeição da vez, a ficha de hoje, a água e o peso, numa tela só.</p>
+          <p style="margin:0 0 16px">O NutriPlan é o seu dia inteiro: a refeição da vez, {% if musculacao == "nao" %}as suas corridas{% else %}a ficha de hoje{% endif %}, a água e o peso, numa tela só.</p>
           <p style="margin:0 0 8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#a9bbae;font-weight:600">O que fazer primeiro</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:16px;line-height:1.5">
-            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">1</span>&nbsp;&nbsp;Termine as <strong>3 etapas</strong> do cadastro — no fim delas, sua estimativa de calorias e sua ficha de treino aparecem.</td></tr>
+            <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">1</span>&nbsp;&nbsp;Termine as <strong>3 etapas</strong> do cadastro — no fim delas, sua estimativa de calorias{% if musculacao != "nao" %} e a sua ficha de treino{% endif %} aparece{% if musculacao != "nao" %}m{% endif %}.</td></tr>
             <tr><td style="padding:6px 0;border-top:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">2</span>&nbsp;&nbsp;Na tela <strong>Hoje</strong>, registre a próxima refeição — escolha uma das duas opções.</td></tr>
-            <tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Na área <strong>Treino</strong>, abra a ficha de hoje e comece pelo primeiro exercício — cada série fica anotada, com a carga.</td></tr>
+            {% comment %}
+              O TERCEIRO PASSO DEPENDE DA RESPOSTA (item 4, 26/09/2026): ele
+              prometia uma ficha de treino a quem só corre. São três versões, e
+              a que sai hoje é a última — no cadastro a pergunta "você faz
+              musculação?" ainda não foi feita, e `musculacao` está em branco.
+              `avisos/test_boas_vindas_por_perfil.py` renderiza as três.
+            {% endcomment %}
+            {% if musculacao == "sim" %}<tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Na área <strong>Treino</strong>, abra a ficha de hoje e comece pelo primeiro exercício — cada série fica anotada, com a carga.</td></tr>
+            {% elif musculacao == "nao" %}<tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Na área <strong>Corrida</strong>, registre a sua primeira corrida — distância e tempo. O ritmo e os quilômetros da semana saem daí.</td></tr>
+            {% else %}<tr><td style="padding:6px 0;border-top:1px solid #1e3326;border-bottom:1px solid #1e3326"><span style="color:#43df7a;font-weight:700">3</span>&nbsp;&nbsp;Na <strong>etapa 2</strong> você diz se faz musculação: quem faz recebe a ficha da semana, quem só corre registra as corridas na área <strong>Corrida</strong>.</td></tr>
+            {% endif %}
           </table>
           {% with href=url_base|add:"/" texto="Abrir o NutriPlan" %}{% include "email/_botao.html" %}{% endwith %}
 {% with nota_rodape="Este e-mail de boas-vindas sai uma vez." o_que="avisos por e-mail" %}{% include "email/_rodape.html" %}{% endwith %}

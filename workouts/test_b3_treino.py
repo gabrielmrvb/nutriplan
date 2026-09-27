@@ -398,8 +398,20 @@ class APortaDaCorridaTests(TestCase):
     mesma porta em duas — e duas portas para a mesma tela sao o comeco de duas
     que divergem, que e o que esta classe sempre temeu.
 
-    O que ela guarda agora: a porta EXISTE em Areas, e a tela de Treino NAO a
-    duplica.
+    O que ela guarda agora: a porta EXISTE em Areas, e a tela de Treino tem no
+    maximo UMA — e como LINHA, nao como cartao de area.
+
+    TERCEIRA MUDANCA DE ALVO (item 4 da missao "quem entra nao desiste",
+    26/09/2026). A regra "ZERO na tela de treino" produziu um estado
+    assimetrico que ninguem quis: `_corrida.html` continuou nos DOIS ramos de
+    "sem ficha" e em NENHUM com ficha — quem levanta peso E corre ficou sem
+    caminho dali para as corridas. O que a decisao de 08/09 tirou foi um CARTAO
+    de area no topo da coluna lateral, e a razao dela continua de pe: cartao ali
+    divide a mesma porta em duas de primeiro nivel.
+
+    Uma linha de texto no fim da semana nao e destino de primeiro nivel. O que
+    esta classe cobra agora e o NUMERO (uma, nunca duas) e a FORMA (a classe do
+    link nao pode ser `btn--primary` nem `card`).
     """
 
     @classmethod
@@ -419,7 +431,7 @@ class APortaDaCorridaTests(TestCase):
 
         self.assertIn('href="/treino/corridas/"', html)
 
-    def test_a_tela_de_treino_nao_duplica_a_porta(self):
+    def test_a_tela_de_treino_tem_UMA_porta_e_ela_e_uma_linha(self):
         self.client.force_login(create_user(email="corrida2@exemplo.com"))
 
         html = self.client.get(reverse("workouts:routine")).content.decode()
@@ -427,10 +439,17 @@ class APortaDaCorridaTests(TestCase):
 
         self.assertEqual(
             corpo.count('href="/treino/corridas/"'),
-            0,
-            "o cartao de Corrida voltou para a tela de Treino, e agora sao "
-            "duas portas para a mesma area",
+            1,
+            "a tela de Treino tem UMA porta para a corrida: duas seriam a "
+            "duplicacao que esta classe existe para impedir, e zero era o "
+            "estado em que quem tem ficha e corre nao tinha caminho nenhum",
         )
+        # A FORMA, e nao so o numero: o que saiu em 08/09/2026 foi um CARTAO de
+        # area. Uma linha de texto no fim da semana nao compete com Areas.
+        pedaco = corpo.split('href="/treino/corridas/"', 1)[0][-260:]
+        self.assertIn("btn-link", pedaco, pedaco)
+        self.assertNotIn("btn--primary", pedaco, pedaco)
+        self.assertNotIn('class="card', pedaco, pedaco)
 
     def test_quem_ainda_nao_tem_rotina_tambem_alcanca_a_corrida(self):
         """O ramo que a primeira versao desta area quebrou, guardado no lugar novo.

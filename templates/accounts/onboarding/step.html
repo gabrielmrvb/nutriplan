@@ -147,6 +147,23 @@
           Sem musculação, a área de Treino guarda as suas corridas — e se um
           dia quiser começar, é um toque no Perfil.
         </p>
+        {% comment %}
+          A SEGUNDA PORTA: "você corre, pedala ou nada?" (26/09/2026).
+
+          A pergunta da musculação abriu a porta para quem não levanta peso,
+          e parou ali: o cálculo continuava contando só sessões de academia,
+          e quem corre três vezes por semana recebia a meta de quem não
+          treina (persona 3). Aqui a corrida vira SESSÃO, pela mesma porta.
+
+          Fora do bloco `data-so-musculacao` de propósito: ela vale para os
+          dois lados — quem faz musculação também corre, e quem não faz
+          precisa dela ainda mais.
+        {% endcomment %}
+        {% include "partials/choice_cards.html" with field=forms.rotina.corrida %}
+        <div class="field-row" data-so-corrida{% if forms.rotina.corrida.value != "corre" %} hidden{% endif %}>
+          <div>{% include "partials/field.html" with field=forms.rotina.corrida_dias %}</div>
+          <div>{% include "partials/field.html" with field=forms.rotina.corrida_minutos %}</div>
+        </div>
       {% elif step == 3 %}
         {% comment %}
           ETAPA 3 — SUA PERSONALIZAÇÃO. O resumo vem PRIMEIRO: é a pessoa

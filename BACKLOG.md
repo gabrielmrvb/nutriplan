@@ -3,6 +3,37 @@
 O que ficou decidido mas não feito, e o que depende de gente. Cada item diz
 **por que** está aqui — item sem motivo vira lista que ninguém lê.
 
+## ⛔ Catálogo: a letra "Costas e bíceps" de quem treina em casa SEM NADA (26/09/2026)
+
+Desde a missão "quem entra não desiste", a barra fixa saiu da ficha de casa:
+ela não é peso do corpo, é aparelho (`Exercise.aparelho`, mapa no
+`TREINO.md`). A consequência está MEDIDA e presa em
+`workouts/test_volume_peso_do_corpo.py`:
+
+| perfil | volume efetivo da semana | letra B (`abc2`, 5 dias) |
+|---|---|---|
+| academia completa | 282 | 9 exercícios |
+| casa com halteres | 281 (100%) | 6 exercícios |
+| só o peso do corpo | 218 (**77%**) | **2 exercícios, 21 min** |
+
+Sem barra fixa, o catálogo inteiro tem DOIS exercícios de puxar em casa
+(remada invertida e remada invertida com pés elevados, as duas sob a mesa) e
+UM de bíceps (rosca invertida na mesma barra baixa). Não há como puxar sem
+alguma coisa para puxar, e o app parou de fingir que há.
+
+**O que destrava, em ordem de custo:**
+
+1. **exercícios de puxar sem barra** — remada com toalha na porta, remada
+   isométrica, remada com mochila. Precisam de curadoria de nome, músculos,
+   dica e progressão (vídeo é opcional para peso do corpo desde 20/09/2026);
+2. **bíceps e trapézio sem barra** — hoje são um exercício e zero;
+3. **ou a divisão desse perfil deixa de ser `abc2`**: com o catálogo que uma
+   casa tem, corpo inteiro ou superior/inferior espalham as duas remadas por
+   mais sessões em vez de concentrá-las numa letra de 21 minutos. É a mesma
+   régua que o INICIANTE em casa já recebe (`DIAS_ATE_CORPO_INTEIRO_DO_INICIANTE`),
+   estendida por FREQUÊNCIA em vez de por nível — e é decisão de produto,
+   não de motor.
+
 ## ⛔ Catálogo: 28 exercícios CADASTRADOS e INATIVOS — falta a mídia conferida (16/09/2026)
 
 O que faltava em 15/09 ("2 peitos e 3 tríceps…") está cadastrado: 28

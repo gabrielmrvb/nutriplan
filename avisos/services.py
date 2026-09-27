@@ -121,5 +121,30 @@ def boas_vindas(user):
     Hoje é chamado no cadastro (senha e Google). Quando a verificação de
     e-mail existir, é ESTA chamada que muda de lugar — para depois da
     confirmação —, e nada mais.
+
+    O TERCEIRO PASSO DEPENDE DA PESSOA (item 4, 26/09/2026). Ele dizia "na
+    área Treino, abra a ficha de hoje" para todo mundo, e a primeira mensagem
+    que o app manda prometia uma ficha a quem só corre — o mesmo defeito de
+    veracidade que a frase do fim do cadastro tinha.
+
+    São TRÊS versões, e a que sai hoje é a terceira: no cadastro a pergunta
+    "você faz musculação?" ainda não foi feita (ela é da etapa 2), então
+    `musculacao` está em branco e o passo 3 diz o que vai acontecer sem
+    prometer nada. As outras duas existem para o dia em que esta chamada se
+    mudar para depois da confirmação de e-mail — o que a docstring acima já
+    anuncia —, e `avisos/test_boas_vindas_por_perfil.py` renderiza as três
+    para nenhuma apodrecer calada.
     """
-    return enviar(user, TipoDeEmail.BOAS_VINDAS, "conta", {}, exige_verificacao=False)
+    perfil = getattr(user, "profile", None)
+    return enviar(
+        user,
+        TipoDeEmail.BOAS_VINDAS,
+        "conta",
+        {
+            # A palavra e não o booleano: são três estados, e um `if not
+            # faz_musculacao` no template juntaria "disse que não" com "ainda
+            # não foi perguntado".
+            "musculacao": getattr(perfil, "musculacao", "") or "",
+        },
+        exige_verificacao=False,
+    )

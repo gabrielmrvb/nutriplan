@@ -728,6 +728,7 @@
     "compound": true,
     "cue": "Palmas viradas para você, mãos na largura dos ombros; suba até o queixo passar a barra e desça até estender o braço.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "puxada_vertical",
     "joints": [
       "shoulder",
@@ -1148,6 +1149,7 @@
     "compound": true,
     "cue": "Tronco reto e cotovelo apontando para trás; desça até 90° e suba sem balançar. Peso corporal.",
     "equipment": "bodyweight",
+    "aparelho": "paralelas",
     "padrao": "pressao_fechada",
     "joints": [
       "shoulder",
@@ -1510,6 +1512,7 @@
     "compound": true,
     "cue": "Barra ou mesa firme na altura do quadril; corpo reto, puxe o peito até a barra. Pés mais à frente deixa mais leve.",
     "equipment": "bodyweight",
+    "aparelho": "barra_baixa",
     "padrao": "remada_horizontal",
     "joints": [
       "shoulder",
@@ -1530,6 +1533,7 @@
     "compound": true,
     "cue": "Pés numa cadeira, corpo na horizontal; puxe o peito à barra apertando as escápulas.",
     "equipment": "bodyweight",
+    "aparelho": "barra_baixa",
     "padrao": "remada_horizontal",
     "joints": [
       "shoulder",
@@ -1551,6 +1555,7 @@
     "compound": true,
     "cue": "Suba com um apoio (banco) até o queixo passar a barra e desça o mais devagar que conseguir.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "puxada_vertical",
     "joints": [
       "shoulder",
@@ -1571,6 +1576,7 @@
     "compound": true,
     "cue": "Pegada mais larga que os ombros, palmas para frente; suba o queixo acima da barra sem balançar.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "puxada_vertical",
     "joints": [
       "shoulder",
@@ -1590,6 +1596,7 @@
     "muscle_group": "biceps",
     "cue": "Barra na altura do quadril, pegada supinada e fechada; puxe levando o peito à barra dobrando só os cotovelos.",
     "equipment": "bodyweight",
+    "aparelho": "barra_baixa",
     "padrao": "rosca",
     "joints": [
       "elbow"
@@ -1904,6 +1911,7 @@
     "compound": true,
     "cue": "De cabeça para baixo apoiado na parede; desça a cabeça em direção ao chão e empurre de volta.",
     "equipment": "bodyweight",
+    "aparelho": "inversao",
     "padrao": "pressao_vertical",
     "joints": [
       "shoulder",
@@ -1941,6 +1949,7 @@
     "muscle_group": "traps",
     "cue": "Pendurado na barra com os braços retos, eleve o corpo só encolhendo e baixando as escápulas.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "elevacao_escapular",
     "joints": [
       "shoulder"
@@ -1958,6 +1967,7 @@
     "muscle_group": "forearms",
     "cue": "Pendure-se na barra e segure o máximo de tempo que aguentar, ombros ativos; fortalece a pegada.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "flexao_de_punho",
     "joints": [
       "wrist",
@@ -1992,6 +2002,7 @@
     "muscle_group": "core",
     "cue": "Pendurado na barra, eleve os joelhos até o peito sem balançar e desça controlado.",
     "equipment": "bodyweight",
+    "aparelho": "barra_fixa",
     "padrao": "flexao_de_quadril",
     "joints": [
       "hip"

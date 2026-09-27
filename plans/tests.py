@@ -2357,12 +2357,34 @@ class ComiOutraCoisaTests(TestCase):
         self.assertEqual(log.kcal, Decimal("0.00"))
         self.assertEqual(log.notes, "")
 
-    def test_the_catalog_list_is_rendered_once_and_not_per_meal(self):
+    def test_a_sugestao_nao_custa_um_no_de_DOM_por_alimento(self):
         """900 nós de DOM na tela mais visitada do app, para uma ação que quase
-        nunca acontece — era o custo de um `<select>` por linha."""
+        nunca acontece — era o custo de um `<select>` por linha, e o
+        `<datalist>` era a resposta.
+
+        O `<datalist>` SAIU em 26/09/2026 (item 3 da missão "quem entra não
+        desiste"), e por uma versão maior do MESMO motivo: com os 583 alimentos
+        da TACO ele seriam ~685 `<option>` (~20 kB) nesta tela em toda visita, e
+        ele casava por prefixo do nome INTEIRO — "requeijao" não achava
+        "Queijo, requeijão, cremoso". A sugestão virou uma busca
+        (`plans:buscar_alimento`), que custa ZERO nó por alimento.
+
+        A asserção mede a PROPRIEDADE, não o mecanismo: nenhum nó por alimento
+        do catálogo. `plans/test_comi_outra_coisa.py` prova que a busca acha.
+        """
         html = self.client.get(reverse("plans:alimentacao")).content.decode()
-        self.assertEqual(html.count('<datalist id="alimentos-do-catalogo">'), 1)
-        self.assertNotIn("<select", html.split('class="fora"', 1)[1])
+        fora = html.split('class="fora"', 1)[1]
+        self.assertNotIn("<select", fora)
+        self.assertNotIn("<datalist", html)
+        # Nem `<option>` em lugar nenhum da tela: é o mesmo custo com outro
+        # nome. A versão anterior procurava "Arroz branco cozido" no HTML e só
+        # passava porque `porcoes.nome_curto` minúscula e corta o preparo do
+        # nome nos cards (revisão do PR #162) — uma asserção que dependia de um
+        # módulo alheio. `<option` é a coisa que custava nó por alimento.
+        self.assertNotIn("<option", html)
+        # E a busca está lá — sem isto, "zero nós" ficaria verde numa tela que
+        # deixou de sugerir qualquer coisa.
+        self.assertIn("data-busca-campo", fora)
 
 
 class ComiOutraCoisaBordasTests(TestCase):

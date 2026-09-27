@@ -43,6 +43,7 @@ from workouts.services import (
 from . import consentimento
 from .models import (
     Consentimento,
+    Experiencia,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     Musculacao,
@@ -747,8 +748,24 @@ class OnboardingStepMixin(LoginRequiredMixin):
             self.acertar_ficha()
             self.montar_cardapio()
             analytics.evento(self.request, "onboarding.concluido")
+            # A FRASE DIZ O QUE FOI MONTADO (item 4, 26/09/2026). Ela anunciava
+            # "cardápio de exemplo e ficha montados" para todo mundo, inclusive
+            # para quem tinha acabado de responder que NÃO faz musculação e
+            # para quem terminou sem marcar dia nenhum: a primeira frase do app
+            # depois do cadastro prometia uma ficha que não existe, e a aba de
+            # treino dizia o contrário duas telas depois.
+            #
+            # A conta é do BANCO e não da resposta: quem diz que não faz
+            # musculação não tem ficha, e quem diz que faz mas não marcou dia
+            # também não. Uma consulta, uma vez, no fim do cadastro.
+            from workouts import services as treino
+
+            tem_ficha = treino.get_active_routine(self.request.user) is not None
             messages.success(
-                self.request, "Sua estimativa está pronta: cardápio de exemplo e ficha montados."
+                self.request,
+                "Sua estimativa está pronta: cardápio de exemplo e ficha montados."
+                if tem_ficha
+                else "Sua estimativa está pronta: o seu cardápio de exemplo está na Alimentação.",
             )
             destino = reverse("plans:today")
             if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -897,7 +914,37 @@ class ObjetivoERotinaView(EtapaCompostaView):
         return self.request.user.training_days.count()
 
     def mostrar_divisao(self, forms):
+        """A pergunta da divisão é de quem JÁ TREINA (26/09/2026).
+
+        "Quantos grupos musculares por dia?" pede uma escolha que só faz
+        sentido para quem já montou treino — o achado #13 das personas. Para
+        quem está começando, quem decide é o motor: corpo inteiro em casa
+        (`services.split_for`), e a divisão por frequência na academia. Uma
+        pergunta a menos no cadastro, e nenhuma resposta inventada.
+
+        Continua valendo a régua dos DIAS (`preferencia_muda_a_divisao`):
+        abaixo do mínimo, toda preferência dá a mesma divisão, e perguntar
+        seria pedir uma escolha que o app vai ignorar.
+        """
+        if self.nivel_pedido(forms) == Experiencia.INICIANTE:
+            return False
         return preferencia_muda_a_divisao(self.dias_pedidos(forms))
+
+    def nivel_pedido(self, forms):
+        """O nível que ESTE envio declara — ou o que o perfil já tem.
+
+        O envio vem primeiro porque a etapa 2 pergunta as duas coisas na
+        mesma tela: quem marca "iniciante" e manda o formulário não pode
+        receber de volta a pergunta da divisão só porque o perfil ainda
+        estava vazio.
+        """
+        rotina = forms.get("rotina")
+        if rotina is not None and rotina.is_bound:
+            nivel = (rotina.data.get("experiencia") or "").strip()
+            if nivel:
+                return nivel
+        perfil = getattr(self.request.user, "profile", None)
+        return getattr(perfil, "experiencia", "") or ""
 
     def forms_exigidos(self, forms):
         exigidos = ["objetivo", "rotina"]
@@ -982,6 +1029,19 @@ def resumo_das_escolhas(user, profile) -> list:
         ("Objetivo", titulo_de(profile.goal, profile.get_goal_display())),
         ("Atividade", titulo_de(profile.activity_level, profile.get_activity_level_display())),
     ]
+    # A CORRIDA APARECE AQUI, e antes do ramo da musculação (revisão do PR
+    # #162, 27/09/2026): ela move a meta de calorias — é SESSÃO no fator de
+    # atividade —, e este bloco é a conferência de tudo o que entra na conta,
+    # na tela imediatamente anterior ao número. Antes, quem só corria lia
+    # "Atividade: Pouco ativo" e mais nada, e recebia uma meta que o resumo não
+    # explicava. Só para quem RESPONDEU que corre: "Corrida: não" seria ruído.
+    from accounts.models import Corrida as CorridaResposta
+
+    if profile.corrida == CorridaResposta.SIM and profile.corrida_dias:
+        vezes = "%d× por semana" % profile.corrida_dias
+        if profile.corrida_minutos:
+            vezes += " · %d min" % profile.corrida_minutos
+        itens.append(("Corrida", vezes))
     # Quem não faz musculação vê a resposta e nada do bloco de academia:
     # listar "Dias de treino: nenhum · Equipamento: academia completa" para
     # quem só corre era o resumo contradizendo o que a pessoa acabou de dizer.

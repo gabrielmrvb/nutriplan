@@ -25,7 +25,7 @@ from unittest import mock
 import sentry_sdk
 from sentry_sdk.transport import Transport
 
-from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from config import observabilidade
@@ -300,3 +300,83 @@ class PipelineDeVerdadeNaoLevaCabecalhoAoSentry(SimpleTestCase):
         evento = self.transporte.eventos[0]
         self.assertNotIn("headers", evento["request"])
         self.assertNotIn("201.0.0.99", json.dumps(evento))
+
+
+class OTermoDaBuscaNaoSaiNoEventoSerializadoTests(TestCase):
+    """O que a pessoa COMEU não vai para o Sentry — medido no evento que o SDK
+    de VERDADE monta, serializado, e não num dicionário escrito à mão.
+
+    Decisão do dono (27/09/2026, revisão do PR #162): a busca de "comi outra
+    coisa" continua GET (`/alimentos/buscar/?q=cerveja`), e um 500 nela levava
+    o termo em `request.url` e `request.query_string` para fora do Brasil.
+    `redigir` passou a conhecer `q`, e `before_send` já passa por `redigir`.
+
+    Os outros testes desta página chamam `before_send` com um evento montado à
+    mão, e isso não prova que o SDK põe o termo onde o dicionário à mão diz:
+    aqui o pedido passa pela integração do Django, o evento é capturado pelo
+    transporte e serializado em JSON, e a asserção é sobre o TEXTO que sairia.
+    O controle positivo roda o mesmo pedido sem `before_send` e ACHA o termo —
+    senão "não achei" poderia ser o SDK que simplesmente não o anexa.
+    """
+
+    TERMO = "cerveja-artesanal-ipa"
+
+    def _evento_serializado(self, com_before_send):
+        """O pedido passa pelo `WSGIHandler` de verdade — como o gunicorn o
+        chama —, porque é ali que a integração do Django põe `request.url` e
+        `request.query_string` no evento. O `Client` de teste usa outro
+        handler, e com ele o evento sai com `"request": {"data": ""}` — o
+        controle positivo abaixo foi o que mostrou isso: sem ele, "o termo não
+        está no evento" teria passado por o SDK nem ter anexado o pedido."""
+        import json
+
+        import sentry_sdk
+        from django.conf import settings
+        from django.core.handlers.wsgi import WSGIHandler
+        from django.core.signals import request_finished, request_started
+        from django.db import close_old_connections
+        from django.test import Client, RequestFactory
+        from django.urls import reverse
+
+        from plans.tests import create_complete_user
+
+        capturados = []
+        opcoes = observabilidade.opcoes_do_sentry(DSN_FALSO, "teste", None)
+        if not com_before_send:
+            opcoes.pop("before_send")
+        sentry_sdk.init(**opcoes, transport=capturados.append)
+        self.addCleanup(sentry_sdk.init)  # sem DSN: o cliente volta a desligado
+
+        user = create_complete_user(email="sentry-%s@exemplo.com" % com_before_send)
+        sessao = Client()
+        sessao.force_login(user)
+        cookie = "%s=%s" % (
+            settings.SESSION_COOKIE_NAME, sessao.cookies[settings.SESSION_COOKIE_NAME].value
+        )
+        environ = RequestFactory().get(
+            reverse("plans:buscar_alimento"), {"q": self.TERMO}, HTTP_COOKIE=cookie
+        ).environ
+        # O `Client` de teste desliga isto pelo mesmo motivo: fechar conexão
+        # "velha" no fim do pedido derrubaria a transação do `TestCase`.
+        request_started.disconnect(close_old_connections)
+        request_finished.disconnect(close_old_connections)
+        self.addCleanup(request_started.connect, close_old_connections)
+        self.addCleanup(request_finished.connect, close_old_connections)
+
+        status = []
+        with mock.patch("plans.views.busca.sugerir", side_effect=RuntimeError("quebrou")):
+            corpo = WSGIHandler()(environ, lambda s, h, *a: status.append(s))
+            b"".join(corpo)
+        sentry_sdk.flush()
+        self.assertTrue(status and status[0].startswith("500"), status)
+        self.assertEqual(len(capturados), 1, "o SDK não capturou o 500")
+        return json.dumps(capturados[0], default=str, ensure_ascii=False)
+
+    def test_controle_positivo_sem_before_send_o_termo_iria_junto(self):
+        texto = self._evento_serializado(com_before_send=False)
+        self.assertIn(self.TERMO, texto)
+
+    def test_com_before_send_o_termo_nao_sai(self):
+        texto = self._evento_serializado(com_before_send=True)
+        self.assertNotIn(self.TERMO, texto)
+        self.assertIn("q=[REDIGIDO]", texto)

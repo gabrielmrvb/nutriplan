@@ -91,11 +91,21 @@ class PesoDoCorpoTests(TestCase):
         self.assertEqual(resposta.status_code, 302)
         self.assertFalse(ExerciseLog.objects.filter(user=self.pessoa, exercise=self.supino.exercise).exists())
 
-    def test_o_campo_de_carga_da_flexao_nao_e_obrigatorio_e_o_do_supino_e(self):
-        campo = lambda html: html.split('name="weight_kg"', 1)[0].rsplit("<input", 1)[1] + html.split('name="weight_kg"', 1)[1].split(">", 1)[0]
-        self.assertNotIn("required", campo(self._html(self.flexao)))
-        self.assertIn("peso do corpo", campo(self._html(self.flexao)))
-        self.assertIn("required", campo(self._html(self.supino)))
+    def test_a_flexao_nao_tem_campo_de_carga_e_o_supino_tem(self):
+        """DESDE 26/09/2026 O CAMPO NÃO EXISTE para quem não tem anilha.
+
+        Ele já abria vazio, sem `required` e sem os botões de ±2,5 — era o
+        que este teste media —, e ainda assim era uma pergunta rotulada
+        "Carga" numa flexão de braço: a persona 1 digitou zero e fechou o
+        treino em "0 kg levantados". O servidor continua gravando 0 sozinho
+        nesse caso (`ConcluirSerieView`).
+
+        A âncora é `name="weight_kg"` COM aspas: a mesma página tem
+        `querySelector("[name=weight_kg]")` num `<script>`.
+        """
+        self.assertNotIn('name="weight_kg"', self._html(self.flexao))
+        self.assertIn('name="weight_kg"', self._html(self.supino))
+        self.assertIn("required", self._html(self.supino).split('name="weight_kg"', 1)[1].split(">", 1)[0])
         # Sem anilha não há ±2,5 kg para somar.
         self.assertNotIn("data-passo", self._html(self.flexao))
         self.assertIn("data-passo", self._html(self.supino))

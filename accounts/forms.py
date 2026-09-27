@@ -27,6 +27,7 @@ from .models import (
     ActivityLevel,
     DuracaoTreino,
     Equipamento,
+    Corrida,
     Experiencia,
     Musculacao,
     Goal,
@@ -537,6 +538,39 @@ class TrainingForm(forms.Form):
         required=False,
         widget=forms.RadioSelect,
     )
+    corrida = forms.ChoiceField(
+        # A SEGUNDA PORTA (26/09/2026). A primeira pergunta se a pessoa
+        # levanta peso; esta pergunta se ela CORRE — e as duas juntas são o
+        # que faz o app enxergar quem só corre, que recebia a meta de quem
+        # não treina.
+        #
+        # NÃO é obrigatória, ao contrário da musculação, e a razão é o
+        # PREÇO de cada uma: sem a resposta da musculação a etapa não sabe
+        # o que mostrar, e sem a resposta desta o cálculo fica exatamente
+        # como estava — zero corridas é o que toda conta de hoje tem. Uma
+        # segunda pergunta obrigatória cobraria de todo frequentador de
+        # academia uma resposta sobre corrida para não mudar nada.
+        label="Você corre, pedala ou nada?",
+        help_text="Conta para a sua meta de calorias, como os dias de academia.",
+        choices=Corrida.choices,
+        widget=forms.RadioSelect,
+        required=False,
+    )
+    corrida_dias = forms.IntegerField(
+        label="Quantas vezes por semana?",
+        min_value=1,
+        max_value=14,
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "field-input", "inputmode": "numeric"}),
+    )
+    corrida_minutos = forms.IntegerField(
+        label="Quantos minutos, em média?",
+        min_value=5,
+        max_value=300,
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "field-input", "inputmode": "numeric"}),
+        help_text="Só para o cardápio do dia de corrida — a meta usa a frequência.",
+    )
     # Rótulos de uma palavra, e a explicação uma vez só acima do par.
     #
     # Eram duas perguntas inteiras lado a lado, e só a da esquerda tinha texto
@@ -577,6 +611,9 @@ class TrainingForm(forms.Form):
             # 10/09/2026 e continua vindo do perfil dentro de `save`.
             self.fields["experiencia"].initial = perfil.experiencia
             self.fields["equipamento"].initial = perfil.equipamento
+            self.fields["corrida"].initial = perfil.corrida
+            self.fields["corrida_dias"].initial = perfil.corrida_dias or None
+            self.fields["corrida_minutos"].initial = perfil.corrida_minutos or None
             # Conta anterior à pergunta com dias gravados: o "sim" é
             # implícito, e a tela abre com ele — quem veio trocar o
             # equipamento não é obrigado a responder o que já respondeu.
@@ -596,6 +633,21 @@ class TrainingForm(forms.Form):
         válido, não erro.
         """
         cleaned = super().clean()
+        # A CORRIDA (26/09/2026): com "sim", a frequência é obrigatória —
+        # é ela que entra no fator de atividade, e "sim, corro" sem número
+        # não muda conta nenhuma, o que seria a pessoa responder e o app
+        # ignorar. Com "não" (ou sem resposta), os dois campos são zerados,
+        # como o bloco da academia já faz com "não faço musculação".
+        if cleaned.get("corrida") == Corrida.SIM:
+            if not cleaned.get("corrida_dias"):
+                self.add_error(
+                    "corrida_dias",
+                    "Diga quantas vezes por semana — é o que entra na sua meta.",
+                )
+        else:
+            cleaned["corrida_dias"] = 0
+            cleaned["corrida_minutos"] = 0
+
         # "Não faço musculação" ZERA o resto do bloco, mesmo que o navegador
         # sem JavaScript tenha mandado os campos: o servidor é quem decide.
         if cleaned.get("musculacao") == Musculacao.NAO:
@@ -660,6 +712,25 @@ class TrainingForm(forms.Form):
         # é tocado — ver `0026_duracao_padrao_para_quem_nao_respondeu`.
         faixa = getattr(perfil, "duracao_treino", "") or DuracaoTreino.PADRAO
 
+        # A PRIMEIRA FICHA DE QUEM ESTÁ COMEÇANDO NASCE NA FAIXA RÁPIDO
+        # (decisão do dono, 24/09/2026).
+        #
+        # O corpo inteiro do iniciante tem OITO exercícios e ~60 minutos no
+        # Padrão (medido); em Rápido ele fecha em quatro — agachar, empurrar,
+        # puxar e dobrar o quadril — e 28 minutos. Para quem nunca treinou,
+        # meia hora três vezes por semana é o programa que se cumpre, e os
+        # quatro movimentos são os que importam.
+        #
+        # Só na PRIMEIRA: quem já tem ficha ativa já viu a área de Treino e
+        # pode ter escolhido a faixa lá — sobrescrever a escolha dela seria o
+        # app declarando uma resposta que ela deu ao contrário. E a faixa
+        # continua a um toque de distância, com o teto escrito ao lado.
+        if self.cleaned_data.get("experiencia") == Experiencia.INICIANTE:
+            from workouts.models import TrainingPlan
+
+            if not TrainingPlan.objects.filter(user=self.user, is_active=True).exists():
+                faixa = DuracaoTreino.RAPIDO
+
         # O INTEIRO CONTINUA SENDO GRAVADO, e não é resíduo.
         #
         # `plans/meal_planner.py` soma `start_time + duration_min` para não
@@ -702,9 +773,21 @@ class TrainingForm(forms.Form):
             # que não o desenha) mantém o que a pessoa tinha.
             perfil.equipamento = self.cleaned_data.get("equipamento") or perfil.equipamento
             perfil.musculacao = self.cleaned_data.get("musculacao") or perfil.musculacao
+            # A CORRIDA ANDA EM BLOCO (revisão do PR #162): se este envio não
+            # trouxe a resposta (cliente antigo, tela que não a desenha), a
+            # resposta E a frequência ficam como estavam. Com `or 0` só na
+            # frequência, um envio sem os campos preservava "corro" e zerava os
+            # dias — e o Perfil passava a dizer "0× por semana", a explicação
+            # contradizendo a própria conta. Com a resposta presente, vale o
+            # que o `clean` decidiu (inclusive zerar, com "não").
+            if self.cleaned_data.get("corrida"):
+                perfil.corrida = self.cleaned_data["corrida"]
+                perfil.corrida_dias = self.cleaned_data.get("corrida_dias") or 0
+                perfil.corrida_minutos = self.cleaned_data.get("corrida_minutos") or 0
             perfil.save(update_fields=[
                 "wake_time", "sleep_time", "duracao_treino", "experiencia",
-                "equipamento", "musculacao", "updated_at",
+                "equipamento", "musculacao", "corrida", "corrida_dias",
+                "corrida_minutos", "updated_at",
             ])
 
         return self.user.training_days.all()
@@ -1014,6 +1097,27 @@ class InteressesForm(OnboardingStepForm):
                 str(pilar) for pilar in self.instance.interesses
             ]
             self.fields["prioridade"].initial = self._prioridade_inicial()
+        # QUEM DISSE QUE NÃO FAZ MUSCULAÇÃO NÃO RECEBE "TREINO" PARA MARCAR
+        # (item 4, 26/09/2026). A etapa 2 já perguntou, e oferecer a área duas
+        # telas depois é o app não ter ouvido: marcar "Treino" ali dava um
+        # cartão de treino na Home e um selo de área principal apontando para
+        # a tela que diz "você não tem ficha aqui".
+        #
+        # As CHOICES saem, e `clean` também descarta o valor: um perfil que já
+        # tinha "Treino" gravado (marcou na etapa 3, voltou à etapa 2 e disse
+        # que não faz) traz o pilar por `initial`, que não passa pela validação
+        # de choices.
+        if self.instance and self.instance.nao_faz_musculacao:
+            self.fields["interesses"].choices = [
+                (valor, rotulo)
+                for valor, rotulo in self.fields["interesses"].choices
+                if valor != Pilar.TREINO
+            ]
+            self.fields["prioridade"].choices = [
+                (valor, rotulo)
+                for valor, rotulo in self.fields["prioridade"].choices
+                if valor != Pilar.TREINO
+            ]
 
     def _prioridade_inicial(self):
         """A resposta gravada, traduzida de volta para o rádio.
@@ -1040,6 +1144,19 @@ class InteressesForm(OnboardingStepForm):
         dados = super().clean()
         marcados = set(dados.get("interesses") or ())
         principal = dados.get("prioridade") or ""
+        # A outra metade da regra do `__init__`, e ela é CINTO e não porta:
+        # tirar o valor das `choices` já faz `ChoiceField` recusar um POST que
+        # traga "treino" (a pessoa vê "Selecione uma opção válida", que é a
+        # recusa certa para uma aba aberta antes da resposta da etapa 2). O
+        # descarte aqui cobre o caminho que NÃO passa pela validação de
+        # choices: valor que chega por `initial`, ou prioridade herdada de
+        # quando a pessoa ainda dizia que fazia musculação.
+        if self.instance and self.instance.nao_faz_musculacao:
+            marcados.discard(Pilar.TREINO)
+            if principal == Pilar.TREINO:
+                principal = ""
+            dados["interesses"] = sorted(marcados)
+            dados["prioridade"] = principal
         # "Não quero priorizar agora" é uma RESPOSTA, e vira ausência de
         # prioridade — não erro. Sem esta linha, quem marca três áreas e escolhe
         # a opção neutra receberia a cobrança de escolher uma principal.

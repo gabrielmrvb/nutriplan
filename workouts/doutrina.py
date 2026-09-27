@@ -101,11 +101,23 @@ def carregar():
     faltam = [(n, t) for n in NIVEIS for t in TIPOS_DE_DIA if (n, t) not in por_sessao]
     if faltam:
         raise ValueError("TREINO.md sem linha para %s" % faltam)
+    # O mapa de APARELHO (24/09/2026): perfil -> o que ele tem ALÉM do corpo,
+    # nas chaves de `Aparelho`. O vazio ("nada além do corpo") nunca está na
+    # lista: toda casa o tem, e incluí-lo faria a coluna dizer duas coisas.
+    aparelho = {
+        linha["perfil"]: frozenset(
+            a.strip() for a in linha["aparelhos"].split(",") if a.strip()
+        )
+        for linha in tabelas[("perfil", "aparelhos")]
+    }
     if set(equipamento) != set(PERFIS_DE_EQUIPAMENTO):
         raise ValueError("TREINO.md: mapa de equipamento com perfis %s" % sorted(equipamento))
+    if set(aparelho) != set(PERFIS_DE_EQUIPAMENTO):
+        raise ValueError("TREINO.md: mapa de aparelho com perfis %s" % sorted(aparelho))
     return {
         "sessao": por_sessao, "semana": por_semana, "descanso": descansos,
         "modelos": modelos, "media": medias, "equipamento": equipamento,
+        "aparelho": aparelho,
     }
 
 
@@ -162,6 +174,18 @@ def equipamentos_de(perfil) -> frozenset:
     """O que o perfil de equipamento pode usar (chaves de `Exercise.
     equipment`). Perfil desconhecido ou vazio é `completa`: tudo."""
     mapa = carregar()["equipamento"]
+    return mapa[perfil if perfil in mapa else COMPLETA]
+
+
+def aparelhos_de(perfil) -> frozenset:
+    """O que o perfil tem ALÉM do corpo (chaves de `Exercise.aparelho`).
+
+    Pergunta diferente da de cima, e por isso tabela diferente: barra fixa e
+    flexão de braço são os dois `bodyweight`, e sem esta coluna a ficha de
+    casa vinha com uma letra inteira pendurada numa barra que não existe.
+    O vazio não entra no conjunto — ele vale sempre.
+    """
+    mapa = carregar()["aparelho"]
     return mapa[perfil if perfil in mapa else COMPLETA]
 
 

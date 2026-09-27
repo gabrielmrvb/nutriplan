@@ -2,8 +2,10 @@
 """Pontos de uma polilinha SVG a partir de uma lista de valores.
 
 Apresentação, não cálculo: nenhum número novo nasce aqui — é a generalização
-de `plans.views._curva_de_peso` para qualquer série de valores (a carga
-máxima por sessão de um exercício, hoje), com as mesmas três decisões:
+da curva de peso que morava em `plans.views` (e saiu de lá em 26/09/2026,
+quando o Progresso novo deixou de usá-la) para qualquer série de valores —
+a carga máxima por sessão de um exercício, hoje —, com as três decisões de
+sempre:
 escala do próprio período (zero-based esconderia a variação), piso para a
 faixa estreita não virar montanha, e nada com menos de dois pontos.
 """

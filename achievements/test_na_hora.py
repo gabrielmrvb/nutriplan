@@ -32,6 +32,7 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase
@@ -136,27 +137,63 @@ class APrimeiraSerieDoDiaAvaliaTests(_ComTreinoDeHoje):
 
 
 class APaginaDeConquistasAvisaTests(_ComTreinoDeHoje):
-    def test_o_que_a_pagina_desbloqueia_ela_mesma_anuncia(self):
-        """Conta antiga com histórico e sem avaliação: a página desbloqueia
-        (retroatividade) e mostra "Conquista desbloqueada" na MESMA visita."""
+    def test_o_que_o_POST_desbloqueia_e_anunciado_na_tela_seguinte(self):
+        """A PÁGINA NÃO DESBLOQUEIA MAIS (26/09/2026, item 0): um GET não
+        grava. O anúncio continua sendo onde a conquista NASCE — e ela nasce
+        no POST que cria o fato, com a mensagem aparecendo na tela que vem
+        depois dele."""
         self._log(3)
+        pedido = self.client.request().wsgi_request
+        pedido.session = self.client.session
+        services.sincronizar(self.pessoa, request=pedido)
+        pedido.session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = pedido.session.session_key
+
         html = self.client.get(reverse("achievements:list")).content.decode()
         self.assertIn("Conquista desbloqueada", html)
-        # Anunciar é dar por visto (20/09/2026): a chave da sessão sai na
-        # própria renderização e a conquista fica marcada — o aviso não segue
-        # a pessoa página a página.
+        # A RENDERIZAÇÃO SÓ LÊ (decisão do dono, 27/09/2026): a chave continua
+        # na sessão e a conquista continua não vista até o POST do "visto" —
+        # o `fetch` de `conquista.js` com a página visível. Antes a própria
+        # renderização marcava, e um prefetch consumia o anúncio.
+        self.assertIn(CHAVE, self.client.session)
+        self.assertTrue(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()
+        )
+        ids = list(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True)
+            .values_list("pk", flat=True)
+        )
+        self.client.post(
+            reverse("achievements:marcar_vistas"), {"id": ids},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
         self.assertNotIn(CHAVE, self.client.session)
         self.assertFalse(
             UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()
         )
+
+    def test_o_comando_do_build_desbloqueia_em_silencio(self):
+        """Não há sessão num comando de build, e por isso não há anúncio: a
+        retroatividade é um acerto de contas, não uma celebração. O que
+        importa é que a medalha ESTEJA lá quando a pessoa abrir."""
+        self._log(3)
+        call_command("desbloquear_pendentes", verbosity=0)
+        self.assertTrue(UserAchievement.objects.filter(user=self.pessoa).exists())
+        html = self.client.get(reverse("achievements:list")).content.decode()
+        self.assertNotIn("Conquista desbloqueada", html)
 
 
 class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):
     def test_a_regra_que_chegou_a_100_e_desbloqueada_no_resumo(self):
         """Toda regra a 100 % nasce — o fixture fecha "Primeiro treino" e
         "3 dias de ofensiva" ao mesmo tempo —, e `quantas` conta o que
-        existe no banco DEPOIS, não antes."""
+        existe no banco DEPOIS, não antes.
+
+        QUEM GRAVA MUDOU EM 26/09/2026: era `resumo`, dentro de um GET, e
+        virou `sincronizar`, chamado pelos POSTs que criam o fato. A
+        garantia é a mesma; o caminho é que deixou de ser uma leitura."""
         self._log(3)
+        services.sincronizar(self.pessoa)
         quantas, recente, proxima = services.resumo(self.pessoa)
         ganhas = UserAchievement.objects.filter(user=self.pessoa)
         self.assertIn("primeiro-treino", set(ganhas.values_list("slug", flat=True)))
@@ -165,10 +202,12 @@ class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):
         self.assertIsNotNone(proxima)
         self.assertLess(proxima["pct"], 100)
 
-    def test_o_resumo_anuncia_quando_recebe_o_pedido(self):
+    def test_o_progresso_conta_o_que_o_POST_desbloqueou(self):
+        """O Progresso LÊ; quem desbloqueia é o POST. O número da tela
+        continua sendo o do banco, e nada aparece a 100 % trancado."""
         self._log(3)
+        services.sincronizar(self.pessoa, request=None)
         html = self.client.get(reverse("plans:history")).content.decode()
-        self.assertIn("Conquista desbloqueada", html)
         desbloqueadas = re.search(r"<dt>Desbloqueadas</dt>\s*<dd class=\"num\">(\d+)</dd>", html)
         self.assertEqual(
             int(desbloqueadas.group(1)),
@@ -180,7 +219,7 @@ class OResumoNaoPintaCemPorCentoDeUmaConquistaTrancadaTests(_ComTreinoDeHoje):
         """A avaliação pontual só roda na visita em que algo fechou; depois
         dela o custo volta ao de quem não tem nada a 100 %."""
         self._log(3)
-        services.resumo(self.pessoa)  # desbloqueia
+        services.sincronizar(self.pessoa)  # desbloqueia
         with CaptureQueriesContext(connection) as depois:
             services.resumo(self.pessoa)
         # O controle tem a MESMA estrutura (ficha ativa): sem ela a ofensiva

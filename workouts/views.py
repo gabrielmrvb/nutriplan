@@ -17,6 +17,7 @@ from accounts.models import (
     MINUTOS_POR_DURACAO,
     TETO_POR_DURACAO,
     DuracaoTreino,
+    Corrida as CorridaResposta,
     Musculacao,
     Weekday,
 )
@@ -24,7 +25,7 @@ from accounts.views import OnboardingRequiredMixin
 from achievements import services as conquistas
 
 from . import curva as _curva
-from . import doutrina, health_export, services, telas
+from . import health_export, services, telas
 from analytics import servidor as analytics
 from .models import (
     EventoDeProduto,
@@ -200,11 +201,19 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             plan, hoje_data, linhas, user=user, seq=seq, escolha_hoje=letra_escolhida
         )
 
+        # "Corri hoje" é convite, e convite não se faz a quem já respondeu que
+        # NÃO corre (revisão do PR #162): a mesma régua que o Perfil e a
+        # Alimentação já usam para a linha de corrida. Branco — "não
+        # perguntado" — continua vendo o link. O perfil vem do `dispatch`.
+        perfil = self.perfil_do_dispatch or getattr(user, "profile", None)
         context.update(
             {
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
+                "convida_a_correr": not (
+                    perfil is not None and perfil.corrida == CorridaResposta.NAO
+                ),
                 "letras": letras_cartoes,
                 "hoje": hoje,
                 # A letra a confirmar quando a troca depois de treinar precisa
@@ -737,7 +746,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         services.marcar_quem_abre_o_grupo(itens, sessao.main_groups)
         # "outras formas" na linha, só quando a porta leva a alguma (uma consulta).
         services.contar_outras_formas(
-            user, itens, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
+            user, itens, permitidos=services.permitidos_do_perfil(self.perfil_do_dispatch.equipamento),
         )
         equipamentos = sorted({
             item.exercise.get_equipment_display()
@@ -746,6 +755,17 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         ficha = {
             "executavel": eh_hoje,
             "itens": itens,
+            # "3 × 6-10" É ÓBVIO PARA QUEM TREINA, e não é para quem chega
+            # (24/09/2026). A legenda entra quando NENHUM item desta ficha
+            # tem última vez — quem nunca registrou carga em nenhum destes
+            # exercícios está lendo a notação pela primeira vez.
+            #
+            # Zero consulta: `ultima_vez` já veio do balde que
+            # `anexar_historico` carregou. Um "nunca treinou nada" exato
+            # custaria uma consulta a mais na tela, e o proxy erra só para
+            # quem já treina e recebeu uma ficha inteira de exercícios
+            # novos — que lê uma frase curta a mais e segue.
+            "estreando": not any(getattr(item, "ultima_vez", None) for item in itens),
             "principais": sessao.principais_da_opcao(numero),
             "complementares": sessao.complementares_da_opcao(numero),
             "series": sum(item.sets for item in itens),
@@ -1266,7 +1286,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             "historico_do_original": services.historico_do_exercicio(user, original) if original is not None else [],
             # O perfil do `dispatch` poupa a consulta do perfil.
             "alternativas": services.alternativas_de(
-                user, exercicio, na_sessao, permitidos=doutrina.equipamentos_de(self.perfil_do_dispatch.equipamento),
+                user, exercicio, na_sessao, permitidos=services.permitidos_do_perfil(self.perfil_do_dispatch.equipamento),
             ),
             # A escada de progressão do movimento (peso do corpo): do mais
             # fácil ao mais difícil, com o atual marcado. Vazia para quem não

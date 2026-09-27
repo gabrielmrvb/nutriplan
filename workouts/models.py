@@ -108,6 +108,44 @@ class Equipment(models.TextChoices):
     BODYWEIGHT = "bodyweight", "peso do corpo"
 
 
+class Aparelho(models.TextChoices):
+    """O que o exercício exige ALÉM do corpo — a pergunta que `Equipment` não
+    responde.
+
+    `Equipment.BODYWEIGHT` diz "não usa carga externa", e uma barra fixa não é
+    carga: é um aparelho. Sem esta coluna, a flexão de braço e a barra fixa
+    pronada são a mesma coisa para o motor, e a ficha de quem treina em casa
+    só com o peso do corpo saía com a letra "Costas e bíceps" inteira em barra
+    fixa — cinco exercícios que aquela pessoa não tem como fazer (medido em
+    24/09/2026, persona 1).
+
+    O corte entre o que SAI e o que FICA numa casa está no `TREINO.md` ("Mapa
+    de aparelho") e é de produto, não de física: barra fixa, paralelas e
+    inversão saem; **a barra baixa fica**, porque uma mesa existe em qualquer
+    casa — e sem a remada invertida o perfil fica sem NENHUM exercício de
+    costas, que é pior que exigir uma mesa.
+
+    A LISTA SÓ TEM O QUE DECIDE ALGUMA COISA. Banco e cadeira ficaram DE
+    FORA de propósito: todo perfil os tem, então marcá-los não muda ficha
+    nenhuma — e classificar sete exercícios por palpite ("a flexão inclinada
+    é no banco ou na parede?") seria pôr no catálogo uma curadoria que
+    ninguém conferiu. Parede idem: "cadeira na parede" não exige nada que
+    uma casa não tenha. Se um dia um perfil "só o chão" existir, o valor
+    nasce com ele.
+
+    Vazio é o caso comum e é resposta, não buraco: a maioria dos exercícios
+    ou usa carga (e aí o aparelho é a carga, que `Equipment` já diz) ou não
+    exige nada além do chão.
+    """
+
+    NADA = "", "nada além do corpo"
+    BARRA_FIXA = "barra_fixa", "barra fixa"
+    PARALELAS = "paralelas", "paralelas"
+    INVERSAO = "inversao", "inversão (parada de mão)"
+    BARRA_BAIXA = "barra_baixa", "barra baixa ou mesa"
+
+
+
 class Padrao(models.TextChoices):
     """O PADRÃO DE MOVIMENTO — o que uma troca de exercício preserva.
 
@@ -296,6 +334,17 @@ class Exercise(models.Model):
         max_length=12,
         choices=Equipment.choices,
         default=Equipment.MACHINE,
+    )
+    #: O que ele exige ALÉM do corpo (`Aparelho`), e por isso a régua de
+    #: "cabe numa casa" não é `equipment`: a barra fixa é `bodyweight`.
+    #: Vazio = nada além do chão. O mapa de qual perfil tem qual aparelho
+    #: está no `TREINO.md`, junto com o de equipamento.
+    aparelho = models.CharField(
+        "aparelho exigido",
+        max_length=12,
+        choices=Aparelho.choices,
+        default=Aparelho.NADA,
+        blank=True,
     )
     #: O padrão de movimento (`Padrao`). Sem padrão o exercício não entra:
     #: `padrao_nao_vazio` é constraint de banco, porque é o que a régua de

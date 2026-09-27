@@ -214,12 +214,26 @@ class OPlanoEORetratoDoEquipamentoTests(TestCase):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
-    def test_o_padrao_e_completa_no_perfil_e_no_plano(self):
+    def test_o_padrao_e_completa_NO_PLANO_e_vazio_no_perfil(self):
+        """A ASSIMETRIA VIROU A DECISÃO EM 26/09/2026.
+
+        O plano continua nascendo "completa" — ele é o RETRATO do que o
+        motor usou, e o motor usa o catálogo inteiro quando ninguém disse
+        nada. O perfil passou a nascer VAZIO, que é "ainda não respondeu":
+        com o default gravado, a etapa 2 abria com a resposta marcada e
+        quem passasse batido saía declarando um lugar de treino que não
+        escolheu.
+
+        Ninguém é remontado por isso, e é o teste logo abaixo que prende:
+        `equipamento_de` traduz o vazio para "completa", que é o que o
+        retrato já tinha.
+        """
         user, plano = _plano("padrao@exemplo.com")
-        self.assertEqual(user.profile.equipamento, Equipamento.COMPLETA)
+        self.assertEqual(user.profile.equipamento, "")
+        self.assertEqual(services.equipamento_de(user), Equipamento.COMPLETA)
         self.assertEqual(plano.equipamento, "completa")
         self.assertEqual(TrainingPlan._meta.get_field("equipamento").default, "completa")
-        self.assertEqual(Profile._meta.get_field("equipamento").default, "completa")
+        self.assertEqual(Profile._meta.get_field("equipamento").default, "")
 
     def test_a_conta_antiga_nao_e_remontada_pela_pergunta_nova(self):
         user, plano = _plano("antiga@exemplo.com")
@@ -294,12 +308,24 @@ class APerguntaTests(TestCase):
         self.user = create_complete_user(email="pergunta@exemplo.com")
         self.client.force_login(self.user)
 
-    def test_a_etapa_2_pergunta_e_abre_com_completa_marcada(self):
+    def test_a_etapa_2_pergunta_e_abre_SEM_nada_marcado(self):
+        """A MARCA PRÉVIA SAIU EM 26/09/2026 (item 5 da missão "quem entra
+        não desiste").
+
+        A tela abria com "academia completa" marcada porque o campo do
+        perfil nascia com esse valor — e desde 24/09 ele é OBRIGATÓRIO para
+        quem faz musculação: a tela exigia a resposta e já a dava. O motor
+        continua lendo "completa" do vazio (`services.equipamento_de`), e é
+        isso que faz ninguém ser remontado pela mudança.
+        """
         html = self.client.get(reverse("accounts:onboarding_step", kwargs={"step": 2})).content.decode()
         self.assertIn("O que você tem para treinar?", html)
         self.assertIn('name="equipamento"', html)
         form = TrainingForm(user=self.user)
-        self.assertEqual(form.get_initial_for_field(form.fields["equipamento"], "equipamento"), "completa")
+        self.assertEqual(
+            form.get_initial_for_field(form.fields["equipamento"], "equipamento"), ""
+        )
+        self.assertEqual(services.equipamento_de(self.user), Equipamento.COMPLETA)
 
     def test_o_formulario_grava_a_resposta(self):
         aberto = TrainingForm(user=self.user)

@@ -120,6 +120,13 @@ class PlanInputs:
     #: o len() disso — não existe campo separado que possa dessincronizar.
     session_minutes: tuple = ()
 
+    #: Quantas CORRIDAS por semana a pessoa declarou (26/09/2026), e quantos
+    #: minutos cada uma. Os dias entram no fator de atividade pela mesma
+    #: porta da musculação — sessão é sessão; os minutos NÃO entram em conta
+    #: nenhuma aqui, pela razão escrita em `activity_factor`.
+    corrida_dias: int = 0
+    corrida_minutos: int = 0
+
     #: Ajuste manual sobre a meta, em kcal. Negativo aperta a dieta.
     #:
     #: Entra DEPOIS das travas de segurança, e essa ordem é a decisão: as
@@ -186,13 +193,25 @@ def bmr_mifflin_st_jeor(*, sex, weight_kg, height_cm, age_years) -> Decimal:
     return base + (Decimal(5) if sex == Sex.MALE else Decimal(-161))
 
 
-def activity_factor(activity_level, training_days_per_week=0) -> Decimal:
+def activity_factor(activity_level, training_days_per_week=0, corrida_dias=0) -> Decimal:
     """O multiplicador da pessoa dentro da faixa do nível dela.
 
     Cada nível é uma faixa (1,25-1,35 / 1,40-1,45 / 1,50-1,60) porque duas
     pessoas com a mesma rotina podem treinar uma vez ou cinco vezes por semana,
     e é essa diferença que a faixa acomoda. Quem não treina fica no piso; quem
     treina cinco vezes ou mais chega ao teto; no meio, a posição é proporcional.
+
+    **A CORRIDA CONTA COMO SESSÃO (26/09/2026)**, e não como uma soma à
+    parte: três corridas por semana movem a pessoa dentro da faixa
+    exatamente como três musculações moveriam. Quem só corre tinha ZERO
+    sessões e recebia o piso — a meta de quem não treina.
+
+    O que continua fora são os MINUTOS. A razão é a mesma de sempre, e vale
+    igual para a corrida: somar MET por minuto depende de a pessoa saber
+    quanto tempo ela realmente corre, e infla a meta de quem mais precisa
+    dela apertada. A corrida REGISTRADA no dia continua sendo creditada por
+    cima — mas só para quem NÃO declarou corrida na rotina, senão o mesmo
+    esforço entraria duas vezes (`plans.tracking.day_summary`).
 
     O que este desenho evita é o erro que a versão anterior cometia: somar o
     gasto do treino por fora, com a fórmula do MET, que trata uma hora de
@@ -201,12 +220,13 @@ def activity_factor(activity_level, training_days_per_week=0) -> Decimal:
     dela apertada.
     """
     minimo, maximo = ACTIVITY_FACTORS[activity_level]
-    sessoes = min(max(int(training_days_per_week), 0), FULL_TRAINING_WEEK)
+    sessoes = int(training_days_per_week) + max(int(corrida_dias or 0), 0)
+    sessoes = min(max(sessoes, 0), FULL_TRAINING_WEEK)
     proporcao = Decimal(sessoes) / Decimal(FULL_TRAINING_WEEK)
     return minimo + (maximo - minimo) * proporcao
 
 
-def tdee(bmr, activity_level, training_days_per_week=0) -> Decimal:
+def tdee(bmr, activity_level, training_days_per_week=0, corrida_dias=0) -> Decimal:
     """Gasto total do dia: a TMB multiplicada pelo fator de atividade.
 
     Um multiplicador só, cobrindo rotina e treino. É menos sofisticado que
@@ -214,7 +234,7 @@ def tdee(bmr, activity_level, training_days_per_week=0) -> Decimal:
     daquela soma era aparente: ela dependia de a pessoa saber quantos minutos
     realmente treina, e tratava série e descanso como o mesmo esforço.
     """
-    return Decimal(bmr) * activity_factor(activity_level, training_days_per_week)
+    return Decimal(bmr) * activity_factor(activity_level, training_days_per_week, corrida_dias)
 
 
 def goal_adjustment(tdee_value, goal) -> Decimal:
@@ -388,7 +408,9 @@ def calculate(inputs: PlanInputs) -> PlanResult:
         height_cm=inputs.height_cm,
         age_years=inputs.age_years,
     )
-    total = tdee(bmr, inputs.activity_level, inputs.training_days_per_week)
+    total = tdee(
+        bmr, inputs.activity_level, inputs.training_days_per_week, inputs.corrida_dias
+    )
     target, floor_note = target_kcal(
         total, inputs.goal, bmr, inputs.sex, weight_kg=inputs.weight_kg
     )
@@ -468,7 +490,9 @@ def calculate(inputs: PlanInputs) -> PlanResult:
 
     return PlanResult(
         bmr_kcal=_round(bmr),
-        activity_factor=activity_factor(inputs.activity_level, inputs.training_days_per_week),
+        activity_factor=activity_factor(
+            inputs.activity_level, inputs.training_days_per_week, inputs.corrida_dias
+        ),
         tdee_kcal=_round(total),
         target_kcal=target,
         protein_g=protein_g,

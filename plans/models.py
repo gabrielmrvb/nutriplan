@@ -35,6 +35,14 @@ class NutritionPlan(models.Model):
     activity_level = models.CharField(max_length=20, choices=ActivityLevel.choices)
     goal = models.CharField(max_length=10, choices=Goal.choices)
     training_days_per_week = models.PositiveSmallIntegerField(default=0)
+    #: As CORRIDAS por semana que a pessoa declarou quando este retrato foi
+    #: tirado (26/09/2026). Elas entram em `activity_factor` como sessões, e
+    #: por isso são entrada: mudar de 3 para 5 no Perfil faz nascer
+    #: estimativa nova, como mudar os dias de academia já fazia. Zero é
+    #: "não corre" E "conta anterior à pergunta" — e nos dois casos a meta é
+    #: a mesma de antes, que é o que faz a pergunta nova não remontar o
+    #: cardápio de ninguém.
+    corrida_dias = models.PositiveSmallIntegerField(default=0)
     #: O QUE ESCOLHE A COMIDA, também no retrato (24/09/2026).
     #:
     #: Os campos acima fotografam o que calcula a META. As restrições e o

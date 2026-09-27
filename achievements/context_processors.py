@@ -11,7 +11,20 @@ tambem o que faz o aviso sobreviver ao redirecionamento do POST de registrar
 serie — e o que o impede de voltar no refresh, porque `marcar_vistas` limpa a
 chave junto.
 
-E O AVISO É DADO POR VISTO NA TELA EM QUE APARECE (20/09/2026). A auditoria
+O GET NÃO MARCA MAIS COMO VISTA (decisão do dono, 27/09/2026, revisão do PR
+#162). A renderização LÊ: mostra as conquistas da sessão que ainda estão sem
+`seen_at`, e não toca nem no banco nem na sessão. Quem marca é um POST — o
+mesmo `achievements:marcar_vistas` do "Continuar" —, que `conquista.js` manda
+quando o aviso está VISÍVEL de verdade (`visibilityState` e não
+`document.prerendering`). A razão: um prefetch, uma pré-renderização ou um
+"abrir em nova aba" RENDERIZA a página sem a pessoa ver, e quando o "visto"
+morava aqui ele consumia o anúncio — ela nunca via "Conquista desbloqueada"
+na aba em que estava. `config/test_get_nao_grava.py` é a régua.
+
+O que a decisão de 20/09, abaixo, resolvia continua resolvido pelo POST: o
+aviso é dado por visto na tela em que aparece, só que por quem a VIU.
+
+A DECISÃO DE 20/09/2026 (o aviso dado por visto na tela em que aparece). A auditoria
 da semana simulada viu o que acontece com quem nunca toca em "Continuar": o
 aviso de "Primeiro treino" voltava em TODA página por dias, e na execução
 cobria o campo Reps e o botão CONCLUIR SÉRIE — um aviso que "não interrompe"
@@ -41,19 +54,13 @@ def conquistas_pendentes(request):
     # Import tardio: este modulo e carregado na montagem dos templates.
     from .models import UserAchievement
 
+    # SÓ LEITURA. As que ainda não foram vistas: depois do POST de "visto"
+    # (o `fetch` de `conquista.js`, ou o "Continuar"), elas saem daqui mesmo
+    # que a sessão ainda as liste — e a sessão é limpa pelo próprio POST
+    # (`services.esquecer`). Nada nesta função escreve.
     novas = list(
-        UserAchievement.objects.filter(user=user, pk__in=ids[:5]).order_by(
-            "unlocked_at", "pk"
-        )
+        UserAchievement.objects.filter(
+            user=user, pk__in=ids[:5], seen_at__isnull=True
+        ).order_by("unlocked_at", "pk")
     )
-    # Vista é vista: esta renderização É o anúncio. Marcar aqui (e não só no
-    # "Continuar") é o que impede o aviso de acompanhar a pessoa página a
-    # página até ela tocar num botão que pode estar atrás do teclado, do
-    # convite de instalação ou da própria série.
-    from .services import marcar_vistas
-
-    if novas:
-        marcar_vistas(user, [c.pk for c in novas])
-    request.session.pop(CHAVE, None)
-    request.session.modified = True
     return {"conquistas_novas": novas} if novas else {}

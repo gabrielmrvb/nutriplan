@@ -288,8 +288,26 @@ def day_summary(user, plan, day, *, peso_kg=None, logs=None, slots=None, corrida
             "distancia_m", flat=True
         )
     gasto = sum(gasto_kcal(distancia_m, peso) for distancia_m in corridas_m)
-    resumo["gasto_corrida_kcal"] = gasto
-    resumo["remaining_kcal"] += gasto
+
+    # QUEM DECLARA A CORRIDA JÁ A TEM NA META (26/09/2026).
+    #
+    # Desde que a corrida entrou em `calculations.activity_factor` como
+    # sessão, o gasto de quem declarou "3 corridas por semana" está no
+    # número de TODO dia — e somar a corrida registrada por cima contaria o
+    # mesmo esforço duas vezes. Medido: 3 corridas por semana movem o fator
+    # em ~40 kcal/dia, e uma corrida de 5 km custa ~300 kcal; com as duas
+    # coisas, um dia de corrida ganharia quase o dobro do que gastou.
+    #
+    # A régua é "você declarou, entra na meta; não declarou, entra no dia":
+    # quem não respondeu a pergunta (ou respondeu "não" e correu assim
+    # mesmo) continua recebendo o crédito por cima, exatamente como antes.
+    # `plan.corrida_dias` é o RETRATO — a estimativa que está valendo —, e
+    # não o perfil de agora: o número da tela tem de bater com o plano que
+    # a produziu.
+    ja_no_plano = bool(getattr(plan, "corrida_dias", 0))
+    resumo["gasto_corrida_kcal"] = 0 if ja_no_plano else gasto
+    resumo["corrida_ja_na_meta"] = ja_no_plano and bool(gasto)
+    resumo["remaining_kcal"] += resumo["gasto_corrida_kcal"]
 
     return resumo
 

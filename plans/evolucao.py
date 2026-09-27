@@ -553,6 +553,28 @@ def tile_de_treino(mapa, dias_combinados) -> Tile:
     )
 
 
+def tile_de_corrida(corridas_por_dia, recorte) -> Tile:
+    """Os quilômetros do período — o tile de quem corre e não levanta peso.
+
+    Ele ocupa o lugar do tile de treino (item 4, 26/09/2026), e não se
+    acrescenta ao lado: os quatro tiles do topo são uma grade de quatro, e um
+    quinto quebraria a linha a 390px.
+
+    Sobre `corridas_por_dia`, que `reunir` já leu: zero consulta nova.
+    """
+    metros = sum(v["m"] for v in corridas_por_dia.values())
+    km = metros / 1000
+    if not corridas_por_dia:
+        return Tile(chave="corrida", titulo="Corrida", valor="—",
+                    frase="Registre uma corrida para a série começar.")
+    dias = len(corridas_por_dia)
+    return Tile(
+        chave="corrida", titulo="Corrida", valor=_numero(km, 1), unidade="km",
+        direcao=SUBINDO,
+        frase="em %d dia%s do período" % (dias, "s" if dias > 1 else ""),
+    )
+
+
 def tile_de_dieta(mapa_dieta, linhas) -> Tile:
     """Aderência dos dias FECHADOS, pela mesma régua de `tracking.adherence`:
     hoje ainda está acontecendo e não é nota."""
@@ -741,6 +763,30 @@ def reunir(user, periodo, hoje=None, perfil=None, plano=None) -> dict:
     for area in (dieta, treino, agua, corrida):
         _vestir(area, recorte)
 
+    # QUEM NÃO FAZ MUSCULAÇÃO VÊ CORRIDA ANTES, E O CARTÃO DE TREINO SAI
+    # (item 4, 26/09/2026). A tela abria com "Treinos 0 — Sem dia de treino
+    # combinado no período" e o cartão de treino vazio para quem tinha
+    # respondido, duas telas antes, que não faz musculação: o app perguntando
+    # e não ouvindo.
+    #
+    # O cartão de treino só sai quando também não há DADO: quem treinou antes
+    # de mudar a resposta continua vendo o próprio histórico — apagá-lo da
+    # tela seria o app decidir que aquilo não aconteceu.
+    perfil = perfil or getattr(user, "profile", None)
+    sem_musculacao = bool(perfil) and perfil.nao_faz_musculacao
+    if sem_musculacao:
+        areas = [dieta, corrida, agua] + ([treino] if treino.tem_dado else [])
+        # E o tile de treino dá lugar ao de corrida, sobre o mapa que já foi
+        # lido: zero consulta nova.
+        tile_da_semana = (
+            tile_de_treino(mapa_treino, dias_combinados)
+            if treino.tem_dado
+            else tile_de_corrida(corridas_por_dia, recorte)
+        )
+    else:
+        areas = [dieta, treino, agua, corrida]
+        tile_da_semana = tile_de_treino(mapa_treino, dias_combinados)
+
     peso = tile_de_peso(user, recorte)
     return {
         "janela": recorte,
@@ -750,13 +796,14 @@ def reunir(user, periodo, hoje=None, perfil=None, plano=None) -> dict:
         ],
         "tiles": [
             peso,
-            tile_de_treino(mapa_treino, dias_combinados),
+            tile_da_semana,
             tile_de_dieta(mapa_dieta, linhas),
             tile_de_agua(mapa_agua, ml_por_dia, meta_ml),
         ],
         "peso": peso,
-        "areas": [dieta, treino, agua, corrida],
+        "areas": areas,
         "tem_corrida": corrida.tem_dado,
+        "sem_musculacao": sem_musculacao,
     }
 
 

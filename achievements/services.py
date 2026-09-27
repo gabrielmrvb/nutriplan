@@ -23,13 +23,13 @@ custo apareceria em toda visita para um ganho que a escrita já entrega.
 from dataclasses import replace
 from datetime import timedelta
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Min, Q, Sum
 from django.utils import timezone
 
 from accounts.models import TrainingDay
 from plans import services as plan_services
 from plans import streaks
-from workouts.models import ExerciseLog, TrainingPlan
+from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
 from .models import UserAchievement
 from .regras import CATALOGO, Dados
@@ -93,6 +93,24 @@ def reunir(user, hoje=None) -> Dados:
             if all(d <= hoje for d in dias) and dias <= datas:
                 completas.append(segunda)
     dados = replace(dados, semanas_completas=tuple(completas))
+
+    # -------------------------------------------------------------- corrida
+    #
+    # UMA consulta para as quatro regras de corrida: contagem, maior distância
+    # e soma saem da mesma agregação. Ela custa o mesmo para quem nunca correu
+    # (devolve `None` nos três, que viram zero) — e é por isso que ela não é
+    # condicional: um `if` sobre "esta pessoa corre?" seria outra consulta.
+    corridas = Corrida.objects.filter(user=user).aggregate(
+        quantas=Count("pk"),
+        maior=Max("distancia_m"),
+        total=Sum("distancia_m"),
+    )
+    dados = replace(
+        dados,
+        corridas=corridas["quantas"] or 0,
+        maior_corrida_m=corridas["maior"] or 0,
+        total_corrido_m=corridas["total"] or 0,
+    )
 
     # ------------------------------------------------------------- recordes
     #
@@ -279,7 +297,31 @@ def resumo(user, hoje=None, request=None):
 
     ganhas = list(UserAchievement.objects.filter(user=user))
     conquistados = {c.slug for c in ganhas}
+    dados = reunir(user, hoje=hoje)
+    candidatas = a_caminho(dados, conquistados)
+    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
+    return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
 
+
+def sincronizar(user, hoje=None, request=None) -> list:
+    """Desbloqueia o que já está a 100 %, e devolve o que nasceu agora.
+
+    É o laço que morava em `resumo` — e o lugar dele é o POST, não o GET.
+    Custa `reunir` mais duas consultas por regra que fecha, e nada quando
+    não há nenhuma: `candidatas[0]["pct"] >= 100` é comparação em memória
+    sobre dados que o chamador já precisava ler.
+
+    Não é `avaliar`: este caminho só enxerga as regras com PROGRESSO
+    MENSURÁVEL (`a_caminho`) — primeiro treino, N treinos, N dias de
+    ofensiva. As repetíveis (recorde, semana completa) nascem de um treino,
+    e o POST da série continua chamando `avaliar`, que roda o catálogo
+    inteiro. Somar o catálogo a cada copo d'água seria pagar 50 consultas
+    para descobrir que nada mudou.
+    """
+    from .models import UserAchievement
+
+    ganhas = list(UserAchievement.objects.filter(user=user))
+    conquistados = {c.slug for c in ganhas}
     dados = reunir(user, hoje=hoje)
     candidatas = a_caminho(dados, conquistados)
     novas = []
@@ -291,14 +333,11 @@ def resumo(user, hoje=None, request=None):
             # gravou antes): não insiste — e não pinta de novo em laço.
             break
         novas.extend(nascidas)
-        ganhas.extend(nascidas)
         conquistados.add(regra.slug)
         candidatas = a_caminho(dados, conquistados)
     if request is not None and novas:
         anunciar(request, novas)
-
-    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
-    return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
+    return novas
 
 
 def a_caminho(dados, conquistados) -> list:

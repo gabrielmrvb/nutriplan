@@ -1,16 +1,20 @@
 {% autoescape off %}Olá{% if nome %}, {{ nome }}{% endif %}.
 
 Sua conta no NutriPlan está pronta. O app é o seu dia inteiro: a refeição
-da vez, a ficha de hoje, a água e o peso, numa tela só.
+da vez, {% if musculacao == "nao" %}as suas corridas{% else %}a ficha de hoje{% endif %}, a água e o peso, numa tela só.
 
 O que fazer primeiro:
 
 1. Termine as 3 etapas do cadastro — no fim delas, sua estimativa de
-   calorias e sua ficha de treino aparecem.
+   calorias{% if musculacao != "nao" %} e a sua ficha de treino{% endif %} aparece{% if musculacao != "nao" %}m{% endif %}.
 2. Na tela Hoje, registre a próxima refeição — escolha uma das duas opções.
-3. Na área Treino, abra a ficha de hoje e comece pelo primeiro exercício:
+{% if musculacao == "sim" %}3. Na área Treino, abra a ficha de hoje e comece pelo primeiro exercício:
    cada série que você fecha fica anotada, com a carga.
-
+{% elif musculacao == "nao" %}3. Na área Corrida, registre a sua primeira corrida — distância e tempo. O
+   ritmo, os quilômetros da semana e o gasto do dia saem daí.
+{% else %}3. Na etapa 2 você diz se faz musculação. Quem faz recebe a ficha da semana;
+   quem só corre (ou pedala, ou nada) registra as corridas na área Corrida.
+{% endif %}
 Abrir o NutriPlan: {{ url_base }}/
 
 Este e-mail de boas-vindas sai uma vez. Os outros avisos por e-mail (5 dias

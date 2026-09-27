@@ -201,6 +201,29 @@ class Musculacao(models.TextChoices):
     NAO = "nao", "Não faço — só corrida, natação ou outro esporte"
 
 
+class Corrida(models.TextChoices):
+    """"Você corre (ou pedala, nada)?" — a pergunta-porta do cardio.
+
+    Mesma forma de `Musculacao`, e pelo mesmo motivo: em branco é "não
+    perguntado" (toda conta anterior à pergunta), e é a resposta que decide
+    se o resto do bloco aparece. A palavra da TELA é corrida porque é o nome
+    do pilar; a pergunta nomeia pedalar e nadar para quem faz cardio de
+    outro jeito não achar que o app não serve para ela — o que a conta usa é
+    a SESSÃO por semana, e uma pedalada de 40 minutos é uma sessão como
+    qualquer outra.
+    """
+
+    # VALORES PRÓPRIOS, e não "sim"/"nao" (revisão do PR #162, 27/09/2026).
+    # `accounts.templatetags.escolhas.DETALHES` é chaveado pelo VALOR CRU da
+    # opção, sem o nome do campo, e "sim"/"nao" já são as chaves de
+    # `Musculacao`: a pergunta "Você corre, pedala ou nada?" desenhava os dois
+    # cartões da musculação ("Sim, faço musculação · a ficha é sua"), na etapa
+    # em que duas das três personas desistiam. Sem entrada em `DETALHES`, o
+    # cartão cai no rótulo abaixo — que é o texto certo.
+    SIM = "corre", "Sim, corro (ou pedalo, ou nado)"
+    NAO = "nao_corre", "Não"
+
+
 class Experiencia(models.TextChoices):
     """Há quanto tempo a pessoa treina — e quanto volume isso comporta.
 
@@ -551,6 +574,31 @@ class Profile(models.Model):
         blank=True,
         default="",
     )
+    #: A CORRIDA NO CÁLCULO (26/09/2026, missão "quem entra não desiste").
+    #:
+    #: `calculations.activity_factor` conta SESSÕES por semana, e elas eram
+    #: só as de musculação (`len(session_minutes)`, que vem de
+    #: `TrainingDay`): quem corre três vezes e não levanta peso recebia a
+    #: meta de quem não treina — o piso da faixa do nível de atividade
+    #: (persona 3 do relatório de experiência).
+    #:
+    #: Os DIAS entram na conta; os MINUTOS não. A doutrina de
+    #: `plans/calculations.py` recusa somar MET por fora — "metade de um
+    #: treino de força é descanso, e contar tudo inflava a meta de quem mais
+    #: precisava dela apertada" —, e a razão vale igual para a corrida: a
+    #: precisão daquela soma depende de a pessoa saber quantos minutos
+    #: realmente corre. Os minutos existem porque o cardápio do dia de
+    #: corrida usa (o lanche de carboidrato) e porque quem declarou merece
+    #: ver o que declarou.
+    corrida = models.CharField(
+        "corre, pedala ou nada",
+        max_length=9,
+        choices=Corrida.choices,
+        blank=True,
+        default="",
+    )
+    corrida_dias = models.PositiveSmallIntegerField("corridas por semana", default=0)
+    corrida_minutos = models.PositiveSmallIntegerField("minutos por corrida", default=0)
     #: A experiência move o teto semanal por grupo. Vazio é "não respondeu", e
     #: o motor o lê como 20 — o número que o app já praticava. Ver `Experiencia`
     #: para por que o padrão não é INTERMEDIARIO.
@@ -565,11 +613,26 @@ class Profile(models.Model):
     #: com razão escrita no enum: é a verdade de toda conta anterior à
     #: pergunta. Coluna nova com default constante: mudança de catálogo no
     #: PostgreSQL 11+, sem reescrever linha.
+    #: O DEFAULT VIROU VAZIO EM 26/09/2026, e o vazio é "ainda não
+    #: respondeu" — o mesmo estado de verdade que `experiencia` tem desde
+    #: 17/09. Era `COMPLETA`, com a razão escrita: "toda ficha anterior à
+    #: pergunta nasceu do catálogo inteiro, então completa é a verdade
+    #: dela". Aquela razão valia para quem JÁ TINHA CONTA — e continua
+    #: valendo, porque a migration não toca em linha nenhuma. O que ela não
+    #: podia decidir era pela pessoa que está respondendo AGORA: com o
+    #: default gravado, a etapa 2 abria com "academia completa" marcada, e
+    #: quem passasse batido saía declarando um lugar de treino que não
+    #: escolheu (missão "quem entra não desiste", item 5).
+    #:
+    #: Quem lê continua lendo "completa": `services.equipamento_de` já
+    #: traduz o vazio, e o Perfil o mostra marcado como padrão, como faz
+    #: com o nível.
     equipamento = models.CharField(
         "equipamento disponível",
         max_length=15,
         choices=Equipamento.choices,
-        default=Equipamento.COMPLETA,
+        default="",
+        blank=True,
     )
     #: Grátis ou Pro. Quem decide o que cada um alcança é `accounts/gates.py`,
     #: e SÓ ele; este campo é o dado, não a regra. Ninguém no app escreve
@@ -753,7 +816,32 @@ class Profile(models.Model):
         """O multiplicador desta pessoa, já posicionado pela frequência de treino."""
         from plans.calculations import activity_factor
 
-        return activity_factor(self.activity_level, self.training_days_per_week)
+        # A CORRIDA ENTRA AQUI TAMBÉM (revisão do PR #162): sem ela, este fator
+        # divergia do que `plans.calculations.calculate` grava no plano para a
+        # mesma pessoa — dois números para a mesma pergunta. Só conta quem
+        # RESPONDEU que corre, como `plans.services.build_inputs`.
+        corrida_dias = self.corrida_dias if self.corrida == Corrida.SIM else 0
+        return activity_factor(
+            self.activity_level, self.training_days_per_week, corrida_dias
+        )
+
+    @property
+    def nao_faz_musculacao(self) -> bool:
+        """A pessoa DISSE que não faz musculação.
+
+        A REGRA MORA AQUI, e não em cada tela (item 4 da missão "quem entra
+        não desiste", 26/09/2026). Ela era `perfil.musculacao ==
+        Musculacao.NAO` escrito no painel do treino e em nenhum outro lugar —
+        e o resto do app continuava de academia: a aba dizia "Treino", a etapa
+        3 oferecia "Treino" como área para acompanhar, o Progresso abria com
+        um cartão de treino vazio e o e-mail de boas-vindas falava de ficha.
+
+        `False` para o branco DE PROPÓSITO: branco é "não perguntado", e
+        tratá-lo como "não faz" mudaria a navegação de toda conta anterior à
+        pergunta. Uso não é intenção declarada, e a falta de resposta também
+        não é resposta.
+        """
+        return self.musculacao == Musculacao.NAO
 
     @property
     def current_weight(self):

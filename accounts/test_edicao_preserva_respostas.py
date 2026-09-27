@@ -16,7 +16,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.forms import BodyDataForm, InteressesForm, TrainingForm
-from accounts.models import Experiencia, Pilar, Profile, WeightEntry
+from accounts.models import Equipamento, Experiencia, Pilar, Profile, WeightEntry
 from plans.tests import create_complete_user
 
 
@@ -48,7 +48,17 @@ class ExperienciaSobreviveAReedicaoSemDiasTests(TestCase):
         # `musculacao="sim"`: desde 22/09/2026 a etapa 2 pergunta "você faz
         # musculação?" e a resposta é obrigatória; sem dias gravados não há
         # "sim" implícito, então quem reabre precisa ter respondido.
-        self.user = create_complete_user(experiencia=Experiencia.AVANCADO, musculacao="sim")
+        #
+        # E `equipamento` explícito desde 26/09/2026 (item 5 da missão "quem
+        # entra não desiste"): o campo deixou de nascer com "academia completa"
+        # marcada, e para quem faz musculação ele é obrigatório. Sem a resposta
+        # no fixture, o reenvio do formulário RENDERIZADO é recusado com "Diga
+        # o que você tem para treinar" — e o que este teste mede é a
+        # experiência sobreviver, não a validação do equipamento.
+        self.user = create_complete_user(
+            experiencia=Experiencia.AVANCADO, musculacao="sim",
+            equipamento=Equipamento.COMPLETA,
+        )
         self.user.training_days.all().delete()
 
     def test_o_formulario_abre_com_a_experiencia_gravada_mesmo_sem_dias(self):

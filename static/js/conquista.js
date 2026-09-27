@@ -79,6 +79,30 @@
       }
     });
 
+    /* O "VISTO" É UM POST, E SÓ QUANDO A PESSOA VÊ (decisão do dono,
+     * 27/09/2026). O servidor não marca mais nada na renderização: um
+     * prefetch, uma pré-renderização ou uma aba aberta em segundo plano
+     * renderizam a página sem ninguém olhar, e consumiam o anúncio. Aqui ele é
+     * marcado — pelo mesmo POST do "Continuar", com `keepalive` para
+     * sobreviver a uma navegação logo em seguida — quando a página está
+     * visível e não está sendo pré-renderizada. A caixa NÃO some: marcar
+     * como visto não é fechar; "Continuar" e Esc continuam fechando. */
+    var marcarVista = function () {
+      if (!form || caixa.dataset.vista) return;
+      if (document.visibilityState !== "visible" || document.prerendering) return;
+      caixa.dataset.vista = "1";
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        credentials: "same-origin",
+        keepalive: true,
+        headers: { "X-Requested-With": "fetch" },
+      }).catch(function () { delete caixa.dataset.vista; });
+    };
+    marcarVista();
+    document.addEventListener("visibilitychange", marcarVista);
+    document.addEventListener("prerenderingchange", marcarVista);
+
     var fechar = function () {
       if (!form) return;
       fetch(form.action, {

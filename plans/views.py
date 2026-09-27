@@ -8,8 +8,9 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.db import transaction
 from django.core.cache import cache
@@ -30,6 +31,7 @@ from accounts.models import (
 )
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from achievements import services as conquistas
+from catalog import busca
 from catalog.models import Food
 
 from workouts import progresso
@@ -280,7 +282,11 @@ def breakdown(plan):
     campo: dois números que dizem a mesma coisa acabam discordando um dia, e
     aqui o plano já guarda tudo que a conta precisa (nível e frequência).
     """
-    factor = activity_factor(plan.activity_level, plan.training_days_per_week)
+    # A CORRIDA ENTRA AQUI TAMBÉM (26/09/2026): o fator é recalculado das
+    # entradas do plano, e a corrida virou uma delas. Sem isto a tela que
+    # EXPLICA a meta mostraria um fator diferente do que produziu a meta.
+    corridas = getattr(plan, "corrida_dias", 0) or 0
+    factor = activity_factor(plan.activity_level, plan.training_days_per_week, corridas)
     minimo, maximo = ACTIVITY_FACTORS[plan.activity_level]
     ajuste = plan.target_kcal - plan.tdee_kcal
     return {
@@ -289,6 +295,11 @@ def breakdown(plan):
         "factor_min": minimo,
         "factor_max": maximo,
         "training_days": plan.training_days_per_week,
+        "corrida_dias": corridas,
+        #: O que a faixa conta: academia MAIS corrida. É este número que a
+        #: tela mostra ao lado do fator — "0× por semana" para quem corre
+        #: três vezes era a explicação contradizendo a própria conta.
+        "sessoes": plan.training_days_per_week + corridas,
         "tdee_kcal": plan.tdee_kcal,
         "adjustment_pct": round(abs(ajuste) * 100 / (plan.tdee_kcal or 1)),
         "adjustment_kcal": ajuste,
@@ -316,11 +327,13 @@ class PlanRequiredMixin(OnboardingRequiredMixin):
 #: datas da semana para o convite — uma por dia, sete dias.
 PESAGENS_LIDAS = 7
 
-#: Por quanto tempo o `<datalist>` de alimentos vive em cache, por processo.
-#: O catálogo muda no deploy (`seed_catalog`, que reinicia o processo) ou
-#: por edição no admin; quinze minutos é o preço de um alimento novo demorar
-#: a aparecer na sugestão de "comi outra coisa" — contra uma consulta ao
-#: catálogo inteiro a cada abertura da Home.
+#: Por quanto tempo a prévia da lista de compras vive em cache, por processo.
+#: O cardápio muda no deploy (`seed_catalog`, que reinicia o processo) ou
+#: quando o plano é remontado; quinze minutos é o preço de a prévia demorar a
+#: acompanhar — contra as SEIS consultas de `shopping_list` em cada abertura.
+#:
+#: Ela guardava também o `<datalist>` de alimentos, que saiu em 26/09/2026
+#: quando a sugestão virou busca em `plans:buscar_alimento`.
 CACHE_DO_CATALOGO_S = 15 * 60
 
 
@@ -342,15 +355,6 @@ def agua_e_desfazer(user, inicio, hoje) -> tuple:
         if data == hoje:
             desfazer = bool(tem_gole)
     return por_dia, desfazer
-
-
-def alimentos_do_catalogo() -> list:
-    """Os nomes do catálogo para o `<datalist>` de "comi outra coisa"."""
-    nomes = cache.get("plans.alimentos_do_catalogo")
-    if nomes is None:
-        nomes = list(Food.objects.filter(is_active=True).order_by("name").values_list("name", flat=True))
-        cache.set("plans.alimentos_do_catalogo", nomes, CACHE_DO_CATALOGO_S)
-    return nomes
 
 
 def relogio():
@@ -547,7 +551,13 @@ class TodayView(PlanRequiredMixin, TemplateView):
         menu = menu_totals(slots)
 
         recusa = recusa_pendente(self.request, "hoje")
-        meta_agua = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        # A META DO DIA SOBE MEIO LITRO QUANDO A PESSOA CORREU (26/09/2026).
+        # `corridas_de_hoje_m` já está em mãos — a mesma leitura que o resumo
+        # usa —, então isto custa zero consulta. A ofensiva continua medindo
+        # pela meta base: ver `weight_trend.hidratacao_do_dia_ml`.
+        meta_agua = weight_trend.hidratacao_do_dia_ml(
+            self.plan.weight_kg, correu=bool(corridas_de_hoje_m)
+        )
         bebido = agua_por_dia.get(today, 0)  # a leitura de água de cima
 
         # Existe gole para desfazer? A pergunta é `exists()` e não a contagem:
@@ -767,11 +777,15 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # estes dois: o catálogo do `<datalist>` é uma consulta, e a
                 # proteína perdida uma varredura dos slots.
                 "proteina_perdida": proteina_perdida(slots) if self.mostra_cardapio else None,
-                # O catálogo do `<datalist>` e as linhas em branco do painel
-                # "comi outra coisa". `range` no contexto porque o template do
-                # Django não sabe contar, e um `{% for %}` sobre uma lista de
-                # três nadas é mais honesto que três blocos copiados.
-                "alimentos": alimentos_do_catalogo() if self.mostra_cardapio else (),
+                # As linhas em branco do painel "comi outra coisa". `range` no
+                # contexto porque o template do Django não sabe contar, e um
+                # `{% for %}` sobre uma lista de três nadas é mais honesto que
+                # três blocos copiados.
+                #
+                # O CATÁLOGO NÃO ENTRA MAIS AQUI (item 3, 26/09/2026): o
+                # `<datalist>` de todos os nomes virou busca em
+                # `plans:buscar_alimento`, e o comentário acima dizia "o
+                # catálogo do `<datalist>` é uma consulta" — hoje é zero.
                 "itens_fora": range(tracking.MAX_ITENS_FORA),
                 "nav": self.nav,
                 # O PAINEL DO DIA: quais cartões, e em que ordem.
@@ -1111,6 +1125,14 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
                     ),
                 )
 
+        # O ESTADO DE ANTES, para a guarda de `sincronizar` lá embaixo: uma
+        # refeição que JÁ estava feita não muda a contagem do dia. Só é lido
+        # quando o pedido marca FEITA — os outros estados não fecham dia nenhum.
+        ja_feita = status == MealStatus.DONE and MealLog.objects.filter(
+            user=request.user, slot=slot, date=timezone.localdate(),
+            status=MealStatus.DONE,
+        ).exists()
+
         # A porção vem do formulário da receita ("comi meia"), e o servidor a
         # valida contra a lista fechada: ela MULTIPLICA o kcal que entra no
         # histórico, e um `porcao=99` forjado escreveria um dia de 280 mil
@@ -1131,6 +1153,24 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
             analytics.evento(request, "dieta.pulou")
         elif status == MealStatus.OFF_PLAN:
             analytics.evento(request, "dieta.comeu_outra_coisa")
+        # A CONQUISTA NASCE NO POST QUE CRIA O FATO (26/09/2026, item 0).
+        #
+        # Marcar uma refeição pode FECHAR o dia, e dia fechado move a
+        # ofensiva — que é o que dez das onze regras leem. Antes isso era
+        # descoberto na leitura seguinte do Progresso, dentro de um GET que
+        # gravava; agora nasce aqui, e é anunciado na tela que vem depois.
+        #
+        # COM A GUARDA (decisão do dono, 27/09/2026): só roda quando esta
+        # marcação levou as refeições feitas do dia ao limiar da ofensiva.
+        # "Pulei", "comi outra coisa", desmarcar e remarcar a mesma refeição
+        # não fecham dia nenhum — e a primeira refeição da manhã também não.
+        if status == MealStatus.DONE and not ja_feita:
+            feitas = MealLog.objects.filter(
+                user=request.user, date=timezone.localdate(), status=MealStatus.DONE
+            ).count()
+            previstas = MealSlot.objects.filter(plan_id=slot.plan_id).count()
+            if streaks.dieta_fechou_o_pilar(feitas, previstas):
+                conquistas.sincronizar(request.user, request=request)
         return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
@@ -1190,7 +1230,9 @@ def _itens_descritos(dados, desconhecidos=None) -> list:
         # duas de 2 kg passavam e viravam 4 kg de arroz num prato — o teto
         # existe para barrar dedo escorregando no teclado, e escorregar duas
         # vezes é o caso mais provável, não o menos.
-        chave = nome.casefold()
+        # A CHAVE É A NORMALIZADA, a mesma da coluna `Food.busca`: sem isso
+        # "Feijão" e "feijao" seriam duas linhas e a soma do teto não somaria.
+        chave = busca.normalizar(nome)
         somado = pedidos.get(chave, Decimal("0")) + valor
         if somado > LIMITE_GRAMAS:
             continue
@@ -1200,12 +1242,15 @@ def _itens_descritos(dados, desconhecidos=None) -> list:
     if not pedidos:
         return []
 
-    # Uma consulta, e o casamento sem diferenciar maiúscula acontece em
-    # Python: são 61 alimentos ativos, e um `iexact` por linha seriam três
-    # idas ao banco para comparar com uma lista que cabe na memória.
-    por_nome = {
-        food.name.casefold(): food for food in Food.objects.filter(is_active=True)
-    }
+    # Uma consulta, e traz SÓ o que foi digitado.
+    #
+    # A versão anterior carregava o catálogo inteiro e comparava em Python, com
+    # a razão escrita ("são 61 alimentos ativos"): com a TACO são 685, em todo
+    # registro de "comi outra coisa". E ela casava por `casefold` SEM tirar o
+    # acento — quem digitava "feijao" não achava "Feijão", e a refeição entrava
+    # com zero caloria. Agora as duas pontas usam `catalog.busca.normalizar`: a
+    # coluna `Food.busca` e a chave daqui.
+    por_nome = busca.por_nome_digitado(pedidos)
     if desconhecidos is not None:
         # Como a pessoa escreveu, e não a chave normalizada: o aviso cita o
         # que ela digitou.
@@ -1257,12 +1302,21 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         plan = services.get_active_plan(self.request.user)
         periodo = evolucao.periodo_valido(self.request.GET.get("p"))
-        painel = evolucao.reunir(self.request.user, periodo, plano=plan)
+        # O PERFIL VEM DO `dispatch`, e não de uma leitura nova: `reunir`
+        # precisa dele para saber se esta pessoa faz musculação (a ordem das
+        # áreas e o tile da semana dependem disso), e `OnboardingRequiredMixin`
+        # já o leu.
+        painel = evolucao.reunir(
+            self.request.user, periodo, perfil=self.perfil_do_dispatch, plano=plan
+        )
 
         # O DIA A DIA REUSA AS LINHAS do painel: `tracking.history` já foi
         # chamado lá dentro para o mapa da alimentação, e chamá-lo de novo
         # seria pagar a mesma consulta duas vezes na mesma resposta.
-        rows = painel["areas"][0].extra["linhas"]
+        # POR CHAVE, e não por posição: a ordem das áreas passou a depender da
+        # pessoa (quem não faz musculação vê Corrida antes), e `[0]` era uma
+        # aposta que o item 4 quase perdeu em silêncio.
+        rows = next(a for a in painel["areas"] if a.chave == "dieta").extra["linhas"]
         metas = tracking.metas_por_dia(self.request.user, [r["date"] for r in rows])
         atual = plan.target_kcal if plan else 0
         for row in rows:
@@ -1431,6 +1485,56 @@ class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
             return redirect("accounts:onboarding")
         messages.success(request, "Meta recalculada com os seus dados de hoje.")
         return redirect("plans:alimentacao")
+
+
+class BuscarAlimentoView(LoginRequiredMixin, View):
+    """As sugestões de "comi outra coisa", em JSON.
+
+    POR QUE ELA EXISTE: o campo era um `<input list>` com um `<datalist>` de
+    TODOS os nomes ativos, emitido na página. Com os 102 curados já eram 102
+    `<option>`; com os 583 da TABELA TACO seriam 685 — cerca de 20 kB de HTML
+    na tela do cardápio, toda visita, para uma ação que quase nunca acontece.
+    E o `<datalist>` não é busca: ele casa por PREFIXO do nome inteiro, então
+    quem digita "requeijao" não acha "Queijo, requeijão, cremoso", que é como
+    a TACO escreve.
+
+    Só GET, e só para quem tem sessão: é dado do app, e a rota fica fora do
+    `robots.txt` por não estar em `ROTAS_PUBLICAS`. `LoginRequiredMixin` e não
+    `OnboardingRequiredMixin` porque o mixin do onboarding REDIRECIONA quem não
+    terminou — e um redirect no meio de um `fetch` seria uma sugestão vazia sem
+    explicação. Quem não terminou o cadastro não vê o formulário, então a
+    diferença é teórica; o que não é teórico é o comportamento do `fetch`.
+
+    SEM REDE A TELA NÃO QUEBRA: `pwa.js` trata a falha do `fetch` como "sem
+    sugestão", o campo continua sendo texto livre, e o nome digitado é casado
+    no SERVIDOR quando a fila offline drena — `/refeicao/<id>/marcar/` está em
+    `ROTAS` da fila, e o casamento passou a ser sem acento.
+    """
+
+    def get(self, request, *args, **kwargs):
+        termo = (request.GET.get("q") or "")[:60]
+        itens = [
+            {
+                "nome": food.name,
+                # A caloria por 100 g entra na sugestão porque é o que
+                # diferencia duas linhas de nome parecido — "Leite, de vaca,
+                # integral, pó" e "Leite, fermentado" não se escolhem pelo
+                # nome. E é o número que a pessoa está tentando registrar.
+                "kcal": int(round(float(food.kcal))),
+            }
+            for food in busca.sugerir(termo)
+        ]
+        return JsonResponse(
+            {"itens": itens, "minimo": busca.MINIMO_DE_LETRAS},
+            # `private, no-store` (decisão do dono, 27/09/2026, revisão do PR
+            # #162). A resposta é o catálogo, que não é pessoal — mas a URL
+            # carrega o que a pessoa COMEU (`?q=cerveja`), e `max-age=300`
+            # deixava esse rastro no cache do aparelho. `private` impede proxy
+            # compartilhado; `no-store` impede o disco. O custo é refazer a
+            # consulta ao corrigir uma letra, e o cache do JS (por termo, na
+            # memória da página) já cobre isso.
+            headers={"Cache-Control": "private, no-store"},
+        )
 
 
 class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):
@@ -1829,6 +1933,31 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # da água nem derrubá-lo. Só o SOMAR chega aqui — zerar e desfazer
             # são outros ramos.
             analytics.evento(request, "agua.registrada")
+            # A CONQUISTA NASCE NO POST QUE CRIA O FATO (26/09/2026, item 0).
+            #
+            # A água fecha o dia junto com a dieta, e dia fechado move a
+            # ofensiva. SÓ no ramo que soma: zerar e desfazer não fecham
+            # dia nenhum, e o reenvio da fila nem chega aqui — ele já
+            # devolveu em `ja_aplicada`, lá em cima. Fora da transação,
+            # pelo mesmo motivo do analytics: um erro aqui não pode
+            # derrubar o commit da água.
+            #
+            # COM A GUARDA (decisão do dono, 27/09/2026): só a OFENSIVA pode
+            # destravar aqui, e só se este toque levou a água do dia para cima
+            # do alvo. O total de DEPOIS é relido — dois toques simultâneos
+            # leem o mesmo `registro.ml`, e o "antes" calculado a partir dele
+            # perderia o cruzamento do segundo. Duas consultas no caso comum,
+            # contra as ~13 de `sincronizar` em todo toque.
+            depois = (
+                HydrationLog.objects.filter(pk=registro.pk)
+                .values_list("ml", flat=True).first() or 0
+            )
+            plano = services.get_active_plan(request.user)
+            if streaks.agua_fechou_o_pilar(
+                max(depois - ml, 0), depois,
+                weight_trend.hidratacao_ml(plano.weight_kg) if plano else None,
+            ):
+                conquistas.sincronizar(request.user, request=request)
 
         return self._volta(request)
 
@@ -1942,7 +2071,15 @@ class HydrationView(PlanRequiredMixin, TemplateView):
         # A fórmula da meta é a de `weight_trend`, chamada e não copiada: uma
         # segunda cópia aqui divergiria da do Hoje no primeiro ajuste, e a
         # mesma pessoa veria duas metas diferentes em duas telas do mesmo app.
-        meta_ml = weight_trend.hidratacao_ml(self.plan.weight_kg)
+        # A MESMA META DO DIA DA HOME (26/09/2026): base + meio litro quando
+        # houve corrida hoje. Uma consulta a mais, e só nesta tela — a Home
+        # já tinha as corridas do dia em mãos e passa de graça. Duas telas
+        # que mostram metas diferentes no mesmo dia é o defeito que a
+        # docstring abaixo existe para evitar.
+        correu = Corrida.objects.filter(
+            user=self.request.user, comecou_em__date=hoje
+        ).exists()
+        meta_ml = weight_trend.hidratacao_do_dia_ml(self.plan.weight_kg, correu=correu)
         registro = HydrationLog.objects.filter(user=self.request.user, date=hoje).first()
         bebido = registro.ml if registro else 0
         goles = list(GoleDeAgua.objects.filter(user=self.request.user, dia=hoje))
@@ -1983,82 +2120,3 @@ class HydrationView(PlanRequiredMixin, TemplateView):
         return context
 
 
-def _curva_de_peso(semanas, largura=300, altura=64):
-    """Pontos de uma polilinha SVG a partir das médias semanais.
-
-    Apresentação, não cálculo: nenhum número novo nasce aqui. A função pega as
-    médias que a tabela já mostra e as projeta num retângulo, para o mesmo
-    dado poder ser LIDO como direção em vez de lista.
-
-    Três decisões que a curva exige e a tabela não:
-
-    - a escala é a do próprio período, não zero-based. Peso humano varia
-      poucos por cento; ancorar em zero produziria uma reta horizontal que
-      esconde exatamente a variação que a tela existe para mostrar.
-    - com uma faixa muito estreita (todo mundo no mesmo peso), um piso de
-      0,4 kg impede que ruído de balança vire montanha.
-    - menos de dois pontos não é curva. Devolve None, e o template mostra a
-      tabela sozinha — desenhar uma linha de um ponto seria afirmar tendência
-      onde não há.
-    """
-    # SEM `reversed`: `semanas_de` devolve `sorted(por_semana.items())`, ou
-    # seja, do mais ANTIGO para o mais novo — que é a ordem que uma curva
-    # precisa. Quem inverte é o template da tabela, para listar o recente
-    # primeiro. Inverter aqui também desenhava o tempo de trás para frente,
-    # e uma perda de peso subia no gráfico.
-    # `Semana` é dataclass, não dicionário — `s["media"]` estourou aqui na
-    # primeira versão. `getattr` mantém a função utilizável se um dia a lista
-    # vier de outra fonte, sem obrigar quem chama a converter.
-    medias = [getattr(s, "media", None) for s in semanas]
-    pontos = [float(m) for m in medias if m is not None]
-    if len(pontos) < 2:
-        return None
-
-    # As datas andam junto com as médias — mesma lista, mesmo filtro: um
-    # `zip` sobre `semanas` cru desalinharia a primeira data de um ponto que
-    # a média `None` tirou da curva.
-    datas = [
-        getattr(s, "inicio", None)
-        for s, m in zip(semanas, medias)
-        if m is not None
-    ]
-
-    menor, maior = min(pontos), max(pontos)
-    faixa = max(maior - menor, 0.4)
-    passo = largura / (len(pontos) - 1)
-    coords = []
-    marcas = []
-    for i, valor in enumerate(pontos):
-        x = i * passo
-        # y invertido: em SVG a origem é em cima, e peso maior tem de subir.
-        y = altura - ((valor - menor) / faixa) * altura
-        coords.append(f"{x:.1f},{y:.1f}")
-        # STRING, e não float: o app é pt-BR com `USE_L10N`, e `{{ marca.x }}`
-        # de um float sai "42,9" — vírgula decimal, que é o certo em texto e
-        # inválido em atributo de SVG. Medido: os oito pontos empilhados na
-        # origem, porque o navegador descarta o `cx` que não entende. É o
-        # mesmo motivo de `pontos` já ser uma string montada aqui.
-        marcas.append({"x": f"{x:.1f}", "y": f"{y:.1f}"})
-    return {
-        "pontos": " ".join(coords),
-        # Um ponto por semana, para a curva dizer QUANTAS medições ela tem.
-        # Sem eles, três semanas e trinta desenham a mesma linha.
-        "marcas": marcas,
-        "largura": largura,
-        "altura": altura,
-        "primeiro": pontos[0],
-        "ultimo": pontos[-1],
-        "delta": round(pontos[-1] - pontos[0], 1),
-        # O EIXO (22/09/2026). A escala é a do próprio período — e é
-        # exatamente por isso que ela precisa ser dita: sem os dois números, a
-        # mesma linha serve para 200 g e para 4 kg de variação, e a auditoria
-        # leu a curva como "linha reta". `piso` e `teto` são o que está
-        # desenhado na base e no topo da caixa, não o menor e o maior peso:
-        # com faixa menor que o piso de 0,4 kg os dois deixam de coincidir.
-        "piso": round(menor, 1),
-        "teto": round(menor + faixa, 1),
-        # E o PERÍODO, pelo mesmo motivo: uma curva sem datas não diz se
-        # aquilo levou um mês ou um ano.
-        "de": datas[0],
-        "ate": datas[-1],
-    }
