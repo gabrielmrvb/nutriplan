@@ -122,6 +122,9 @@ urlpatterns = [
     # O agendador de fora (GitHub Actions) chama isto de 5 em 5 minutos com
     # token; ver `push.tarefas`.
     path("tarefas/lembretes/", push_views.TarefaLembretesView.as_view(), name="tarefas_lembretes"),
+    # Prova pontual de que o Sentry recebe erro de produção — mesmo token e
+    # portão da tarefa de lembretes; ver `push.views.ErroControladoView`.
+    path("tarefas/erro-controlado/", push_views.ErroControladoView.as_view(), name="erro_controlado"),
     # O disparo PONTUAL (UptimeRobot, GET com token na URL); o POST acima é o
     # fallback do `schedule`. Token redigido em `config/observabilidade.py`.
     path("tarefas/lembretes/externo/<str:token>/", push_views.DisparoExternoView.as_view(), name="disparo_externo"),

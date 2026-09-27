@@ -308,6 +308,29 @@ class TarefaLembretesView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class ErroControladoView(View):
+    """`POST /tarefas/erro-controlado/` — existe para provar, uma vez por
+    troca de DSN, que um erro de VERDADE num pedido de verdade chega ao
+    Sentry em produção (`config/observabilidade.py`, `ligar_sentry`).
+
+    Reusa o token e a checagem de `TarefaLembretesView` — sem
+    `NUTRIPLAN_TAREFAS_TOKEN` configurado, 503; sem o `Authorization: Bearer
+    …` certo, 403 — de propósito: sem token, esta rota não faz NADA além de
+    responder um código. Só com o token ela levanta a excepção que o
+    operador quer ver aparecer no painel do Sentry.
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        if not tarefas.configurada():
+            return JsonResponse({"error": "tarefa não configurada"}, status=503)
+        if not tarefas.token_confere(request.headers.get("Authorization")):
+            return JsonResponse({"error": "não autorizado"}, status=403)
+        raise RuntimeError("Erro controlado: prova do Sentry em produção — não é defeito.")
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class DisparoExternoView(View):
     """`GET /tarefas/lembretes/externo/<token>/` — o disparo PONTUAL, para um
     monitor externo (UptimeRobot) que bate a cada 5 minutos e é confiável, ao

@@ -19,10 +19,11 @@ from analytics import catalogo
 
 RAIZ = Path(__file__).resolve().parent.parent
 
-# `evento(request, "x")` e `evento_anonimo(request, "x")`, `npTrack("x")`,
-# `data-evento="x"`.
+# `evento(request, "x")` e `evento_anonimo(request, "x")`, o `evento("x", …)`
+# que o service recebe já com o request (`telas.concluir_serie`),
+# `npTrack("x")`, `data-evento="x"`.
 PADROES = [
-    re.compile(r"""evento(?:_anonimo)?\(\s*[\w.]+\s*,\s*["']([^"']+)["']"""),
+    re.compile(r"""evento(?:_anonimo)?\(\s*(?:[\w.]+\s*,\s*)?["']([^"']+)["']"""),
     re.compile(r"""npTrack\(\s*["']([^"']+)["']"""),
     re.compile(r"""data-evento=["']([^"']+)["']"""),
 ]

@@ -88,6 +88,18 @@ msgid "dia cheio"
 msgstr ""
 
 #: templates/plans/_progresso_area.html
+msgid "sem corrida"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "a mais longa do período"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "meta batida"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
 msgid "Melhores cargas"
 msgstr ""
 

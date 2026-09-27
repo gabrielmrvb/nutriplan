@@ -3,9 +3,10 @@ import uuid
 import copy
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from functools import partial
 
 from django.contrib import messages
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -23,16 +24,13 @@ from accounts.views import OnboardingRequiredMixin
 from achievements import services as conquistas
 
 from . import curva as _curva
-from . import doutrina, health_export, services
+from . import doutrina, health_export, services, telas
 from analytics import servidor as analytics
 from .models import (
     EventoDeProduto,
     VersaoDoTreino,
     Exercise,
-    ExerciseLog,
     MuscleGroup,
-    SessionExercise,
-    TrainingSession,
 )
 from config.acoes import AcaoDeTela
 
@@ -590,30 +588,9 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
 
-        # A SESSÃO DE UM PROGRAMA ANTERIOR ABRE COMO HISTÓRICO (22/09/2026).
-        # O filtro era `plan__is_active=True`, e a ficha EM USO respondia
-        # "Esta página não existe" no instante em que o programa era
-        # remontado — o dono viu isso com quatro séries anotadas. O
-        # fechamento de IDOR que importa é `plan__user=user`, e ele fica;
-        # o que sai é o `is_active`, que nunca protegeu ninguém.
-        sessao = get_object_or_404(
-            TrainingSession.objects.select_related("plan"),
-            pk=kwargs["sessao_id"],
-            plan__user=user,
-        )
-        historico = not sessao.plan.is_active
-        # `prefetch` aqui e não no `get_object_or_404`: o filtro precisa bater
-        # no banco antes de valer a pena trazer os exercícios.
-        sessao = (
-            TrainingSession.objects.filter(pk=sessao.pk)
-            .prefetch_related("exercises__exercise")
-            .first()
-        )
-
+        # Programa anterior abre como HISTÓRICO; id alheio é 404 (`telas`).
+        sessao, linhas, historico = telas.ficha_da_pessoa(user, kwargs["sessao_id"])
         hoje_data = timezone.localdate()
-        linhas = list(sessao.plan.sessions.prefetch_related("exercises__exercise"))
-        # A sessão pedida e as linhas são objetos distintos (duas consultas):
-        # as trocas vestem os dois, para a lista e a contagem concordarem.
         services.aplicar_trocas(user, [sessao, *linhas])
         # SEQUÊNCIA e ESCOLHA do dia, lidas UMA vez e passadas a todas as
         # resoluções de letra/opção desta ficha — sem elas cada chamada de
@@ -698,22 +675,14 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             "sessao": sessao,
             "plan": sessao.plan,
             "historico": historico,
-            "series_de_hoje": self._series_de_hoje(user, sessao) if historico else 0,
+            # A ficha antiga diz por que ainda importa — "4 séries registradas
+            # hoje" — em vez de ser uma página morta. Só no histórico.
+            "series_de_hoje": telas.series_anotadas_hoje(
+                user, [i.exercise_id for i in sessao.exercises.all()]
+            ) if historico else 0,
         })
         context.update(self.contexto_da_ficha(user, sessao, linhas, irmas, hoje_data, seq=seq))
         return context
-
-    @staticmethod
-    def _series_de_hoje(user, sessao) -> int:
-        """Quantas séries de HOJE foram anotadas nos exercícios desta ficha.
-
-        É o que faz a ficha antiga dizer por que ela ainda importa — "4
-        séries registradas hoje" — em vez de ser uma página morta. UMA
-        consulta, e só no caminho do histórico."""
-        ids = [i.exercise_id for s in [sessao] for i in s.exercises.all()]
-        return ExerciseLog.objects.filter(
-            user=user, exercise_id__in=ids, date=timezone.localdate()
-        ).count()
 
     @staticmethod
     def _data_da_ficha(sessao, irmas, hoje_data):
@@ -941,32 +910,16 @@ class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
                 reps = None
 
         # Séries feitas: grava de 1 até N com a mesma carga, e APAGA o que
-        # passar de N.
-        #
-        # Apagar é o que torna o contador honesto: baixar de 4 para 3 significa
-        # que a quarta não aconteceu, e deixá-la no banco faria o volume do dia
-        # mentir para sempre. O formato do histórico não muda — continua uma
-        # linha por série, que é o que o cálculo de volume lê.
+        # passar de N (`telas.anotar_carga` diz por quê).
         feitas = request.POST.get("series_feitas")
         if feitas is not None:
             try:
                 feitas = max(0, min(int(feitas), 20))
             except (TypeError, ValueError):
                 feitas = 1
-            for numero in range(1, feitas + 1):
-                services.record_load(
-                    request.user, exercise, peso, set_number=numero, reps=reps
-                )
-            ExerciseLog.objects.filter(
-                user=request.user,
-                exercise=exercise,
-                date=timezone.localdate(),
-                set_number__gt=feitas,
-            ).delete()
-        else:
-            services.record_load(
-                request.user, exercise, peso, set_number=serie, reps=reps
-            )
+        primeira_do_dia = telas.anotar_carga(
+            request.user, exercise, peso, serie, reps=reps, feitas=feitas
+        )
 
         # As conquistas sao avaliadas AQUI, depois de o `ExerciseLog` estar
         # gravado — e SÓ QUANDO HÁ MOTIVO (T2.4, 17/09/2026): na primeira
@@ -976,11 +929,6 @@ class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
         # toda carga anotada; abaixo do recorde, no meio do treino, nenhuma
         # regra muda de resposta.
         hoje = timezone.localdate()
-        primeira_do_dia = not (
-            ExerciseLog.objects.filter(user=request.user, date=hoje)
-            .exclude(exercise=exercise, set_number=serie)
-            .exists()
-        )
         if primeira_do_dia or services.supera_recorde(request.user, exercise, peso, dia=hoje):
             novas = conquistas.avaliar(request.user)
         else:
@@ -997,7 +945,7 @@ class RecordLoadView(AcaoDeTela, OnboardingRequiredMixin, View):
                     "serie": serie,
                     "peso": str(peso),
                     "reps": reps,
-                    "descanso": _descanso_de(request.user, exercise),
+                    "descanso": telas.descanso_de(request.user, exercise),
                     # A pagina nao recarrega, entao o aviso precisa vir por
                     # aqui — senao a conquista so apareceria na proxima visita.
                     "conquistas": [
@@ -1200,24 +1148,6 @@ class RetomarTreinoView(AcaoDeTela, OnboardingRequiredMixin, View):
         return redirect("workouts:now")
 
 
-def _descanso_de(user, exercise) -> int:
-    """O descanso prescrito para este exercício na ficha ativa.
-
-    Serve ao cronômetro automático: terminada a série, o timer precisa saber
-    quantos segundos contar, e a resposta está na prescrição.
-    """
-    item = (
-        SessionExercise.objects.filter(
-            session__plan__user=user,
-            session__plan__is_active=True,
-            exercise=exercise,
-        )
-        .values_list("rest_seconds", flat=True)
-        .first()
-    )
-    return item or 60
-
-
 class ExercicioView(OnboardingRequiredMixin, TemplateView):
     """A leitura de UM exercício: como é o movimento, e onde ele cai na semana.
 
@@ -1258,36 +1188,12 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         plano = services.get_active_routine(user)
         # O exercício da ficha — ou o SUBSTITUTO que a pessoa pôs no lugar de
         # um deles ("outras formas") —, ou um em que ela já registrou série.
-        do_historico = Q(logs__user=user)
-        if plano is not None:
-            da_ficha = (
-                Q(sessions__session__plan=plano, is_active=True)
-                | Q(
-                    trocas_como_substituto__user=user,
-                    trocas_como_substituto__original__sessions__session__plan=plano,
-                    is_active=True,
-                )
-            )
-        else:
-            da_ficha = Q(pk__in=())
-        exercicio = get_object_or_404(
-            Exercise.objects.filter(da_ficha | do_historico).distinct(),
-            pk=kwargs["exercise_id"],
-        )
+        exercicio = telas.exercicio_legivel(user, plano, kwargs["exercise_id"])
 
         # As ocorrências na semana, com a letra que a ficha mostra (A1/A2) —
         # a semana de HOJE pela posição no ciclo, na ordem dos dias.
-        # `exercises` sem `__exercise`: a leitura só precisa dos ids das
-        # linhas; `aplicar_trocas` busca o exercício só das linhas trocadas.
-        sessoes = []
-        if plano is not None:
-            linhas = list(plano.sessions.prefetch_related("exercises"))
-            services.aplicar_trocas(user, linhas)
-            sessoes = sorted(
-                services.sessoes_da_semana(plano, timezone.localdate(), linhas),
-                key=lambda s: s.weekday,
-            )
-            nomear_ocorrencias(sessoes)
+        sessoes = telas.semana_do_plano(user, plano)
+        nomear_ocorrencias(sessoes)
         itens = []
         for sessao in sessoes:
             for item in sessao.exercises.all():
@@ -1323,9 +1229,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         if item_de_hoje is not None:
             # Só a contagem de hoje deste exercício — UMA consulta — para o
             # botão dizer "Fazer agora" ou "Continuar de onde parou".
-            item_de_hoje.feitas = ExerciseLog.objects.filter(
-                user=user, exercise=exercicio, date=timezone.localdate()
-            ).count()
+            item_de_hoje.feitas = telas.series_anotadas_hoje(user, [exercicio.pk])
         historico = services.historico_do_exercicio(user, exercicio)
         # "OUTRAS FORMAS": as alternativas do mesmo padrão no equipamento da
         # pessoa, fora do que já está nas sessões em que ele cai; e, se este
@@ -1726,9 +1630,9 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         nota = (request.POST.get("nota") or "").strip()[:120]
         falhou = request.POST.get("falhou") == "1"
         try:
-            log, criada = services.append_set(
-                request.user, exercise, peso, reps=reps, op_id=op_id, day=dia,
-                nota=nota, falhou=falhou,
+            _criada, primeira_do_dia = telas.concluir_serie(
+                request.user, exercise, peso, dia, reps=reps, op_id=op_id,
+                nota=nota, falhou=falhou, evento=partial(analytics.evento, request),
             )
         except ValueError:
             # Vinte séries no mesmo exercício num dia. Não é treino, é dedo
@@ -1738,14 +1642,6 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         else:
             self._avisar_se_o_programa_mudou(request)
             self._garantir_escolha(request, dia)
-            # Só o que GRAVOU de novo (não o reenvio deduplicado da fila).
-            if criada:
-                analytics.evento(
-                    request,
-                    "treino.serie_concluida",
-                    {"exercicio": exercise.name, "carga": float(peso),
-                     "reps": reps if reps is not None else ""},
-                )
             # As conquistas rodam AQUI, na escrita — é o que a doutrina de
             # `achievements.services` promete e o que esta rota não fazia:
             # só `RecordLoadView`, a rota do cartão que saiu da tela em
@@ -1763,32 +1659,13 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # completa e os treinos-N mudam AÍ, e só aí —; até 16/09/2026 só
             # o recorde avaliava, e "Primeiro treino" nunca nascia na hora,
             # porque estreia não é recorde (avaliação B5). Reenvio da fila
-            # (`criada=False`) não é dia novo. Uma consulta decide cada um.
-            primeira_do_dia = criada and not (
-                ExerciseLog.objects.filter(user=request.user, date=dia)
-                .exclude(pk=log.pk)
-                .exists()
-            )
+            # (`criada=False`) não é dia novo. Uma consulta decide cada um
+            # (`primeira_do_dia` vem de `telas.concluir_serie`).
             if primeira_do_dia:
                 # O dia de treino passa a existir na primeira série; é o sinal
                 # de "começou a treinar". A letra fica de fora para não pagar
                 # uma consulta na rota mais quente do app.
                 analytics.evento(request, "treino.iniciado", {})
-            if criada:
-                # `treino.serie_concluida` estava na taxonomia desde o começo
-                # e NUNCA era disparado (24/09/2026) — o último degrau do
-                # funil de entrada não existia, e o "uso por área" enxergava
-                # tudo menos o treino. Só quando a linha NASCE: o reenvio da
-                # fila offline (`criada=False`) é a mesma série chegando duas
-                # vezes, e contá-la de novo inflaria o número que a tela de
-                # gestão usa para decidir.
-                #
-                # `carga` e `reps` são da própria série — número de treino, e
-                # não de corpo; a taxonomia proíbe PII e nenhum dos dois é.
-                analytics.evento(
-                    request, "treino.serie_concluida",
-                    {"exercicio": exercise.pk, "carga": float(peso or 0), "reps": reps or 0},
-                )
             if primeira_do_dia or services.supera_recorde(
                 request.user, exercise, peso, reps=reps, dia=dia
             ):
@@ -1831,11 +1708,7 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         bruto = request.POST.get("sessao") or ""
         if not bruto.isdigit():
             return False
-        ativa = (
-            TrainingSession.objects.filter(pk=int(bruto), plan__user=request.user)
-            .values_list("plan__is_active", flat=True)
-            .first()
-        )
+        ativa = telas.plano_da_sessao_vigente(request.user, int(bruto))
         if ativa is False:
             messages.warning(
                 request,
@@ -1846,35 +1719,18 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         return False
 
     def _garantir_escolha(self, request, dia) -> None:
-        """A primeira série do dia grava qual opção está sendo feita.
-
-        O formulário da execução traz `sessao`, `opcao` e `versao` (escritos
-        pelo servidor); item antigo da fila offline não traz, e aí a escolha
-        cai na opção 1 da sessão do dia. Idempotente: uma escolha por dia.
-        """
-        if services.escolha_do_dia(request.user, dia) is not None:
-            return
+        """Lê `sessao`, `opcao` e `versao` do formulário para
+        `telas.garantir_escolha` (a primeira série do dia grava a opção)."""
         try:
             sessao_id = int(request.POST.get("sessao") or "")
         except (TypeError, ValueError):
             sessao_id = None
-        sessao = None
-        if sessao_id:
-            sessao = TrainingSession.objects.filter(
-                pk=sessao_id, plan__user=request.user, plan__is_active=True
-            ).prefetch_related("exercises").first()
-        if sessao is None:
-            sessao = services.sessao_do_dia(
-                services.get_active_routine(request.user), dia, user=request.user
-            )
-        if sessao is None:
-            return
         try:
             opcao = int(request.POST.get("opcao") or "1")
         except ValueError:
             opcao = 1
-        services.registrar_escolha(
-            request.user, sessao, opcao, versao=request.POST.get("versao") or "completo", dia=dia
+        telas.garantir_escolha(
+            request.user, dia, sessao_id, opcao, request.POST.get("versao") or "completo"
         )
 
     def _de_volta_ao_foco(self, request, dia, pendente=None):

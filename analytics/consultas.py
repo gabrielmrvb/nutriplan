@@ -12,10 +12,11 @@ contam como duas.
 Bruto vive 90 dias; para períodos além disso o painel lê `DailyAggregate`
 (`serie_de_agregado`). Enquanto a base é nova, tudo cabe no bruto.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from django.db.models import CharField, Count, F, Min
+from django.db.models import CharField, Count, F, Func, Min, Q, Value
 from django.db.models.functions import Coalesce, Cast, TruncDate, TruncWeek
+from django.db.models.lookups import Exact
 from django.utils import timezone
 
 from accounts.models import Pilar
@@ -24,6 +25,29 @@ from .models import DailyAggregate, Event
 
 #: A chave de pessoa: user_id (como texto) ou, se anônimo, o anon_id.
 PESSOA = Coalesce(Cast("user_id", CharField(max_length=40)), "anon_id")
+
+#: A CÓPIA DA SÉRIE NÃO CONTA (decisão do dono, 27/09/2026). De 24/09 a 27/09
+#: a tela de série emitia `treino.serie_concluida` DUAS vezes por série nova:
+#: um bloco de 21/09 com `exercicio` em TEXTO (o nome) e outro de 24/09 com a
+#: pk. O histórico não se reescreve — a tabela guarda as duas linhas, e a poda,
+#: o alias e a agregação continuam lendo `Event.objects` inteiro. Quem conta ou
+#: lista no painel aplica este filtro, na MESMA consulta.
+#:
+#: O corte é o fim do deploy 3a6094b em produção (API do Render). Antes dele o
+#: texto era o ÚNICO evento da série e conta; depois, texto é a cópia. Desde
+#: 27/09 o evento nasce uma vez só, em `telas.concluir_serie`, com a pk.
+CORTE_DA_SERIE_DOBRADA = datetime.fromisoformat("2026-09-24T12:30:35+00:00")
+SEM_COPIA_DA_SERIE = ~Q(
+    Exact(
+        Coalesce(
+            Func(F("props__exercicio"), function="jsonb_typeof", output_field=CharField()),
+            Value(""),
+        ),
+        "string",
+    ),
+    name="treino.serie_concluida",
+    ts__gte=CORTE_DA_SERIE_DOBRADA,
+)
 
 
 def _inicio(dias):
@@ -43,7 +67,7 @@ def ativos(dias):
 
 def eventos_por_dia(dias):
     return list(
-        Event.objects.filter(ts__gte=_inicio(dias))
+        Event.objects.filter(SEM_COPIA_DA_SERIE, ts__gte=_inicio(dias))
         .annotate(dia=TruncDate("ts"))
         .values("dia")
         .annotate(n=Count("id"))
@@ -53,7 +77,7 @@ def eventos_por_dia(dias):
 
 def top_eventos(dias, limite=12):
     return list(
-        Event.objects.filter(ts__gte=_inicio(dias))
+        Event.objects.filter(SEM_COPIA_DA_SERIE, ts__gte=_inicio(dias))
         .values("name")
         .annotate(n=Count("id"), pessoas=Count(PESSOA, distinct=True))
         .order_by("-n")[:limite]
@@ -97,7 +121,7 @@ ATRIBUTOS = {
 def explorar(nome, dias, filtros=None, agrupar=None):
     """Conta um evento na janela, com filtros por propriedade e por atributo do
     usuário, opcionalmente AGRUPADO por uma propriedade. Uma consulta."""
-    qs = Event.objects.filter(name=nome, ts__gte=_inicio(dias))
+    qs = Event.objects.filter(SEM_COPIA_DA_SERIE, name=nome, ts__gte=_inicio(dias))
     for chave, valor in (filtros or {}).items():
         if chave in ATRIBUTOS:
             qs = qs.filter(**{ATRIBUTOS[chave]: valor})
@@ -235,7 +259,7 @@ def linha_do_tempo(chave, limite=200):
     if str(chave).isdigit():
         filtro |= Q(user_id=int(chave))
     return list(
-        Event.objects.filter(filtro).order_by("-ts")[:limite]
+        Event.objects.filter(filtro, SEM_COPIA_DA_SERIE).order_by("-ts")[:limite]
     )
 
 
@@ -484,7 +508,7 @@ def uso_por_area(semanas=8):
     """
     limite = timezone.now() - timedelta(weeks=semanas)
     linhas = (
-        Event.objects.filter(name__in=EVENTOS_DE_REGISTRO, ts__gte=limite)
+        Event.objects.filter(SEM_COPIA_DA_SERIE, name__in=EVENTOS_DE_REGISTRO, ts__gte=limite)
         .annotate(pessoa=PESSOA, semana=TruncWeek("ts"))
         .values("semana", "name", "pessoa")
         .annotate(n=Count("pk"))

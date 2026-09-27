@@ -52,7 +52,7 @@ CATALOGO = {
     # --- Treino ---
     "treino.iniciado": {"props": ["letra"], "desc": "Começou uma sessão de treino."},
     "treino.serie_concluida": {
-        "props": ["exercicio", "carga", "reps"],
+        "props": ["exercicio", "exercicio_nome", "carga", "reps"],
         "desc": "Concluiu uma série.",
     },
     "treino.concluido": {"props": ["duracao"], "desc": "Fechou o treino do dia."},
