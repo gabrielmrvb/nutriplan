@@ -24,6 +24,7 @@ from django.views import View
 from django.views.generic import ListView
 
 from accounts.views import OnboardingRequiredMixin
+from achievements import services as conquistas
 
 from . import doutrina_corrida
 from .importar_corrida import ArquivoDeCorridaInvalido, corrida_de_arquivo
@@ -130,6 +131,11 @@ class SalvarCorridaView(LoginRequiredMixin, View):
             # Reenvio da fila. A corrida já está gravada, e é essa que
             # responde: criar outra duplicaria, e recusar faria a fila insistir.
             corrida = Corrida.objects.get(user=request.user, op_id=dados["op_id"])
+
+        else:
+            # Só quando a corrida NASCEU: o `except` acima é o reenvio da
+            # fila, e reenvio não desbloqueia conquista (26/09/2026, item 0).
+            conquistas.sincronizar(request.user, request=request)
 
         return JsonResponse(
             {"id": corrida.pk, "distancia_m": corrida.distancia_m}, status=200
@@ -267,6 +273,11 @@ class CorridaNovaView(OnboardingRequiredMixin, View):
         if nova:
             # FORA do atomic: analytics não derruba a gravação da corrida.
             analytics.evento(request, "corrida.registrada", {"origem": "manual"})
+            # A CONQUISTA NASCE NO POST QUE CRIA O FATO (26/09/2026, item 0):
+            # correr FECHA o dia de treino ("a régua da ofensiva é moveu-se,
+            # não fez a letra"), e dia fechado move a sequência. Só quando a
+            # corrida é NOVA — reenvio da fila não desbloqueia nada.
+            conquistas.sincronizar(request.user, request=request)
         messages.success(request, "Corrida registrada.")
         return redirect("workouts:corridas")
 

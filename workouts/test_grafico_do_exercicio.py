@@ -3,7 +3,8 @@
 
 BENCHMARK-2026-09 (b): gráfico de progressão por exercício é padrão em Hevy,
 Strong, Fitbod e Strava. Aqui é uma polilinha SVG por template — o mesmo
-padrão da curva de peso (`plans/views._curva_de_peso`), generalizado em
+padrão da curva de peso que morava em `plans/views` até 26/09/2026,
+generalizado em
 `workouts/curva.py` —, com cor por token e sem biblioteca.
 
 SÓ carga máxima. Volume por sessão ficou de fora por duas decisões escritas

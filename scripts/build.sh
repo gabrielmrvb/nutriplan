@@ -55,6 +55,14 @@ python manage.py seed_demo
 # tem mais de `SyncedOperation.VALIDADE_DIAS` (30) — a fila reenvia item de
 # até 7 dias, e a poda nunca pode alcançar um `op_id` que ainda volta.
 python manage.py podar_operacoes
+# A RETROATIVIDADE DAS CONQUISTAS, uma vez por pessoa (26/09/2026): até
+# então ela era paga por um GET que gravava (`ConquistasView` chamava
+# `avaliar` ao abrir a tela). Hoje toda conquista nasce no POST que cria o
+# fato, e este comando fecha a conta de quem já tinha histórico antes de a
+# regra existir. O filtro é "tem treino E zero conquistas": depois da
+# primeira avaliação a pessoa sai da lista, e numa base sem pendente ele
+# custa UMA consulta.
+python manage.py desbloquear_pendentes
 python manage.py sincronizar_brevo
 
 # Analytics de produto: rola os dias recentes em agregados e poda o bruto

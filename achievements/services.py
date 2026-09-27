@@ -276,11 +276,34 @@ def resumo(user, hoje=None, request=None):
     (`test_na_hora`). Com `request`, o que nasce é anunciado na mesma tela.
     """
     from .models import UserAchievement
-    from .regras import CATALOGO
 
     ganhas = list(UserAchievement.objects.filter(user=user))
     conquistados = {c.slug for c in ganhas}
+    dados = reunir(user, hoje=hoje)
+    candidatas = a_caminho(dados, conquistados)
+    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
+    return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
 
+
+def sincronizar(user, hoje=None, request=None) -> list:
+    """Desbloqueia o que já está a 100 %, e devolve o que nasceu agora.
+
+    É o laço que morava em `resumo` — e o lugar dele é o POST, não o GET.
+    Custa `reunir` mais duas consultas por regra que fecha, e nada quando
+    não há nenhuma: `candidatas[0]["pct"] >= 100` é comparação em memória
+    sobre dados que o chamador já precisava ler.
+
+    Não é `avaliar`: este caminho só enxerga as regras com PROGRESSO
+    MENSURÁVEL (`a_caminho`) — primeiro treino, N treinos, N dias de
+    ofensiva. As repetíveis (recorde, semana completa) nascem de um treino,
+    e o POST da série continua chamando `avaliar`, que roda o catálogo
+    inteiro. Somar o catálogo a cada copo d'água seria pagar 50 consultas
+    para descobrir que nada mudou.
+    """
+    from .models import UserAchievement
+
+    ganhas = list(UserAchievement.objects.filter(user=user))
+    conquistados = {c.slug for c in ganhas}
     dados = reunir(user, hoje=hoje)
     candidatas = a_caminho(dados, conquistados)
     novas = []
@@ -292,14 +315,11 @@ def resumo(user, hoje=None, request=None):
             # gravou antes): não insiste — e não pinta de novo em laço.
             break
         novas.extend(nascidas)
-        ganhas.extend(nascidas)
         conquistados.add(regra.slug)
         candidatas = a_caminho(dados, conquistados)
     if request is not None and novas:
         anunciar(request, novas)
-
-    mais_recente = max(ganhas, key=lambda c: c.pk) if ganhas else None
-    return len(ganhas), mais_recente, (candidatas[0] if candidatas else None)
+    return novas
 
 
 def a_caminho(dados, conquistados) -> list:

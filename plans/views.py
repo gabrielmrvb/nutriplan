@@ -1147,6 +1147,13 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
             analytics.evento(request, "dieta.pulou")
         elif status == MealStatus.OFF_PLAN:
             analytics.evento(request, "dieta.comeu_outra_coisa")
+        # A CONQUISTA NASCE NO POST QUE CRIA O FATO (26/09/2026, item 0).
+        #
+        # Marcar uma refeição pode FECHAR o dia, e dia fechado move a
+        # ofensiva — que é o que dez das onze regras leem. Antes isso era
+        # descoberto na leitura seguinte do Progresso, dentro de um GET que
+        # gravava; agora nasce aqui, e é anunciado na tela que vem depois.
+        conquistas.sincronizar(request.user, request=request)
         return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
@@ -1845,6 +1852,15 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # da água nem derrubá-lo. Só o SOMAR chega aqui — zerar e desfazer
             # são outros ramos.
             analytics.evento(request, "agua.registrada")
+            # A CONQUISTA NASCE NO POST QUE CRIA O FATO (26/09/2026, item 0).
+            #
+            # A água fecha o dia junto com a dieta, e dia fechado move a
+            # ofensiva. SÓ no ramo que soma: zerar e desfazer não fecham
+            # dia nenhum, e o reenvio da fila nem chega aqui — ele já
+            # devolveu em `ja_aplicada`, lá em cima. Fora da transação,
+            # pelo mesmo motivo do analytics: um erro aqui não pode
+            # derrubar o commit da água.
+            conquistas.sincronizar(request.user, request=request)
 
         return self._volta(request)
 
@@ -2007,82 +2023,3 @@ class HydrationView(PlanRequiredMixin, TemplateView):
         return context
 
 
-def _curva_de_peso(semanas, largura=300, altura=64):
-    """Pontos de uma polilinha SVG a partir das médias semanais.
-
-    Apresentação, não cálculo: nenhum número novo nasce aqui. A função pega as
-    médias que a tabela já mostra e as projeta num retângulo, para o mesmo
-    dado poder ser LIDO como direção em vez de lista.
-
-    Três decisões que a curva exige e a tabela não:
-
-    - a escala é a do próprio período, não zero-based. Peso humano varia
-      poucos por cento; ancorar em zero produziria uma reta horizontal que
-      esconde exatamente a variação que a tela existe para mostrar.
-    - com uma faixa muito estreita (todo mundo no mesmo peso), um piso de
-      0,4 kg impede que ruído de balança vire montanha.
-    - menos de dois pontos não é curva. Devolve None, e o template mostra a
-      tabela sozinha — desenhar uma linha de um ponto seria afirmar tendência
-      onde não há.
-    """
-    # SEM `reversed`: `semanas_de` devolve `sorted(por_semana.items())`, ou
-    # seja, do mais ANTIGO para o mais novo — que é a ordem que uma curva
-    # precisa. Quem inverte é o template da tabela, para listar o recente
-    # primeiro. Inverter aqui também desenhava o tempo de trás para frente,
-    # e uma perda de peso subia no gráfico.
-    # `Semana` é dataclass, não dicionário — `s["media"]` estourou aqui na
-    # primeira versão. `getattr` mantém a função utilizável se um dia a lista
-    # vier de outra fonte, sem obrigar quem chama a converter.
-    medias = [getattr(s, "media", None) for s in semanas]
-    pontos = [float(m) for m in medias if m is not None]
-    if len(pontos) < 2:
-        return None
-
-    # As datas andam junto com as médias — mesma lista, mesmo filtro: um
-    # `zip` sobre `semanas` cru desalinharia a primeira data de um ponto que
-    # a média `None` tirou da curva.
-    datas = [
-        getattr(s, "inicio", None)
-        for s, m in zip(semanas, medias)
-        if m is not None
-    ]
-
-    menor, maior = min(pontos), max(pontos)
-    faixa = max(maior - menor, 0.4)
-    passo = largura / (len(pontos) - 1)
-    coords = []
-    marcas = []
-    for i, valor in enumerate(pontos):
-        x = i * passo
-        # y invertido: em SVG a origem é em cima, e peso maior tem de subir.
-        y = altura - ((valor - menor) / faixa) * altura
-        coords.append(f"{x:.1f},{y:.1f}")
-        # STRING, e não float: o app é pt-BR com `USE_L10N`, e `{{ marca.x }}`
-        # de um float sai "42,9" — vírgula decimal, que é o certo em texto e
-        # inválido em atributo de SVG. Medido: os oito pontos empilhados na
-        # origem, porque o navegador descarta o `cx` que não entende. É o
-        # mesmo motivo de `pontos` já ser uma string montada aqui.
-        marcas.append({"x": f"{x:.1f}", "y": f"{y:.1f}"})
-    return {
-        "pontos": " ".join(coords),
-        # Um ponto por semana, para a curva dizer QUANTAS medições ela tem.
-        # Sem eles, três semanas e trinta desenham a mesma linha.
-        "marcas": marcas,
-        "largura": largura,
-        "altura": altura,
-        "primeiro": pontos[0],
-        "ultimo": pontos[-1],
-        "delta": round(pontos[-1] - pontos[0], 1),
-        # O EIXO (22/09/2026). A escala é a do próprio período — e é
-        # exatamente por isso que ela precisa ser dita: sem os dois números, a
-        # mesma linha serve para 200 g e para 4 kg de variação, e a auditoria
-        # leu a curva como "linha reta". `piso` e `teto` são o que está
-        # desenhado na base e no topo da caixa, não o menor e o maior peso:
-        # com faixa menor que o piso de 0,4 kg os dois deixam de coincidir.
-        "piso": round(menor, 1),
-        "teto": round(menor + faixa, 1),
-        # E o PERÍODO, pelo mesmo motivo: uma curva sem datas não diz se
-        # aquilo levou um mês ou um ano.
-        "de": datas[0],
-        "ate": datas[-1],
-    }

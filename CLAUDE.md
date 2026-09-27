@@ -1807,6 +1807,45 @@ quem declara corrida, sem refeição nova) é decisão de produto e está no
 relatório como "recomendo rever".
 
 
+**UM GET NÃO GRAVA (missão "quem entra não desiste", item 0, 26/09/2026).**
+`achievements.resumo` desbloqueava a regra que chegou a 100 % DENTRO de uma
+requisição GET, e `ConquistasView` chamava `avaliar` — o catálogo inteiro,
+com escrita — também num GET. Duas consequências reais: a primeira leitura do
+Progresso num dia podia devolver um número diferente da segunda com os mesmos
+dados ("mesmos dados, números diferentes" pela porta de trás, item 2 da lista
+que a missão A deixou), e uma requisição que ninguém pediu — um prefetch, um
+"abrir em nova aba" — mudava o banco.
+
+A saída não é um botão "resgatar", que ninguém tocaria: é **toda conquista
+nascer no POST QUE CRIA O FATO**, que é o que a doutrina de
+`ConcluirSerieView` já dizia desde 16/09/2026 ("a conquista é avaliada na
+primeira série do dia e no recorde, e anunciada onde nasce"). A regra passou a
+valer para as outras portas:
+
+- `services.sincronizar` é o laço que morava em `resumo` — `reunir` mais duas
+  consultas por regra que fecha, e nada quando nenhuma fecha. Ele é chamado
+  pelo POST da refeição, pelo da água (**só no ramo que SOMA**: zerar e
+  desfazer não fecham dia, e o reenvio da fila já devolveu em `ja_aplicada`) e
+  pelos dois da corrida (só quando ela NASCE);
+- **não é `avaliar`**: `sincronizar` só enxerga as regras com progresso
+  mensurável (primeiro treino, N treinos, N dias de ofensiva) — as repetíveis
+  (recorde, semana completa) nascem de um treino, e o POST da série continua
+  chamando `avaliar`, que roda o catálogo inteiro. Somar o catálogo a cada
+  copo d'água seria pagar 50 consultas para descobrir que nada mudou;
+- `resumo` e `ConquistasView` ficaram de LEITURA. O "1/1 com a conquista
+  trancada" que a avaliação no GET existia para evitar (avaliação B35) não
+  volta, porque a barra só chega a 100 % depois de um desses POSTs — e ele
+  desbloqueia na hora;
+- **a RETROATIVIDADE virou um comando de build**: `manage.py
+  desbloquear_pendentes` avalia quem tem treino e ZERO conquistas — uma vez
+  por pessoa, porque depois da primeira ela sai do filtro. Numa base sem
+  pendente custa UMA consulta. Ele não anuncia nada, e isso é de propósito:
+  não há sessão num build, e acerto de contas não é celebração.
+
+`achievements/test_o_get_nao_grava.py` varre as quatro telas que leem
+conquista e prova que nenhuma grava; o controle positivo do arquivo é o POST
+da série e o da refeição desbloqueando na hora.
+
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
     painel   (`/treino/`)              -> "como é a minha semana"

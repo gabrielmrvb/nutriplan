@@ -616,14 +616,22 @@ class PrivacidadeDoCardTests(BaseDeConquistas):
 class RetroatividadeTests(BaseDeConquistas):
     """Quem já treinava quando as conquistas nasceram não pode ficar de fora.
 
-    O desbloqueio acontecia num lugar só: o POST que registra carga. Todo mundo
-    com histórico anterior ao lançamento nunca era avaliado — e como a tela de
-    conquistas calcula o progresso AO VIVO, ela mostrava "1/1" em "Próximas".
-    Progresso completo e conquista trancada, lado a lado, sem nada que a pessoa
-    pudesse fazer a respeito: ela já tinha cumprido a condição.
+    O desbloqueio acontecia num lugar só — o POST que registra carga —, e
+    quem tinha histórico anterior ao lançamento nunca era avaliado: a tela
+    calcula o progresso AO VIVO e mostrava "1/1" em "Próximas", progresso
+    completo e conquista trancada lado a lado.
+
+    A CONTA CONTINUA PAGA, POR OUTRA PORTA (26/09/2026). Era `avaliar` no
+    GET da tela; virou `manage.py desbloquear_pendentes`, que roda no build
+    e avalia quem tem treino e ZERO conquistas — uma vez por pessoa, porque
+    depois da primeira ela sai do filtro. Um GET não grava (item 0 da missão
+    "quem entra não desiste"), e daqui para frente toda conquista nasce no
+    POST que cria o fato.
     """
 
-    def test_historico_anterior_desbloqueia_ao_abrir_a_tela(self):
+    def test_historico_anterior_desbloqueia_no_comando_do_build(self):
+        from django.core.management import call_command
+
         user = self.pessoa()
         self.treinar(user, timezone.localdate())
 
@@ -631,21 +639,41 @@ class RetroatividadeTests(BaseDeConquistas):
         # antes de as conquistas existirem.
         self.assertEqual(self.slugs(user), [])
 
+        # E abrir a tela NÃO resolve mais — nem estraga nada.
         self.client.force_login(user)
         self.client.get(reverse("achievements:list"), secure=True)
+        self.assertEqual(self.slugs(user), [])
 
+        call_command("desbloquear_pendentes", verbosity=0)
         self.assertIn("primeiro-treino", self.slugs(user))
+
+    def test_quem_ja_tem_conquista_nao_e_reavaliado_pelo_comando(self):
+        """O filtro é o que torna o comando barato para sempre: depois da
+        primeira avaliação a pessoa sai da lista."""
+        from django.core.management import call_command
+        from io import StringIO
+
+        user = self.pessoa()
+        self.treinar(user, timezone.localdate())
+        call_command("desbloquear_pendentes", verbosity=0)
+        saida = StringIO()
+        call_command("desbloquear_pendentes", stdout=saida)
+        self.assertIn("0 pessoa(s)", saida.getvalue())
 
     def test_nada_fica_em_cem_por_cento_na_lista_de_proximas(self):
         """"1/1" numa medalha trancada é o app dizendo que não reconhece o que já viu.
 
         Esta é a asserção que descreve o defeito do ponto de vista de quem usa:
         não interessa por qual caminho, nada pode aparecer em "Próximas" com o
-        progresso cheio.
+        progresso cheio. O caminho mudou em 26/09/2026 (o build avalia quem
+        ficou para trás, e o POST avalia daqui para frente); a asserção, não.
         """
+        from django.core.management import call_command
+
         user = self.pessoa()
         for n in range(3):
             self.treinar(user, timezone.localdate() - timedelta(days=n))
+        call_command("desbloquear_pendentes", verbosity=0)
 
         self.client.force_login(user)
         resposta = self.client.get(reverse("achievements:list"), secure=True)
@@ -657,14 +685,16 @@ class RetroatividadeTests(BaseDeConquistas):
             cheios, [], "conquista com progresso cheio continuou em 'Próximas'"
         )
 
-    def test_abrir_a_tela_varias_vezes_nao_duplica(self):
-        """`avaliar` é idempotente, e a tela agora o chama a cada visita."""
+    def test_rodar_o_comando_varias_vezes_nao_duplica(self):
+        """`avaliar` é idempotente — `get_or_create` mais a constraint de
+        unicidade —, e o comando do build roda a cada deploy."""
+        from django.core.management import call_command
+
         user = self.pessoa()
         self.treinar(user, timezone.localdate())
-        self.client.force_login(user)
 
         for _ in range(3):
-            self.client.get(reverse("achievements:list"), secure=True)
+            call_command("desbloquear_pendentes", verbosity=0)
 
         self.assertEqual(
             UserAchievement.objects.filter(user=user, slug="primeiro-treino").count(),
