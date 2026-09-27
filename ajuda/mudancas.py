@@ -19,6 +19,10 @@ ARQUIVO = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
 
 _SECAO = re.compile(r"^## (\d{4}-\d{2}-\d{2})\s*$")
 _ITEM = re.compile(r"^- (.+)$")
+#: A linha que separa, dentro de um dia, o que é de quem OPERA o produto.
+#: Casa com e sem o itálico do Markdown, e o resto da frase é livre — o que
+#: identifica a linha é a palavra, não a pontuação em volta.
+_GERENCIA = re.compile(r"^\s*\*?\(gerência[^)]*\)\*?\s*$", re.IGNORECASE)
 
 
 def _inline(texto: str) -> str:
@@ -39,15 +43,28 @@ def _inline(texto: str) -> str:
 def ler(texto: str) -> list:
     """`[{"data": date, "itens": [html, ...]}, ...]` na ordem do arquivo
     (o mais recente primeiro — é assim que o arquivo é escrito, e o teste
-    cobra). Linha que não é seção nem item é ignorada."""
+    cobra). Linha que não é seção nem item é ignorada.
+
+    O marcador de gerência FECHA a seção pública: do `*(gerência, não
+    aparece para quem usa)*` até a próxima data, item nenhum chega à tela.
+    Ele era decorativo — este leitor conhecia só `## data` e `- item` —, e
+    por isso a frase dele era falsa: medido em 27/09/2026 contra produção,
+    "O painel de gestão passou a responder três perguntas de produto"
+    aparecia em `/ajuda/o-que-mudou/`.
+    """
     secoes = []
+    gerencia = False
     for linha in texto.splitlines():
         m = _SECAO.match(linha)
         if m:
             secoes.append({"data": date.fromisoformat(m.group(1)), "itens": []})
+            gerencia = False
+            continue
+        if _GERENCIA.match(linha):
+            gerencia = True
             continue
         m = _ITEM.match(linha)
-        if m and secoes:
+        if m and secoes and not gerencia:
             secoes[-1]["itens"].append(_inline(m.group(1).strip()))
     return secoes
 
