@@ -182,4 +182,9 @@ CONSULTAS_DA_EXECUCAO = 22
 #: um INSERT constante, emitido no servidor para pegar o online e o offline
 #: pelo mesmo ponto. Só o `criada=True` é novo: o reenvio da fila não conta de
 #: novo. Constante: 22 com 3 e com 30 registros.
-CONSULTAS_DO_POST_SEM_RECORDE = 22
+#: 21 em 27/09/2026, e a correção de 24/09 é que estava errada: o INSERT de
+#: 21/09 EXISTIA (o `exercicio` ia como nome), e o de 24/09 era um SEGUNDO
+#: INSERT do mesmo evento — cada série nova gravava o par. Agora o evento nasce
+#: uma vez só, em `telas.concluir_serie`, e o POST volta a UM INSERT. Medido:
+#: 22 antes, 21 depois (decisão do dono, `analytics/test_serie_unica.py`).
+CONSULTAS_DO_POST_SEM_RECORDE = 21

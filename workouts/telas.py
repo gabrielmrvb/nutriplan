@@ -140,16 +140,31 @@ def descanso_de(user, exercise) -> int:
     return item or 60
 
 
-def concluir_serie(user, exercise, peso, dia, reps=None, op_id="", nota="", falhou=False) -> tuple:
+def concluir_serie(
+    user, exercise, peso, dia, reps=None, op_id="", nota="", falhou=False, evento=None,
+) -> tuple:
     """Grava UMA série no dia do toque: `(criada, primeira_do_dia)`.
 
     `criada=False` é reenvio reconhecido pelo `op_id` (a fila offline), e aí
     não é dia novo — uma consulta só decide a primeira quando a linha NASCE.
     `ValueError` (vinte séries no dia) sobe para a tela dizer o limite.
+
+    `evento(nome, props)` (a view passa `analytics.evento` com o request)
+    emite `treino.serie_concluida` UMA vez, e só quando a linha NASCE: o
+    reenvio da fila é a mesma série chegando de novo, e contá-la inflaria a
+    gestão. Sem `evento` (quem grava fora do HTTP), nada é emitido. Sai
+    depois do commit — `append_set` fecha o próprio `atomic` antes de voltar
+    e o projeto não liga `ATOMIC_REQUESTS`. Até 27/09/2026 a view emitia
+    duas vezes; `props` é a união dos dois payloads, e nada nele é PII.
     """
     log, criada = services.append_set(
         user, exercise, peso, reps=reps, op_id=op_id, day=dia, nota=nota, falhou=falhou,
     )
+    if criada and evento is not None:
+        evento("treino.serie_concluida", {
+            "exercicio": exercise.pk, "exercicio_nome": exercise.name,
+            "carga": float(peso or 0), "reps": reps if reps is not None else 0,
+        })
     primeira_do_dia = criada and not (
         ExerciseLog.objects.filter(user=user, date=dia).exclude(pk=log.pk).exists()
     )
