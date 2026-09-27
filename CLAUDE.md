@@ -116,6 +116,35 @@ de merge é resolvido por quem faz o rebase.
 
 ## Rodar
 
+**Os comandos canônicos são estes. Não invente variação** — a suíte, o hook e o
+CI concordam porque usam a mesma linha, e uma invocação improvisada mede outra
+coisa.
+
+| o quê | comando |
+|---|---|
+| instalar | `.venv/Scripts/python.exe -m pip install -r requirements.txt` |
+| instalar (dev) | `.venv/Scripts/python.exe -m pip install -r requirements-dev.txt` |
+| lint | `.venv/Scripts/python.exe -m ruff check .` |
+| teste (suíte) | `.venv/Scripts/python.exe manage.py test` |
+| teste (dirigido) | `.venv/Scripts/python.exe manage.py test <modulo>` |
+| migrar | `.venv/Scripts/python.exe manage.py migrate` |
+| build | `scripts/build.sh` (é o do Render; não se roda à mão aqui) |
+| rodar | `preview_start` com o nome `nutriplan` de `.claude/launch.json` |
+| hooks | `bash scripts/instalar_hooks.sh` |
+
+**Não há typecheck.** O projeto não usa mypy nem pyright, e a linha do template
+que pediria um fica vazia de propósito em vez de apontar para nada.
+
+**`ruff` é relatório, não portão** (decisão do dono, 26/09/2026): o piso é
+`ruff-baseline.txt` e a regra é que a contagem **não sobe**. O `pre-commit` e o
+job `ruff (relatório)` do CI comparam contra esse número; o check que barra o
+merge continua sendo só a "suíte rápida". Portão bloqueante quando o burndown
+zerar. Hoje são 1.656 achados, e **1.439 são `E501`** — linha longa em
+comentário de prosa deliberada, que é o estilo desta base; o alvo que interessa
+são os 217 restantes. `docs/quality-baseline.md` tem a tabela.
+
+**Nunca rode servidor pelo Bash** — `preview_start`, sempre.
+
 ```bash
 .venv/Scripts/python.exe manage.py test          # suíte completa (~20 min)
 bash scripts/instalar_hooks.sh                   # liga as travas de git
