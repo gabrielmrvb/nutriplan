@@ -43,6 +43,9 @@ class Cenario:
         self.main, self.staging, self.producao, self.idade = main, staging, producao, idade
         self.smoke_ok, self.e2e_ok = smoke_ok, e2e_ok
         self.posts, self.e2e_rodou = [], 0
+        #: quantas vezes o lote esperou o STAGING responder, ou rodou o smoke —
+        #: o staging não pode ser acordado enquanto a janela está fechada.
+        self.esperou_staging, self.smoke_rodou = 0, 0
 
     def api(self, metodo, caminho, corpo=None):
         if metodo == "POST":
@@ -55,7 +58,14 @@ class Cenario:
             return {"status": "ok", "commit": self.staging, "ambiente": "staging"}
         return {"status": "ok", "commit": self.producao, "ambiente": ""}
 
+    def esperar_commit(self, base, curto, minutos, rotulo):
+        if base == promover.STAGING:
+            self.esperou_staging += 1
+        dados = self.saude(base)
+        return dados if dados["commit"] == curto else None
+
     def smoke(self, base):
+        self.smoke_rodou += 1
         return [(rota, 200 if self.smoke_ok else 503) for rota in promover.ROTAS_DO_SMOKE]
 
     def e2e(self, base):
@@ -69,7 +79,7 @@ class Cenario:
                 mock.patch.object(promover, "_ponta_de_main", lambda: self.main), \
                 mock.patch.object(promover, "minutos_desde_a_ultima_promocao", lambda: self.idade), \
                 mock.patch.object(promover, "esta_em_main", lambda sha: True), \
-                mock.patch.object(promover, "esperar_commit", lambda base, curto, minutos, rotulo: self.saude(base) if self.saude(base)["commit"] == curto else None), \
+                mock.patch.object(promover, "esperar_commit", self.esperar_commit), \
                 mock.patch.object(promover.time, "sleep", lambda s: None), redirect_stdout(saida):
             codigo = promover.promover_lote(**kw)
         return codigo, saida.getvalue()
@@ -101,6 +111,17 @@ class ARegraDoLoteTests(SimpleTestCase):
         self.assertIn("LOTE ADIADO", saida)
         self.assertIn("há 20 min", saida)
         self.assertEqual(c.e2e_rodou, 0, "não gasta E2E num lote que não vai subir agora")
+
+    def test_janela_fechada_nao_acorda_o_staging(self):
+        """Achado da medição de 27/09: o cron de 30 min chamava
+        esperar_commit(STAGING, …) ANTES de conferir a janela — um lote ADIADO
+        acordava o staging à toa, mesmo sem promover nada. A janela tem de ser
+        conferida primeiro; o staging dorme enquanto ela está fechada."""
+        c = Cenario(idade=20)
+        codigo, saida = c.rodar()
+        self.assertEqual(codigo, 0)
+        self.assertEqual(c.esperou_staging, 0, "o staging não pode ser acordado com a janela fechada")
+        self.assertEqual(c.smoke_rodou, 0, "sem esperar o staging, não há o que testar com o smoke")
 
     def test_janela_aberta_com_prova_verde_promove(self):
         c = Cenario(idade=61)

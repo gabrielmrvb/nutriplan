@@ -202,9 +202,9 @@ def promover_lote(forcar_janela=False, sem_e2e=False, minutos_staging=12):
     if prod == curto:
         print("LOTE: produção já está em %s — nada a promover." % curto, flush=True)
         return 0
-    if esperar_commit(STAGING, curto, minutos_staging, "staging") is None:
-        print("LOTE NÃO PROVADO: o staging não respondeu %s em %d min — nada sobe." % (curto, minutos_staging), flush=True)
-        return 2
+    # A janela vale ANTES de acordar o staging (achado de 27/09/2026): um
+    # lote ADIADO não tem por que chamar esperar_commit/smoke no STAGING —
+    # ele dorme até o próximo --lote, que leva junto o que entrou no meio.
     idade = minutos_desde_a_ultima_promocao()
     if not forcar_janela and idade is not None and idade < JANELA_MIN:
         print("LOTE ADIADO: última promoção há %d min (janela de %d); produção fica em %s e o lote %s espera o próximo --lote."
@@ -212,6 +212,9 @@ def promover_lote(forcar_janela=False, sem_e2e=False, minutos_staging=12):
         return 0
     if forcar_janela and idade is not None and idade < JANELA_MIN:
         print("JANELA FORÇADA (--forcar-janela): última promoção há %d min." % idade, flush=True)
+    if esperar_commit(STAGING, curto, minutos_staging, "staging") is None:
+        print("LOTE NÃO PROVADO: o staging não respondeu %s em %d min — nada sobe." % (curto, minutos_staging), flush=True)
+        return 2
     resultado = smoke(STAGING)
     print("smoke no staging:", " ".join("%s=%s" % (rota, status) for rota, status in resultado), flush=True)
     if any(status != 200 for _, status in resultado):
