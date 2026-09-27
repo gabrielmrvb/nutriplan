@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -302,7 +302,14 @@ def preparar_dia(user, sessao, linhas=None) -> None:
     ficam, removidos = motor_de_opcoes.versao_rapida(
         [(item, item.sets, grau) for item, grau in zip(itens, graus)], sessao.main_groups
     )
+    # Os números do cartão de HOJE são os da opção do dia, não os da
+    # referência da semana (`total_sets`/`estimated_minutes`, a opção 1). Eles
+    # discordavam por construção num dia de variação 2: medido no `abc2` do
+    # intermediário de cinco dias, a letra B fecha em 57 min na opção 1 e 60
+    # na 2 — o painel prometia 57 e a ficha do mesmo dia dizia 60
+    # (`workouts/test_minutos_do_dia.py`).
     sessao.minutos = sessao.minutos_da_opcao(sessao.opcao_do_dia)
+    sessao.series_do_dia = sessao.series_da_opcao(sessao.opcao_do_dia)
     sessao.rapida_muda = bool(removidos) or sum(s for _, s in ficam) != sum(i.sets for i in itens)
     sessao.rapida_minutos = round(
         services.segundos_da_sessao([(s, i.rest_seconds, i.exercise.is_compound) for i, s in ficam]) / 60
@@ -1156,6 +1163,22 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
     formulário nem cronômetro — a régua é a mesma da ficha. O exercício é
     buscado pelo PLANO ATIVO da própria pessoa (IDOR fechado como
     `FichaDaSessaoView`), e não "de hoje": senão reproduz o defeito.
+
+    E DESDE 24/09/2026 HÁ UMA SEGUNDA PORTA, mais forte que a primeira: o
+    exercício em que ESTA pessoa registrou série é dela, esteja ele na ficha
+    de hoje ou não. MEDIDO no navegador: três séries registradas pela
+    execução, equipamento trocado no Perfil, ficha remontada no dia seguinte
+    — e a leitura passava a responder 404 com as séries intactas no banco.
+    O histórico só existia na exportação.
+
+    A porta nova não afrouxa o IDOR: ela é uma condição sobre `logs__user`,
+    que é a própria pessoa. Id de exercício que ela nunca fez e que não está
+    na ficha dela continua 404, e `test_sabotagem_apagar_a_serie_fecha_a_
+    porta_de_novo` prova que é o REGISTRO que abre a página.
+
+    `is_active` também deixou de ser exigido por essa porta: exercício
+    aposentado nunca é apagado (`ExerciseLog` é `CASCADE`), então quem
+    treinou um que saiu do catálogo continua podendo ler o que fez.
     """
 
     template_name = "workouts/exercicio.html"
@@ -1164,29 +1187,38 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         plano = services.get_active_routine(user)
-        if plano is None:
-            raise Http404("sem ficha")
         # O exercício da ficha — ou o SUBSTITUTO que a pessoa pôs no lugar de
-        # um deles ("outras formas"): a linha da ficha aponta para ele.
+        # um deles ("outras formas") —, ou um em que ela já registrou série.
+        do_historico = Q(logs__user=user)
+        if plano is not None:
+            da_ficha = (
+                Q(sessions__session__plan=plano, is_active=True)
+                | Q(
+                    trocas_como_substituto__user=user,
+                    trocas_como_substituto__original__sessions__session__plan=plano,
+                    is_active=True,
+                )
+            )
+        else:
+            da_ficha = Q(pk__in=())
         exercicio = get_object_or_404(
-            Exercise.objects.filter(
-                Q(sessions__session__plan=plano)
-                | Q(trocas_como_substituto__user=user, trocas_como_substituto__original__sessions__session__plan=plano),
-                is_active=True,
-            ).distinct(),
+            Exercise.objects.filter(da_ficha | do_historico).distinct(),
             pk=kwargs["exercise_id"],
         )
+
         # As ocorrências na semana, com a letra que a ficha mostra (A1/A2) —
         # a semana de HOJE pela posição no ciclo, na ordem dos dias.
         # `exercises` sem `__exercise`: a leitura só precisa dos ids das
         # linhas; `aplicar_trocas` busca o exercício só das linhas trocadas.
-        linhas = list(plano.sessions.prefetch_related("exercises"))
-        services.aplicar_trocas(user, linhas)
-        sessoes = sorted(
-            services.sessoes_da_semana(plano, timezone.localdate(), linhas),
-            key=lambda s: s.weekday,
-        )
-        nomear_ocorrencias(sessoes)
+        sessoes = []
+        if plano is not None:
+            linhas = list(plano.sessions.prefetch_related("exercises"))
+            services.aplicar_trocas(user, linhas)
+            sessoes = sorted(
+                services.sessoes_da_semana(plano, timezone.localdate(), linhas),
+                key=lambda s: s.weekday,
+            )
+            nomear_ocorrencias(sessoes)
         itens = []
         for sessao in sessoes:
             for item in sessao.exercises.all():
@@ -1279,7 +1311,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 _curva.curva([s["carga"] for s in reversed(historico)])
                 if not exercicio.sem_carga else None
             ),
-            "prescricao": itens[0],
+            "prescricao": itens[0] if itens else None,
             "dias": [
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)
                 for i in itens
@@ -1287,8 +1319,13 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             # Os dias acima são os desta semana (rotação); com o ciclo girando, a
             # letra cai em dias diferentes na semana seguinte, e sem dizer isso o
             # "Quando" é lido como fixo (avaliação de UX, 20/09/2026).
-            "ciclo_continuo": services.ciclo_roda(plano),
+            "ciclo_continuo": services.ciclo_roda(plano) if plano is not None else False,
             "item_de_hoje": item_de_hoje,
+            # FORA DA FICHA (24/09/2026): a pessoa chegou aqui pelo histórico
+            # — a ficha foi remontada, ou ela apagou a rotina. A tela abre
+            # com o que ela fez e DIZ que este exercício não está na ficha de
+            # hoje; sem a frase, "Quando" vazio pareceria defeito.
+            "fora_da_ficha": not itens,
             "volta": self._de_onde_veio(exercicio, itens),
         })
         return context
@@ -1346,6 +1383,35 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
             "href": reverse("workouts:ficha", args=[sessao.pk]),
             "rotulo": "← Ficha %s" % sessao.rotulo,
         }
+
+
+class ExerciciosFeitosView(OnboardingRequiredMixin, TemplateView):
+    """"Exercícios que já fiz" — a porta para o que saiu da ficha.
+
+    A leitura de um exercício passou a abrir para qualquer um em que a pessoa
+    tenha registrado série (24/09/2026), e sem esta lista aquela porta não
+    tem maçaneta: o exercício que a remontagem tirou da ficha não aparece em
+    tela nenhuma, e só quem tivesse guardado o endereço chegaria lá.
+
+    UMA consulta: o filtro por `logs__user` e as duas agregações
+    compartilham a mesma junção, então `series` e `ultima` já vêm contadas
+    só das séries DESTA pessoa. `is_active` não entra — exercício aposentado
+    nunca é apagado, e quem treinou um deles continua tendo o que ler.
+    """
+
+    template_name = "workouts/exercicios_feitos.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "nav": "workout",
+            "feitos": list(
+                Exercise.objects.filter(logs__user=self.request.user)
+                .annotate(series=Count("logs"), ultima=Max("logs__date"))
+                .order_by("-ultima", "name")
+            ),
+        })
+        return context
 
 
 class ModoTreinoView(OnboardingRequiredMixin, TemplateView):

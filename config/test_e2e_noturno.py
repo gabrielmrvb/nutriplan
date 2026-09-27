@@ -168,6 +168,29 @@ class ORoteiroTests(SimpleTestCase):
         with self.assertRaisesMessage(RuntimeError, "input[name=transferencia]"):
             ab.marcar("input[name=transferencia]")
 
+    def test_ir_espera_o_link_aparecer_antes_de_clicar(self):
+        """O lote das 15:22 de 24/09/2026 reprovou em `serie` com "Element not
+        found: a[href^='/treino/agora/']" — o clique na ficha chegou antes de
+        a tela existir. `ir` clicava direto; `marcar` já esperava desde o
+        primeiro run do Actions, e a razão é a mesma: o runner é mais lento
+        que esta máquina, e o app anima a troca de página (durante a view
+        transition o `elementFromPoint` devolve `<html>` por ~300 ms, medido
+        no Chrome 153 e escrito no `CLAUDE.md`).
+
+        Reproduzido ao contrário: o caminho painel → primeira ficha → execução
+        está ÍNTEGRO com o perfil que o roteiro cria (sete dias, ABC) —
+        `scratchpad/repro_e2e_serie.py` devolve o link da execução na ficha.
+        Não é o app; é o roteiro clicando cedo demais."""
+        gravados = []
+        ab = e2e.Navegador("s", executar=lambda c, t: gravados.append(c[3:]) or (
+            "https://staging.exemplo/treino/ficha/1/" if c[3:5] == ["get", "url"] else "true"))
+        cenario = e2e.E2E("https://staging.exemplo", RAIZ / "artifacts" / "_capturas_teste", "r", ab=ab)
+        cenario.ir("a[href^='/treino/agora/']", "/treino/agora/")
+        ordem = [c[0] for c in gravados]
+        self.assertLess(ordem.index("wait"), ordem.index("click"),
+                        "o clique não pode chegar antes de o elemento existir")
+        self.assertEqual(gravados[ordem.index("wait")][1], "a[href^='/treino/agora/']")
+
     def test_o_agent_browser_recebe_a_sessao_em_todo_comando(self):
         gravados = []
         ab = e2e.Navegador("sessao-x", executar=lambda comando, timeout: gravados.append(comando) or "")

@@ -326,7 +326,17 @@ class E2E:
     def ir(self, seletor, trecho, segundos=45):
         """Clica num link e espera a URL trazer `trecho`; se o clique não navegou
         (MEDIDO: o CTA "Começar pelo primeiro" da ficha nova ficou parado atrás
-        do convite de instalação), navega pelo próprio href."""
+        do convite de instalação), navega pelo próprio href.
+
+        ESPERA O LINK ANTES DE CLICAR, pela mesma razão que `marcar` espera
+        desde o primeiro run do Actions: o runner é mais lento que a máquina
+        de quem escreve, e este app ANIMA a troca de página — durante a view
+        transition o `elementFromPoint` devolve `<html>` por ~300 ms (medido
+        no Chrome 153). Sem a espera, o segundo `ir` de um passo chega à tela
+        que o primeiro abriu antes de ela existir: foi assim que o lote das
+        15:22 de 24/09/2026 reprovou em `serie` com "Element not found:
+        a[href^='/treino/agora/']", com o caminho do app íntegro."""
+        self.ab("wait", seletor, "--timeout", str(segundos * 1000))
         self.ab("click", seletor)
         try:
             self.ab.esperar_js("location.pathname.indexOf(%s)!==-1" % json.dumps(trecho), segundos=15, rotulo=trecho)
