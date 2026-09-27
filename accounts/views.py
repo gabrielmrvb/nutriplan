@@ -43,6 +43,7 @@ from workouts.services import (
 from . import consentimento
 from .models import (
     Consentimento,
+    Experiencia,
     ONBOARDING_DONE,
     ONBOARDING_LAST_STEP,
     Musculacao,
@@ -897,7 +898,37 @@ class ObjetivoERotinaView(EtapaCompostaView):
         return self.request.user.training_days.count()
 
     def mostrar_divisao(self, forms):
+        """A pergunta da divisão é de quem JÁ TREINA (26/09/2026).
+
+        "Quantos grupos musculares por dia?" pede uma escolha que só faz
+        sentido para quem já montou treino — o achado #13 das personas. Para
+        quem está começando, quem decide é o motor: corpo inteiro em casa
+        (`services.split_for`), e a divisão por frequência na academia. Uma
+        pergunta a menos no cadastro, e nenhuma resposta inventada.
+
+        Continua valendo a régua dos DIAS (`preferencia_muda_a_divisao`):
+        abaixo do mínimo, toda preferência dá a mesma divisão, e perguntar
+        seria pedir uma escolha que o app vai ignorar.
+        """
+        if self.nivel_pedido(forms) == Experiencia.INICIANTE:
+            return False
         return preferencia_muda_a_divisao(self.dias_pedidos(forms))
+
+    def nivel_pedido(self, forms):
+        """O nível que ESTE envio declara — ou o que o perfil já tem.
+
+        O envio vem primeiro porque a etapa 2 pergunta as duas coisas na
+        mesma tela: quem marca "iniciante" e manda o formulário não pode
+        receber de volta a pergunta da divisão só porque o perfil ainda
+        estava vazio.
+        """
+        rotina = forms.get("rotina")
+        if rotina is not None and rotina.is_bound:
+            nivel = (rotina.data.get("experiencia") or "").strip()
+            if nivel:
+                return nivel
+        perfil = getattr(self.request.user, "profile", None)
+        return getattr(perfil, "experiencia", "") or ""
 
     def forms_exigidos(self, forms):
         exigidos = ["objetivo", "rotina"]

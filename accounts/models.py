@@ -565,11 +565,26 @@ class Profile(models.Model):
     #: com razão escrita no enum: é a verdade de toda conta anterior à
     #: pergunta. Coluna nova com default constante: mudança de catálogo no
     #: PostgreSQL 11+, sem reescrever linha.
+    #: O DEFAULT VIROU VAZIO EM 26/09/2026, e o vazio é "ainda não
+    #: respondeu" — o mesmo estado de verdade que `experiencia` tem desde
+    #: 17/09. Era `COMPLETA`, com a razão escrita: "toda ficha anterior à
+    #: pergunta nasceu do catálogo inteiro, então completa é a verdade
+    #: dela". Aquela razão valia para quem JÁ TINHA CONTA — e continua
+    #: valendo, porque a migration não toca em linha nenhuma. O que ela não
+    #: podia decidir era pela pessoa que está respondendo AGORA: com o
+    #: default gravado, a etapa 2 abria com "academia completa" marcada, e
+    #: quem passasse batido saía declarando um lugar de treino que não
+    #: escolheu (missão "quem entra não desiste", item 5).
+    #:
+    #: Quem lê continua lendo "completa": `services.equipamento_de` já
+    #: traduz o vazio, e o Perfil o mostra marcado como padrão, como faz
+    #: com o nível.
     equipamento = models.CharField(
         "equipamento disponível",
         max_length=15,
         choices=Equipamento.choices,
-        default=Equipamento.COMPLETA,
+        default="",
+        blank=True,
     )
     #: Grátis ou Pro. Quem decide o que cada um alcança é `accounts/gates.py`,
     #: e SÓ ele; este campo é o dado, não a regra. Ninguém no app escreve

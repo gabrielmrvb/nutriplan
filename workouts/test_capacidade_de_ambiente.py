@@ -88,7 +88,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
-from workouts import doutrina
+from workouts import doutrina, services
 from workouts.models import Equipment, Exercise, MuscleGroup, WorkoutTemplate
 
 #: O que cada ambiente PERMITE, dito por extenso.
@@ -543,11 +543,21 @@ class OProdutoPrometeEquipamentoEOMotorObedeceTests(TestCase):
     faz é exatamente a que a ficha cumpre: `workouts/test_equipamento.py`.
     """
 
-    def test_o_perfil_guarda_o_equipamento_com_o_padrao_completa(self):
+    def test_o_perfil_guarda_o_equipamento_e_o_vazio_vale_completa(self):
+        """O CAMPO NASCE VAZIO DESDE 26/09/2026, e "completa" continua sendo
+        a resposta.
+
+        O default gravado fazia a etapa 2 abrir com "academia completa"
+        marcada — e desde 24/09 o campo é obrigatório para quem faz
+        musculação: a tela exigia a resposta e já a dava. Quem lê continua
+        lendo "completa" do vazio (`services.equipamento_de`), e é isso que
+        faz a promessa do perfil continuar sendo a que a ficha cumpre.
+        """
         from accounts.models import Equipamento, Profile
 
         campo = Profile._meta.get_field("equipamento")
-        self.assertEqual(campo.default, Equipamento.COMPLETA)
+        self.assertEqual(campo.default, "")
+        self.assertEqual(services.equipamento_de(None), Equipamento.COMPLETA)
         self.assertEqual({c for c, _ in campo.choices}, set(doutrina.PERFIS_DE_EQUIPAMENTO))
 
     def test_o_passo_de_treino_pergunta_o_equipamento(self):

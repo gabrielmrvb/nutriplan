@@ -185,8 +185,15 @@
             </div>
             <div>
               <dt>Equipamento</dt>
-              {# Sempre tem valor: "completa" é o padrão e a verdade de quem já tinha ficha. #}
-              <dd>{{ profile.get_equipamento_display }}</dd>
+              {% comment %}
+                DESDE 26/09/2026 O CAMPO PODE ESTAR VAZIO: ele deixou de
+                nascer com "completa" marcada, porque o padrão gravado fazia
+                quem passasse batido pela etapa 2 declarar um lugar de treino
+                que não escolheu. Vazio é "ainda não respondeu", e a tela diz
+                o que o motor USA — a mesma forma que o nível já tinha, logo
+                acima. Quem já tinha conta continua com o valor dela.
+              {% endcomment %}
+              <dd>{% if profile.equipamento %}{{ profile.get_equipamento_display }}{% else %}Academia completa <span class="hint">— padrão, você ainda não respondeu</span>{% endif %}</dd>
             </div>
             {% comment %}
               UMA LINHA COM OS DIAS, e não uma linha por dia.
