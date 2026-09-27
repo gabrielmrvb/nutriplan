@@ -114,6 +114,27 @@ fora de qualquer worktree, uma linha por aviso (`data hora · sessão · arquivo
 · o que vai fazer`), lido antes de editar e escrito antes de commitar. Conflito
 de merge é resolvido por quem faz o rebase.
 
+## Planejar, delegar e lembrar (27/09/2026)
+
+Do `soumatheusgomes/vibe-coding-toolkit`, complementando o PR #150.
+
+**A sessão principal planeja e delega; subagentes implementam.** Ela lê,
+decide, escreve o plano, despacha, integra, revisa e commita. Subagente
+recebe a tarefa com `Files:` e `Depends-on:` explícitos, **não commita**, e
+devolve os arquivos que tocou.
+
+**Ondas paralelas.** Duas tarefas entram na mesma onda só se nenhuma depende
+da outra (nem transitivamente) E os conjuntos de arquivos são disjuntos.
+Tarefa sem `Files:` ou `Depends-on:` claro depende de tudo antes dela — cai
+para serial, nunca para paralelo. A sessão principal commita tarefa a tarefa
+depois da onda e escreve UMA linha no ledger por onda. Colisão inevitável de
+arquivo: cada subagente num worktree próprio.
+
+**Memória do projeto:** @.claude/memory/MEMORY.md — regras em
+`.claude/memory/INSTRUCTIONS.md` (teto de 130 linhas; o tier 2 é este
+arquivo; o repositório é público: nada de segredo, dado pessoal ou
+estratégia). Desligar: apagar a linha com `@` acima.
+
 ## Rodar
 
 **Os comandos canônicos são estes. Não invente variação** — a suíte, o hook e o
