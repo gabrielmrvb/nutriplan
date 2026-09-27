@@ -9,10 +9,7 @@ que daqui a um mês dê para saber se a dívida cresceu ou encolheu.
 - **Universo:** só arquivo VERSIONADO (`git ls-files`). `.venv`, `__pycache__`,
   `artifacts/` e `node_modules` ficam de fora — contá-los mediria a máquina, não o
   projeto.
-- **Ferramenta:** contagem de linhas própria e `grep`. **Sem ruff** — ele não está
-  instalado neste repositório, e instalá-lo é decisão pendente do dono (D2 do plano
-  `docs/superpowers/plans/2026-09-26-vibe-coding-toolkit.md`). Quando entrar, a
-  contagem dele vira uma seção nova aqui.
+- **Ferramenta:** contagem de linhas própria, `grep` e **ruff 0.16.9** (seção 4).
 
 ---
 
@@ -128,6 +125,42 @@ De novo: **não classifiquei nenhuma dessas linhas como "regra vazada"**. Fazer 
 exige ler cada uma, e é trabalho de outra missão.
 
 ---
+
+## 4. ruff — o piso, e o que ele mede
+
+**ruff 0.16.9**, config em `ruff.toml`: `select = ["E", "F", "W"]`,
+`line-length = 100`, migrações excluídas (código gerado pelo Django).
+
+**Total: 1.656 achados.** O piso vive em `ruff-baseline.txt` e a regra do dono é
+que **a contagem não sobe** — o `pre-commit` e o job `ruff (relatório)` do CI
+comparam contra ele. Nenhum dos dois barra merge: o check obrigatório continua
+sendo a "suíte rápida".
+
+| nº | regra | o que é |
+|---|---|---|
+| 1.439 | `E501` | linha acima de 100 caracteres |
+| 106 | `F401` | import não usado (**corrigível automático**) |
+| 55 | `E741` | nome de variável ambíguo (`l`, `I`, `O`) |
+| 20 | `E702` | duas instruções na mesma linha, com `;` |
+| 18 | `E701` | duas instruções na mesma linha, com `:` |
+| 8 | `E731` | `lambda` atribuído a nome |
+| 6 | `F841` | variável atribuída e nunca usada |
+| 2 | `F601` | chave repetida em literal |
+| 2 | `F811` | redefinido sem uso |
+
+**Leia o 1.439 com cuidado: ele é 87% do total e é quase todo comentário.** Esta
+base documenta decisão em prosa dentro do código — é a razão de o `CLAUDE.md` ter
+1.900 linhas e de cada `ponytail:`/docstring explicar o porquê. Cobrar 100
+caracteres disso é pedir para reescrever a documentação, não o código.
+
+**O burndown que interessa são os 217 restantes**, e ele tem uma ordem óbvia:
+os 106 `F401` saem com `ruff check --fix` (correção automática, sem julgamento);
+os 6 `F841`, 2 `F601` e 2 `F811` são achados reais e pequenos; `E741`, `E701`,
+`E702` e `E731` são estilo com 101 ocorrências.
+
+**Nada disso foi corrigido aqui** — nem o `--fix` automático. O pedido era medir,
+e correr o `--fix` num commit de setup misturaria 106 arquivos tocados com a
+instalação da ferramenta.
 
 ## Como usar este documento
 
