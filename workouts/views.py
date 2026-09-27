@@ -136,7 +136,10 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # letra da posição dele (`sessoes_da_semana`). No plano antigo são as
         # próprias linhas, presas ao dia da semana.
         hoje_data = timezone.localdate()
-        sessions = services.sessoes_da_semana(plan, hoje_data, linhas)
+        # A sequência por presença (24/09/2026), lida UMA vez: dela saem a
+        # projeção da semana, o próximo treino e a letra recomendada de hoje.
+        seq = services.sequencia_do_treino(user, plan, ate=hoje_data, sessoes=linhas)
+        sessions = services.sessoes_da_semana(plan, hoje_data, linhas, user=user, seq=seq)
 
         # O histórico é anexado ao item por `anexar_historico`, que faz UMA
         # consulta para a página inteira. A tela principal já não desenha os
@@ -168,7 +171,7 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 "outras": [s for s in sessions if s is not hoje],
                 # Só faz sentido perguntar "e quando é o próximo?" no dia em
                 # que não há treino. Com treino hoje, o próximo é ruído.
-                "proximo": proximo_treino(sessions, plan, hoje_data, linhas) if hoje is None else None,
+                "proximo": proximo_treino(sessions, plan, hoje_data, linhas, user=user, seq=seq) if hoje is None else None,
                 "week": week_overview(sessions),
                 # A tira mostra a rotação da SEMANA CORRENTE (as cópias vestidas
                 # de `sessoes_da_semana`), mas sem dizer que ela GIRA a pessoa
@@ -566,8 +569,8 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # por `sessao_do_dia`, mostrava a série. Passou despercebido porque os
         # testes rodaram em dias em que letra e linha coincidiam. A mesma
         # cópia vestida que a execução usa resolve os dois lados de uma vez.
-        if services.ciclo_roda(sessao.plan) and services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label:
-            vestida = services.sessao_do_dia(sessao.plan, hoje_data, linhas)
+        if services.usa_presenca(sessao.plan) and services.letra_do_dia(sessao.plan, hoje_data, linhas, user=user) == sessao.label:
+            vestida = services.sessao_do_dia(sessao.plan, hoje_data, linhas, user=user)
             if vestida is not None and vestida.pk == sessao.pk:
                 sessao = vestida
         # A MESMA preparação da tela principal, pela mesma função. Uma segunda
@@ -577,7 +580,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # e uma sessão sozinha não sabe disso. Buscar as irmãs custa UMA
         # consulta e é o que faz o título da ficha concordar com o cartão que
         # levou até ela.
-        irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas)
+        irmas = services.sessoes_da_semana(sessao.plan, hoje_data, linhas, user=user)
         nomear_ocorrencias(irmas)
         sessao.rotulo = next(
             (s.rotulo for s in irmas if s.pk == sessao.pk), sessao.label
@@ -588,11 +591,11 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         sessao.vezes_texto = next(
             (s.vezes_texto for s in irmas if s.pk == sessao.pk), "uma"
         )
-        if services.ciclo_roda(sessao.plan):
-            # Com a rotação, "é hoje" é a LETRA de hoje — o dia da semana da
-            # linha é o da primeira semana —, e o cabeçalho diz em que dias
-            # desta semana a letra cai.
-            sessao.eh_hoje = services.letra_do_dia(sessao.plan, hoje_data, linhas) == sessao.label
+        if services.usa_presenca(sessao.plan):
+            # Por presença, "é hoje" é a LETRA recomendada (ou escolhida) de
+            # hoje — o dia da semana da linha é o da primeira semana —, e o
+            # cabeçalho diz em que dias desta semana a letra cai.
+            sessao.eh_hoje = services.letra_do_dia(sessao.plan, hoje_data, linhas, user=user) == sessao.label
             sessao.aberta = True
             sessao.dias_texto = " · ".join(
                 s.weekday_display for s in irmas if s.label == sessao.label
@@ -666,8 +669,14 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         escolha = getattr(sessao, "escolha", None) if eh_hoje else None
         if eh_hoje:
             numero = sessao.opcao_do_dia
+        elif services.usa_presenca(sessao.plan):
+            # Por presença, a ficha de OUTRA letra mostra a PRÓXIMA vez que ela
+            # cai — a variação para hoje (a contagem da letra até agora). Não é
+            # mais a "próxima ocorrência no calendário": a semana não fixa mais
+            # a letra a um dia.
+            numero = services.variacao_do_dia(sessao.plan, hoje_data, sessao, linhas, user=user)
         else:
-            numero = services.variacao_do_dia(sessao.plan, self._data_da_ficha(sessao, irmas, hoje_data), sessao, linhas)
+            numero = services.variacao_do_dia(sessao.plan, self._data_da_ficha(sessao, irmas, hoje_data), sessao, linhas, user=user)
         versao = escolha.versao if escolha else "completo"
         itens = sessao.da_opcao(numero)
         graus = services.prioridades_da_sessao(itens)
@@ -790,6 +799,32 @@ class VersaoRapidaHojeView(AcaoDeTela, OnboardingRequiredMixin, View):
         EventoDeProduto.objects.get_or_create(
             user=request.user, nome=EventoDeProduto.VERSAO_RAPIDA, date=dia
         )
+        return redirect("workouts:routine")
+
+
+class EscolherLetraView(AcaoDeTela, OnboardingRequiredMixin, View):
+    """"Fazer outro treino" — a pessoa escolhe qual letra fazer hoje
+    (24/09/2026). Estado absoluto por dia, sem `op_id`. Trocar depois de já ter
+    registrado série hoje pede confirmação (`?trocar=<letra>` reabre o painel
+    com o convite) e NÃO apaga nada. A ação é só POST; o GET volta ao painel."""
+
+    tela_da_acao = "workouts:routine"
+
+    def post(self, request, *args, **kwargs):
+        dia = timezone.localdate()
+        plan = services.get_active_routine(request.user)
+        if plan is None:
+            messages.info(request, "Hoje não é dia de treino.")
+            return redirect("workouts:routine")
+        letra = (request.POST.get("letra") or "").strip().upper()
+        confirmar = bool(request.POST.get("confirmar"))
+        escolha, precisa_confirmar = services.registrar_escolha_de_letra(
+            request.user, plan, letra, dia=dia, confirmar=confirmar
+        )
+        if precisa_confirmar:
+            return redirect(reverse("workouts:routine") + "?trocar=" + letra)
+        if escolha is None:
+            messages.info(request, "Treino não encontrado.")
         return redirect("workouts:routine")
 
 

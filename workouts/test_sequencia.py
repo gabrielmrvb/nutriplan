@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
+from django.urls import reverse
 
 from accounts.models import DuracaoTreino, TrainingDay
 from config import relogio
@@ -173,3 +174,97 @@ class ALetraDeHojePorPresencaTests(TestCase):
         sessao = services.sessao_do_dia(self.plan, QUINTA, user=self.user)
         self.assertEqual(sessao.label, "A")
         self.assertFalse(services.usa_presenca(self.plan))
+
+
+class AProjecaoDaSemanaTests(TestCase):
+    """A tira da semana vira PROJEÇÃO (24/09/2026): dia passado feito mostra a
+    letra feita, hoje mostra a recomendada, o futuro segue o ciclo a partir
+    daí, e dia de treino pulado fica marcado."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.relogio = relogio.Relogio(QUINTA).ligar()
+        self.addCleanup(self.relogio.desligar)
+        self.user = _pessoa("tira@exemplo.com")
+        self.plan = services.create_routine(self.user)
+        self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
+
+    def _tira(self, hoje):
+        return [
+            (None if s.projecao == "pulado" else s.label, s.projecao)
+            for s in services.sessoes_da_semana(self.plan, hoje, self.linhas, user=self.user)
+        ]
+
+    def test_plano_fresco_semana_1_e_a_b_c_a_b(self):
+        tira = self._tira(SEGUNDA)
+        self.assertEqual([l for l, _ in tira], ["A", "B", "C", "A", "B"])
+        self.assertEqual([e for _, e in tira], ["hoje", "futuro", "futuro", "futuro", "futuro"])
+
+    def test_plano_fresco_semana_2_ainda_e_a_b_c_a_b(self):
+        """Nada feito: o calendário NÃO avança o ciclo — a semana 2 ainda
+        começa em A. Era o que a rotação por posição fazia (começava em C)."""
+        self.assertEqual([l for l, _ in self._tira(SEGUNDA + timedelta(days=7))], ["A", "B", "C", "A", "B"])
+
+    def test_o_caso_do_dono_pulou_a_quarta(self):
+        """A na segunda (feito), B na terça (feito), quarta PULADA, e hoje
+        (quinta) recomenda C — continua de onde parou —, sexta projeta A."""
+        fazer(self.user, self.plan, "A", SEGUNDA)
+        fazer(self.user, self.plan, "B", SEGUNDA + timedelta(days=1))
+        self.assertEqual(
+            self._tira(QUINTA),
+            [("A", "feito"), ("B", "feito"), (None, "pulado"), ("C", "hoje"), ("A", "futuro")],
+        )
+
+    def test_a_escolha_de_hoje_aparece_na_tira_no_lugar_da_recomendada(self):
+        linha_b = next(s for s in self.linhas if s.label == "B")
+        services.registrar_escolha(self.user, linha_b, linha_b.opcoes[0], dia=SEGUNDA)
+        tira = self._tira(SEGUNDA)
+        self.assertEqual(tira[0], ("B", "hoje"))
+        # o futuro segue a partir de B: C, A, B, C
+        self.assertEqual([l for l, _ in tira], ["B", "C", "A", "B", "C"])
+
+
+class ApresencaNaoRemontaAFichaTests(TestCase):
+    """A presença é LEITURA (24/09/2026): usar o app não altera
+    `SessionExercise` nem `customized_at`, e a ficha continua válida — o
+    retrato das linhas é o mesmo antes e depois (como test_gluteo)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.relogio = relogio.Relogio(QUINTA).ligar()
+        self.addCleanup(self.relogio.desligar)
+        self.user = _pessoa("nao-remonta@exemplo.com")
+        from plans import services as plan_services
+
+        plan_services.create_plan(self.user)
+        self.plan = services.create_routine(self.user)
+        self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
+
+    def _retrato(self):
+        from workouts.models import SessionExercise
+
+        return sorted(
+            (se.session_id, se.exercise_id, se.opcao, se.sets)
+            for se in SessionExercise.objects.filter(session__plan=self.plan)
+        )
+
+    def test_usar_o_app_por_presenca_nao_muda_as_linhas_nem_invalida(self):
+        antes = self._retrato()
+        fazer(self.user, self.plan, "A", SEGUNDA)
+        fazer(self.user, self.plan, "B", SEGUNDA + timedelta(days=1))
+        self.client.force_login(self.user)
+        self.client.get(reverse("workouts:routine"))
+        self.client.get(reverse("workouts:now"))
+        services.estado_do_treino(self.user)  # recomenda C, veste em memória
+        self.plan.refresh_from_db()
+        self.assertIsNone(self.plan.customized_at)
+        self.assertEqual(self._retrato(), antes, "nenhuma linha da ficha mudou")
+        self.assertFalse(services.rotina_invalida(self.plan, self.user))

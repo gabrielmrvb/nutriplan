@@ -26,7 +26,9 @@ from django.utils import timezone
 from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay
 
 from . import services
-from .models import ExerciseLog, TrainingPlan, TrainingSession
+from decimal import Decimal
+
+from .models import EscolhaDeTreino, ExerciseLog, TrainingPlan, TrainingSession
 from .tests import create_user
 
 
@@ -64,63 +66,40 @@ class BaseDoFluxo(TestCase):
 
 
 def tornar_hoje(user, letra):
-    """Coloca a primeira ocorrência de `letra` no dia de hoje. Devolve a sessão.
+    """Faz `letra` ser o RECOMENDADO de hoje. Devolve a sessão de `letra`
+    vestida em hoje.
 
-    POR QUE ISTO EXISTE, e é a correção de três `skipTest` que eu tinha escrito.
-    Os testes de complementar, de peso corporal e de IDOR liam "a sessão de
-    hoje" — e o que hoje é depende do dia em que a suíte roda. Numa quinta a
-    sessão era `A2`, com dois exercícios, sem complementar e sem nada de peso
-    corporal: os três testes pulavam. Numa quarta, `C1`, e os três rodavam.
+    SEQUÊNCIA POR PRESENÇA (24/09/2026): "qual treino é hoje" saiu da POSIÇÃO
+    no calendário e passou a ser a letra seguinte à ÚLTIMA FEITA. Então, em vez
+    de mover `weekday` ou `inicio_do_ciclo`, este helper REGISTRA A LETRA
+    ANTERIOR DO CICLO COMO FEITA ONTEM (escolha do dia + uma série) — e a
+    recomendação de hoje passa a ser `letra`. A primeira letra do ciclo já é a
+    recomendada sem histórico, então para ela nada é registrado.
 
-    Cobertura que muda com o calendário é pior que cobertura ausente: ela passa
-    verde no dia em que ninguém olha e some no dia em que o defeito entra. E o
-    skip mentia sobre a causa — o catálogo TEM prancha e TEM complementar; o
-    que faltava era a sessão certa cair hoje.
-
-    A troca é de `weekday`, e precisa de três passos por causa de
-    `unique_session_per_weekday`: o dia de hoje é liberado para um valor que
-    ninguém usa antes de a sessão desejada assumi-lo.
+    Cobertura que muda com o calendário é pior que cobertura ausente (o motivo
+    original deste helper): aqui o dia de hoje precisa ser dia de treino, e a
+    letra vem da presença — o mesmo em qualquer dia da semana.
     """
     hoje = timezone.localdate()
     plano = user.training_plans.get(is_active=True)
-    linhas = list(plano.sessions.all())
+    linhas = list(plano.sessions.prefetch_related("exercises__exercise"))
     letras = services.letras_do_ciclo(linhas)
     assert letra in letras, "a divisão não tem a letra %s" % letra
-    if services.ciclo_roda(plano):
-        # COM A ROTAÇÃO A LETRA É DA POSIÇÃO, não do dia da semana: em vez de
-        # trocar `weekday` entre linhas, move-se a posição zero do ciclo para
-        # uma data em que hoje caia na letra pedida. A sessão devolvida é a
-        # da letra vestindo hoje (`sessao_do_dia`).
-        dias = services.dias_de_treino_de(linhas)
-        assert hoje.weekday() in dias, "hoje precisa ser dia de treino"
-        alvo = letras.index(letra)
-        for atras in range(0, 8 * len(dias)):
-            candidato = hoje - timedelta(days=atras)
-            if candidato.weekday() not in dias:
-                continue
-            if services.posicao_no_ciclo(candidato, hoje, dias) % len(letras) == alvo:
-                TrainingPlan.objects.filter(pk=plano.pk).update(inicio_do_ciclo=candidato)
-                plano.inicio_do_ciclo = candidato
-                return services.sessao_do_dia(plano, hoje)
-        raise AssertionError("não achei posição zero para %s cair hoje" % letra)
-
-    # Plano preso ao dia da semana: a troca de `weekday` de sempre, em três
-    # passos por causa de `unique_session_per_weekday`.
-    hoje = hoje.weekday()
-    alvo = plano.sessions.filter(label=letra).order_by("weekday").first()
-    if alvo.weekday == hoje:
-        return alvo
-
-    ocupante = plano.sessions.filter(weekday=hoje).first()
-    livre = 99
-    if ocupante is not None:
-        TrainingSession.objects.filter(pk=ocupante.pk).update(weekday=livre)
-    TrainingSession.objects.filter(pk=alvo.pk).update(weekday=hoje)
-    if ocupante is not None:
-        TrainingSession.objects.filter(pk=ocupante.pk).update(
-            weekday=alvo.weekday
+    dias = services.dias_de_treino_de(linhas)
+    assert hoje.weekday() in dias, "hoje precisa ser dia de treino"
+    # Zera qualquer presença deste plano para o resultado ser exato.
+    EscolhaDeTreino.objects.filter(user=user).delete()
+    idx = letras.index(letra)
+    if idx != 0:
+        anterior = letras[(idx - 1) % len(letras)]
+        sessao_ant = next(s for s in linhas if s.label == anterior)
+        ontem = hoje - timedelta(days=1)
+        EscolhaDeTreino.objects.create(user=user, date=ontem, session=sessao_ant, opcao=1)
+        ExerciseLog.objects.create(
+            user=user, exercise=sessao_ant.exercises.all()[0].exercise, date=ontem,
+            set_number=1, weight_kg=Decimal("40"), reps=10,
         )
-    return plano.sessions.get(pk=alvo.pk)
+    return services.sessao_do_dia(plano, hoje, linhas, user=user)
 
 
 def sessao_de_hoje(user):
