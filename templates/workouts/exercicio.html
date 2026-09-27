@@ -40,7 +40,20 @@
   <section class="card">
     {% include "workouts/_demonstracao.html" with exercicio=exercicio %}
 
+    {% if fora_da_ficha %}
+      {% comment %}
+        FORA DA FICHA (24/09/2026). A pessoa chegou aqui pelo histórico: a
+        ficha foi remontada (troca de equipamento, de nível, de faixa de
+        duração) e este exercício saiu dela. Antes disto a tela respondia
+        404 com as séries guardadas no banco — o histórico só existia na
+        exportação. A frase entra no lugar de "Na sua ficha" e de "Quando",
+        que não têm resposta: inventar "0 × 0" ali seria o defeito que esta
+        missão fecha, e deixar vazio pareceria erro.
+      {% endcomment %}
+      <p class="hint">Este exercício não está na sua ficha de hoje — ele saiu quando a ficha foi remontada. O que você registrou continua aqui embaixo.</p>
+    {% endif %}
     <dl class="data-list">
+      {% if prescricao %}
       <div>
         <dt>Na sua ficha</dt>
         <dd class="num">
@@ -62,6 +75,7 @@
           {% endcomment %}
           <span class="hint">o ciclo gira, então os dias mudam a cada semana</span>{% endif %}</dd>
       </div>
+      {% endif %}
       <div>
         <dt>Papel</dt>
         <dd>{% if exercicio.is_compound %}Principal — composto, abre a sessão{% else %}Isolador — complementa o principal{% endif %}</dd>
@@ -86,7 +100,7 @@
           {% for sessao in historico_do_original|slice:":4" %}
             <div>
               <dt class="num">{{ sessao.data|date:"d/m" }}</dt>
-              <dd class="num">{% if not original.sem_carga %}{{ sessao.carga|floatformat:'-2' }} × {% endif %}{{ sessao.reps|join:", " }}</dd>
+              <dd class="num">{% include "workouts/_series_do_dia.html" with sessao=sessao %}</dd>
             </div>
           {% endfor %}
         </dl>
@@ -171,12 +185,23 @@
     {% endif %}
   </section>
   <section class="card">
-    <div class="card__head"><h2>Como fui</h2></div>
+    <div class="card__head">
+      <h2>Como fui</h2>
+      <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
+    </div>
     {% comment %}
-      O registro cru das últimas sessões — data, carga e as reps de cada
-      série — e nada calculado por cima: e1RM e volume ficaram fora por
-      decisão de `progresso.py`. Doze datas, uma consulta. Vazio, a frase
-      diz que ainda não há série, sem tabela em branco.
+      O registro cru das últimas sessões — SÉRIE A SÉRIE, cada uma com a
+      carga dela — e nada inventado por cima: e1RM continua fora por decisão
+      de `progresso.py`. Doze datas, uma consulta. Vazio, a frase diz que
+      ainda não há série, sem tabela em branco.
+
+      A linha dizia "62,50 × 8, 7, 6" para quem tinha feito 60 × 8, 62,5 × 7
+      e 62,5 × 6: `historico_do_exercicio` reduzia o dia ao MÁXIMO da carga
+      e o template juntava as repetições com `join`. Um número da tela
+      divergindo do número guardado (24/09/2026, medido no navegador).
+
+      O volume fecha a conta: 60×8 + 62,5×7 + 62,5×6 = 1 292,5 kg. Sem ele,
+      uma lista de pares não dá para conferir.
     {% endcomment %}
     {% if historico %}
       {% if curva_carga %}
@@ -207,7 +232,7 @@
         {% for sessao in historico %}
           <div>
             <dt class="num">{{ sessao.data|date:"d/m" }}</dt>
-            <dd class="num">{% if not exercicio.sem_carga %}{{ sessao.carga|floatformat:'-2' }} × {% endif %}{{ sessao.reps|join:", " }}</dd>
+            <dd class="num">{% include "workouts/_series_do_dia.html" with sessao=sessao %}</dd>
           </div>
         {% endfor %}
       </dl>
