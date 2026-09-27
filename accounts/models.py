@@ -812,6 +812,24 @@ class Profile(models.Model):
         return activity_factor(self.activity_level, self.training_days_per_week)
 
     @property
+    def nao_faz_musculacao(self) -> bool:
+        """A pessoa DISSE que não faz musculação.
+
+        A REGRA MORA AQUI, e não em cada tela (item 4 da missão "quem entra
+        não desiste", 26/09/2026). Ela era `perfil.musculacao ==
+        Musculacao.NAO` escrito no painel do treino e em nenhum outro lugar —
+        e o resto do app continuava de academia: a aba dizia "Treino", a etapa
+        3 oferecia "Treino" como área para acompanhar, o Progresso abria com
+        um cartão de treino vazio e o e-mail de boas-vindas falava de ficha.
+
+        `False` para o branco DE PROPÓSITO: branco é "não perguntado", e
+        tratá-lo como "não faz" mudaria a navegação de toda conta anterior à
+        pergunta. Uso não é intenção declarada, e a falta de resposta também
+        não é resposta.
+        """
+        return self.musculacao == Musculacao.NAO
+
+    @property
     def current_weight(self):
         """Peso mais recente registrado, ou None se ainda não houver nenhum."""
         entry = self.user.weight_entries.first()

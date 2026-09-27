@@ -17,6 +17,12 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O cadastro não marca mais o equipamento por você.** A pergunta "o que você tem para treinar?" abria com "academia completa" já marcada, e quem passasse batido saía com uma resposta que não deu. Agora ela abre em branco — e o Perfil de quem nunca respondeu diz qual é o padrão que está valendo.
 - **"Quantos grupos musculares por dia?" só aparece para quem já treina.** Quem marca "iniciante" não vê mais a pergunta: a divisão de quem está começando é decidida pelo app (corpo inteiro em casa, e a divisão por frequência na academia).
 - **A ficha explica "3 × 6-10" na primeira vez.** Uma linha no topo, enquanto você ainda não registrou carga em nenhum daqueles exercícios: "3 séries de 6 a 10 repetições — faça, descanse o tempo indicado, e repita."
+- **"Comi outra coisa" acha o que você digita.** A busca conhecia 102 alimentos — os do cardápio — e exigia o acento no lugar certo: pão de queijo, açaí, cuscuz, coxinha e mortadela não existiam, e "feijao" sem acento não achava "Feijão". A refeição ficava registrada com zero caloria. Agora são quase setecentos alimentos (a Tabela TACO, a oficial brasileira), a busca ignora acento e maiúscula, e as sugestões aparecem a partir da segunda letra com a caloria de cada um ao lado.
+- **E quando o alimento não existe, o app diz ali mesmo.** O aviso nasce ao lado do campo, no card da refeição, e oferece a saída: registrar assim mesmo — a refeição fica salva, sem contar a caloria daquele item.
+- **Quem não faz musculação usa um app que não fala de ficha.** A terceira aba agora diz **Corrida** e leva às corridas; a etapa 3 não oferece mais "Treino" como área para acompanhar; o fim do cadastro para de anunciar "ficha montada" para quem não tem ficha; e o Progresso abre com a corrida em vez de "Treinos 0".
+- **Quatro conquistas de corrida, para todo mundo.** Primeira corrida, 5 km de uma vez, 10 km de uma vez e 100 km somados. Antes, quem só corria não tinha conquista nenhuma para ganhar — nem a primeira.
+- **O e-mail de boas-vindas deixou de mandar todo mundo abrir a ficha de hoje.** Ele sai antes de você dizer se faz musculação, então agora explica o que vai acontecer em cada caso, em vez de prometer um treino que talvez não exista.
+- **A porta das corridas voltou para a tela de Treino.** Quem tem ficha E corre não tinha caminho dali para as corridas: ficou uma linha no fim da semana, "Corri hoje — registrar corrida".
 
 ## 2026-09-24
 

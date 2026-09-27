@@ -748,8 +748,24 @@ class OnboardingStepMixin(LoginRequiredMixin):
             self.acertar_ficha()
             self.montar_cardapio()
             analytics.evento(self.request, "onboarding.concluido")
+            # A FRASE DIZ O QUE FOI MONTADO (item 4, 26/09/2026). Ela anunciava
+            # "cardápio de exemplo e ficha montados" para todo mundo, inclusive
+            # para quem tinha acabado de responder que NÃO faz musculação e
+            # para quem terminou sem marcar dia nenhum: a primeira frase do app
+            # depois do cadastro prometia uma ficha que não existe, e a aba de
+            # treino dizia o contrário duas telas depois.
+            #
+            # A conta é do BANCO e não da resposta: quem diz que não faz
+            # musculação não tem ficha, e quem diz que faz mas não marcou dia
+            # também não. Uma consulta, uma vez, no fim do cadastro.
+            from workouts import services as treino
+
+            tem_ficha = treino.get_active_routine(self.request.user) is not None
             messages.success(
-                self.request, "Sua estimativa está pronta: cardápio de exemplo e ficha montados."
+                self.request,
+                "Sua estimativa está pronta: cardápio de exemplo e ficha montados."
+                if tem_ficha
+                else "Sua estimativa está pronta: o seu cardápio de exemplo está na Alimentação.",
             )
             destino = reverse("plans:today")
             if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":

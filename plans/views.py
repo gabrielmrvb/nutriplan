@@ -1284,12 +1284,21 @@ class HistoryView(OnboardingRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         plan = services.get_active_plan(self.request.user)
         periodo = evolucao.periodo_valido(self.request.GET.get("p"))
-        painel = evolucao.reunir(self.request.user, periodo, plano=plan)
+        # O PERFIL VEM DO `dispatch`, e não de uma leitura nova: `reunir`
+        # precisa dele para saber se esta pessoa faz musculação (a ordem das
+        # áreas e o tile da semana dependem disso), e `OnboardingRequiredMixin`
+        # já o leu.
+        painel = evolucao.reunir(
+            self.request.user, periodo, perfil=self.perfil_do_dispatch, plano=plan
+        )
 
         # O DIA A DIA REUSA AS LINHAS do painel: `tracking.history` já foi
         # chamado lá dentro para o mapa da alimentação, e chamá-lo de novo
         # seria pagar a mesma consulta duas vezes na mesma resposta.
-        rows = painel["areas"][0].extra["linhas"]
+        # POR CHAVE, e não por posição: a ordem das áreas passou a depender da
+        # pessoa (quem não faz musculação vê Corrida antes), e `[0]` era uma
+        # aposta que o item 4 quase perdeu em silêncio.
+        rows = next(a for a in painel["areas"] if a.chave == "dieta").extra["linhas"]
         metas = tracking.metas_por_dia(self.request.user, [r["date"] for r in rows])
         atual = plan.target_kcal if plan else 0
         for row in rows:

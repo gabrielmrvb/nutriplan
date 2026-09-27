@@ -1846,6 +1846,129 @@ valer para as outras portas:
 conquista e prova que nenhuma grava; o controle positivo do arquivo é o POST
 da série e o da refeição desbloqueando na hora.
 
+**"COMI OUTRA COISA" ACHA O QUE FOI DIGITADO (missão "quem entra não
+desiste", item 3, 26/09/2026).** A busca comparava o nome digitado com os 102
+alimentos CURADOS — os que o motor usa para montar receita — por `casefold()`
+e mais nada. Dois defeitos somados, e os dois achados pelas personas (#2):
+quem comeu pão de queijo, açaí, cuscuz ou coxinha não casava com NADA, e quem
+escreveu "feijao" também não casou, porque no teclado do celular o acento é o
+que ninguém digita. Nos dois casos a refeição entrava no histórico com ZERO
+caloria, e o dia não mexia um número.
+
+- **A TABELA TACO ENTRA NO CATÁLOGO**: 583 alimentos da 4ª edição
+  (NEPA/UNICAMP, 2011), pela cópia normalizada de github.com/brolesi/taco
+  (MIT, DOI 10.5281/zenodo.22145839), por `manage.py seed_taco` — no
+  `build.sh` DEPOIS do `seed_catalog`, porque na colisão de nome o curado
+  ganha e é o importado que pula. Fonte, versão e o que ficou de fora estão
+  na chave `fonte` do próprio `catalog/data/taco.json`. **14 das 597 linhas
+  foram DESCARTADAS** e a régua está lá: linha sem energia publicada (o leite
+  de vaca integral vem vazio nessa cópia — o curado cobre) e linha cuja
+  energia não fecha com os macros dentro de 15 % (a feijoada, 140 contra
+  117). A exceção é a categoria Bebidas: o etanol carrega 7 kcal/g e não é
+  macro, então a soma nunca fecha numa aguardente, e a energia publicada
+  continua certa.
+- **A NORMALIZAÇÃO É UMA SÓ, e mora em `catalog/busca.py`.** `normalizar`
+  escreve a coluna `Food.busca` (migration `catalog.0009`, preenchida pela
+  própria migration e pelos dois seeds — `bulk_create` e `update` não passam
+  pelo `save()`), e é a MESMA função que a busca da tela e o casamento do que
+  foi digitado usam. Coluna e não `unaccent` do Postgres: a extensão precisa
+  de `CREATE EXTENSION`, que o role do app não tem no Neon, e a migration que
+  a criasse falharia no BUILD, não no teste. O JSON já teve uma chave `busca`
+  pré-calculada, e ela era uma SEGUNDA fonte da mesma regra — a sabotagem que
+  estragou `normalizar` passou VERDE por causa dela. A chave saiu do arquivo.
+- **O `<datalist>` DE TODOS OS NOMES SAIU.** Com a TACO ele seriam ~20 kB de
+  `<option>` na tela do cardápio em toda visita, e ele casa por prefixo do
+  nome INTEIRO — "requeijao" não acha "Queijo, requeijão, cremoso", que é
+  como a tabela escreve (ela inverte o nome). No lugar,
+  `plans:buscar_alimento` (GET, com sessão, `private, max-age=300`, mínimo de
+  duas letras, até oito sugestões, prefixo antes de "contém", com a caloria
+  por 100 g ao lado do nome) e o bloco "BUSCA DE ALIMENTO" do `pwa.js`:
+  delegado no `document` (os campos nascem dentro de `<details>` que a pessoa
+  abre depois), `role="listbox"`, setas, Enter que escolhe sem enviar o
+  formulário, e o foco indo para as GRAMAS ao escolher.
+- **SEM REDE A TELA NÃO QUEBRA, e o aviso de "não encontramos" NÃO aparece**:
+  `fetch` que falha é "sem sugestão", e o app não sabe se encontraria. O campo
+  continua texto livre, e o casamento é do SERVIDOR quando a fila offline
+  drena (`/refeicao/<id>/marcar/` está em `ROTAS`). É por isso que UMA
+  sugestão em cache no processo não substitui a busca: o que precisa
+  funcionar offline é o REGISTRO, não a sugestão.
+- **O AVISO DE NÃO ENCONTRADO FICA NO CARD**, ao lado do campo
+  (`[data-busca-vazio]`, `aria-live="polite"`), e diz a saída: "você pode
+  registrar assim mesmo — a refeição fica salva sem contar a caloria deste
+  item". No topo, a faixa de mensagens sai da vista no celular e não diz de
+  qual das três linhas está falando.
+- **Preço medido**: `_itens_descritos` carregava o catálogo INTEIRO para
+  comparar em Python, com a razão escrita ("são 61 alimentos ativos") — com a
+  TACO seriam 685 objetos em todo registro de "comi outra coisa". Passou a ser
+  uma consulta do que foi pedido (`busca.por_nome_digitado`), e o contexto da
+  tela perdeu a consulta do `<datalist>`.
+- **O que NÃO foi feito**: sugestão offline. Um `<datalist>` reduzido ao lado
+  da busca seriam DUAS listas no mesmo campo, e no celular as duas abrem
+  juntas. Está no relatório como "recomendo rever".
+
+**O APP DE QUEM NÃO LEVANTA PESO (missão "quem entra não desiste", item 4,
+26/09/2026).** A pergunta "você faz musculação?" entrou em 22/09 e resolveu
+UMA tela: o painel de treino parou de cobrar "Cadastrar meus dias". O resto do
+app continuou de academia — a aba dizia "Treino", a etapa 3 oferecia "Treino"
+como área para acompanhar, o fim do cadastro anunciava "ficha montados", o
+Progresso abria com "Treinos 0 — Sem dia de treino combinado", o e-mail de
+boas-vindas mandava abrir a ficha de hoje, e as onze conquistas eram todas de
+treino, ofensiva e recorde de carga: quem só corre não tinha conquista nenhuma
+para ganhar, nem a primeira.
+
+- **A REGRA MORA EM `Profile.nao_faz_musculacao`**, e não em cada tela. Branco
+  continua valendo `False` DE PROPÓSITO: branco é "não perguntado", e
+  tratá-lo como "não faz" mudaria a navegação de toda conta anterior à
+  pergunta — a mesma razão de `prioridade == ""` não inferir nada.
+- **A terceira ABA vira Corrida** (`navegacao.abas_de`, `ABA_DE_CORRIDA`), na
+  POSIÇÃO da de treino: a barra continua com quatro itens e a conta de largura
+  a 320px não muda. `icone-bicicleta` é o símbolo que o mapa já usa, então o
+  sprite não cresce. "Mais" perde `running` dos `navs` — com o pilar nas duas,
+  as duas acendiam e `aria-current="page"` saía duplicado na mesma barra. Custo
+  ZERO: as telas do app leem `request.user.profile` pelo descritor no
+  `OnboardingRequiredMixin`, e as que não leem não desenham barra. **O shell de
+  offline fica com a barra canônica**, pelo mesmo motivo que o selo de área
+  principal não entra lá: a página é pré-cacheada e servida a quem pegar o
+  aparelho depois.
+- **A etapa 3 não oferece "Treino"** (`InteressesForm`): as choices saem das
+  duas listas, e `clean` descarta o valor que chega por `initial` — quem marcou
+  Treino, voltou à etapa 2 e disse que não faz. Sem isso, marcar ali dava um
+  selo de área principal apontando para a tela que diz "você não tem ficha".
+- **A frase do fim do cadastro diz o que FOI montado**: ela anunciava
+  "cardápio de exemplo e ficha montados" para todo mundo, inclusive para quem
+  terminou sem dia nenhum. A conta é do BANCO (`get_active_routine`), não da
+  resposta — uma consulta, uma vez, no fim do cadastro.
+- **O Progresso põe Corrida ANTES do treino, e o cartão de treino sai quando
+  não há dado** (`evolucao.reunir`). Quem treinou antes de mudar a resposta
+  continua vendo o próprio histórico: apagá-lo seria o app decidir que aquilo
+  não aconteceu. E o tile "Treinos 0 de 0" dá lugar a `tile_de_corrida`, sobre
+  o mapa de corrida que a tela já leu — zero consulta nova. `painel["areas"]`
+  deixou de ser lido por POSIÇÃO em `HistoryView`: `[0]` era uma aposta que
+  esta mudança quase perdeu em silêncio.
+- **QUATRO CONQUISTAS DE CORRIDA, para todo mundo** (`Familia.CORRIDA`, que
+  estava reservada e vazia): primeira corrida, 5 km numa corrida, 10 km numa
+  corrida e 100 km somados. Os marcos são os do mundo de quem corre — 5 e 10
+  km são as duas provas de rua mais comuns —, e nenhuma é `repetivel`: marco
+  que renasce a cada corrida mais longa é confete, o defeito que `_recorde`
+  nomeia. Custo: UMA agregação (`Count`+`Max`+`Sum` de `distancia_m`) em
+  `achievements.reunir`, a mesma para quem nunca correu; `plans:history` foi
+  de 31 para 32 com a razão escrita. "10 corridas" esteve na lista e saiu —
+  ela e os 100 km medem a mesma coisa.
+- **O e-mail de boas-vindas tem TRÊS versões**, e a que sai hoje é a do
+  branco: no cadastro a pergunta ainda não foi feita (ela é da etapa 2), então
+  o passo 3 diz o que vai acontecer sem prometer nada. As outras duas existem
+  para o dia em que o envio se mudar para depois da confirmação de e-mail — o
+  que a docstring de `boas_vindas` já anuncia —, e as três são renderizadas em
+  teste para nenhuma apodrecer calada.
+- **A porta da Corrida volta ao `/treino/` de quem TEM ficha**, como LINHA e
+  não como cartão. A decisão de 22/09 ("A CORRIDA SAIU DAQUI") tirou um cartão
+  de área da coluna lateral e continua de pé; o que ela produziu sem querer foi
+  um estado assimétrico — `_corrida.html` nos dois ramos de "sem ficha" e em
+  nenhum com ficha —, e quem levanta peso E corre ficou sem caminho daqui.
+- **O CARTÃO DA HOME NÃO FOI TOCADO**, por decisão do dono: o PR #138 redesenha
+  `templates/plans/today.html` e está segurado. "O cartão da Home vira Corrida"
+  é o único item da lista do dono que fica ADIADO, e está no relatório.
+
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
     painel   (`/treino/`)              -> "como é a minha semana"

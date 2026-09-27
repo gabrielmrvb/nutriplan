@@ -1089,6 +1089,27 @@ class InteressesForm(OnboardingStepForm):
                 str(pilar) for pilar in self.instance.interesses
             ]
             self.fields["prioridade"].initial = self._prioridade_inicial()
+        # QUEM DISSE QUE NÃO FAZ MUSCULAÇÃO NÃO RECEBE "TREINO" PARA MARCAR
+        # (item 4, 26/09/2026). A etapa 2 já perguntou, e oferecer a área duas
+        # telas depois é o app não ter ouvido: marcar "Treino" ali dava um
+        # cartão de treino na Home e um selo de área principal apontando para
+        # a tela que diz "você não tem ficha aqui".
+        #
+        # As CHOICES saem, e `clean` também descarta o valor: um perfil que já
+        # tinha "Treino" gravado (marcou na etapa 3, voltou à etapa 2 e disse
+        # que não faz) traz o pilar por `initial`, que não passa pela validação
+        # de choices.
+        if self.instance and self.instance.nao_faz_musculacao:
+            self.fields["interesses"].choices = [
+                (valor, rotulo)
+                for valor, rotulo in self.fields["interesses"].choices
+                if valor != Pilar.TREINO
+            ]
+            self.fields["prioridade"].choices = [
+                (valor, rotulo)
+                for valor, rotulo in self.fields["prioridade"].choices
+                if valor != Pilar.TREINO
+            ]
 
     def _prioridade_inicial(self):
         """A resposta gravada, traduzida de volta para o rádio.
@@ -1115,6 +1136,19 @@ class InteressesForm(OnboardingStepForm):
         dados = super().clean()
         marcados = set(dados.get("interesses") or ())
         principal = dados.get("prioridade") or ""
+        # A outra metade da regra do `__init__`, e ela é CINTO e não porta:
+        # tirar o valor das `choices` já faz `ChoiceField` recusar um POST que
+        # traga "treino" (a pessoa vê "Selecione uma opção válida", que é a
+        # recusa certa para uma aba aberta antes da resposta da etapa 2). O
+        # descarte aqui cobre o caminho que NÃO passa pela validação de
+        # choices: valor que chega por `initial`, ou prioridade herdada de
+        # quando a pessoa ainda dizia que fazia musculação.
+        if self.instance and self.instance.nao_faz_musculacao:
+            marcados.discard(Pilar.TREINO)
+            if principal == Pilar.TREINO:
+                principal = ""
+            dados["interesses"] = sorted(marcados)
+            dados["prioridade"] = principal
         # "Não quero priorizar agora" é uma RESPOSTA, e vira ausência de
         # prioridade — não erro. Sem esta linha, quem marca três áreas e escolhe
         # a opção neutra receberia a cobrança de escolher uma principal.

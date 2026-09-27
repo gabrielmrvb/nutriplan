@@ -1,9 +1,17 @@
 """O catálogo de conquistas — em código, porque conquista é regra.
 
 CADA REGRA AQUI PRECISA SER PROVÁVEL COM O QUE O BANCO JÁ TEM. Não existe
-conquista de corrida, de passos, de medida corporal, de sono nem de desafio,
-porque nenhum desses dados existe no NutriPlan hoje — e uma conquista que o app
-não consegue verificar é uma promessa que ele vai quebrar.
+conquista de passos, de medida corporal, de sono nem de desafio, porque nenhum
+desses dados existe no NutriPlan hoje — e uma conquista que o app não consegue
+verificar é uma promessa que ele vai quebrar.
+
+CORRIDA ENTROU EM 26/09/2026 (item 4 da missão "quem entra não desiste"), e
+entrou porque o dado passou a existir: `workouts.Corrida` guarda distância e
+tempo desde a campanha da corrida. Antes disso a família `CORRIDA` estava
+reservada e vazia — e a consequência era que quem só corre não tinha conquista
+NENHUMA para ganhar, nem a primeira. As quatro novas valem para todo mundo:
+quem levanta peso e também corre ganha as duas famílias, que é o que a pessoa
+faz.
 
 O que sustenta as regras de treino é um contrato que já estava no projeto e não
 foi reinventado aqui: **um dia conta como treinado quando existe pelo menos um
@@ -38,10 +46,11 @@ class Familia:
     META = "meta"
     RECORDE = "recorde"
 
+    CORRIDA = "corrida"
+
     # Reservadas. Sem regra e sem dado — ver o cabeçalho deste arquivo.
     DIETA = "dieta"
     PESO = "peso"
-    CORRIDA = "corrida"
     DESAFIO = "desafio"
 
 
@@ -73,6 +82,13 @@ class Dados:
     #: Exercícios cuja MELHOR SÉRIE (reps×carga) foi superada HOJE: (id, nome).
     #: Mesmo contrato de `recordes_hoje`: o número não entra.
     melhores_series_hoje: tuple = ()
+    #: Quantas corridas registradas, ao todo.
+    corridas: int = 0
+    #: A maior distância de UMA corrida, em metros.
+    maior_corrida_m: int = 0
+    #: A soma de todas as distâncias, em metros. Os três saem da MESMA
+    #: agregação (`Count`, `Max`, `Sum`) — uma consulta para as quatro regras.
+    total_corrido_m: int = 0
 
 
 @dataclass(frozen=True)
@@ -190,6 +206,38 @@ def _melhor_serie(dados):
     ]
 
 
+def _corridas(quantas):
+    """Contagem de corridas registradas, como `_acumulado` faz com treinos."""
+
+    def detectar(dados):
+        return [("corridas:%d" % quantas, {"corridas": dados.corridas})] if dados.corridas >= quantas else []
+
+    return detectar
+
+
+def _uma_corrida_de(metros, rotulo):
+    """Uma ÚNICA corrida com pelo menos `metros`.
+
+    A chave não leva a distância: ela é o marco ("5k"), e não o número que a
+    pessoa fez — a mesma razão de `_recorde` não guardar a carga. Assim o
+    marco não nasce duas vezes quando alguém corre 6 km depois de 5.
+    """
+
+    def detectar(dados):
+        return [(rotulo, {"km": metros // 1000})] if dados.maior_corrida_m >= metros else []
+
+    return detectar
+
+
+def _total_corrido(metros, rotulo):
+    """Quilometragem ACUMULADA — o marco que só o tempo dá."""
+
+    def detectar(dados):
+        return [(rotulo, {"km": metros // 1000})] if dados.total_corrido_m >= metros else []
+
+    return detectar
+
+
 # ------------------------------------------------------------------ catálogo
 
 _TREINOS = ((5, "5 treinos"), (10, "10 treinos"), (25, "25 treinos"),
@@ -266,6 +314,63 @@ CATALOGO += [
         familia=Familia.RECORDE,
         detectar=_melhor_serie,
         repetivel=True,
+    ),
+]
+
+#: AS QUATRO DE CORRIDA (item 4, 26/09/2026).
+#:
+#: Uma conta EVENTO (a primeira corrida) e três contam DISTÂNCIA — duas numa
+#: corrida só (5 km, 10 km) e uma acumulada (100 km). Os marcos são os do mundo
+#: real de quem corre, e não números escolhidos para parecerem redondos: 5 km e
+#: 10 km são as duas provas de rua mais comuns, e 100 km acumulados é o
+#: primeiro número que a pessoa conta em voz alta.
+#:
+#: "10 corridas" esteve aqui e saiu: ela e os 100 km medem a mesma coisa — o
+#: acúmulo —, e duas medalhas para o mesmo esforço é a inflação que faz a lista
+#: parar de significar.
+#:
+#: Nenhuma delas é `repetivel`: marco de distância que renasce a cada corrida
+#: mais longa seria confete, o defeito que `_recorde` nomeia na docstring dele.
+CATALOGO += [
+    Regra(
+        slug="primeira-corrida",
+        titulo="Primeira corrida",
+        frase="Você registrou sua primeira corrida.",
+        emoji="🏃",
+        familia=Familia.CORRIDA,
+        detectar=_corridas(1),
+        alvo=1,
+        progresso=lambda d: d.corridas,
+    ),
+    Regra(
+        slug="corrida-5k",
+        titulo="5 km de uma vez",
+        frase="Você correu 5 km numa única corrida.",
+        emoji="🏅",
+        familia=Familia.CORRIDA,
+        detectar=_uma_corrida_de(5000, "corrida-5k"),
+        alvo=5000,
+        progresso=lambda d: d.maior_corrida_m,
+    ),
+    Regra(
+        slug="corrida-10k",
+        titulo="10 km de uma vez",
+        frase="Você correu 10 km numa única corrida.",
+        emoji="🏅",
+        familia=Familia.CORRIDA,
+        detectar=_uma_corrida_de(10000, "corrida-10k"),
+        alvo=10000,
+        progresso=lambda d: d.maior_corrida_m,
+    ),
+    Regra(
+        slug="corrida-100km",
+        titulo="100 km somados",
+        frase="Você somou 100 km de corrida.",
+        emoji="🗺",
+        familia=Familia.CORRIDA,
+        detectar=_total_corrido(100000, "corrida-100km"),
+        alvo=100000,
+        progresso=lambda d: d.total_corrido_m,
     ),
 ]
 

@@ -23,13 +23,13 @@ custo apareceria em toda visita para um ganho que a escrita já entrega.
 from dataclasses import replace
 from datetime import timedelta
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Min, Q, Sum
 from django.utils import timezone
 
 from accounts.models import TrainingDay
 from plans import services as plan_services
 from plans import streaks, weight_trend
-from workouts.models import ExerciseLog, TrainingPlan
+from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
 from .models import UserAchievement
 from .regras import CATALOGO, Dados
@@ -93,6 +93,24 @@ def reunir(user, hoje=None) -> Dados:
             if all(d <= hoje for d in dias) and dias <= datas:
                 completas.append(segunda)
     dados = replace(dados, semanas_completas=tuple(completas))
+
+    # -------------------------------------------------------------- corrida
+    #
+    # UMA consulta para as quatro regras de corrida: contagem, maior distância
+    # e soma saem da mesma agregação. Ela custa o mesmo para quem nunca correu
+    # (devolve `None` nos três, que viram zero) — e é por isso que ela não é
+    # condicional: um `if` sobre "esta pessoa corre?" seria outra consulta.
+    corridas = Corrida.objects.filter(user=user).aggregate(
+        quantas=Count("pk"),
+        maior=Max("distancia_m"),
+        total=Sum("distancia_m"),
+    )
+    dados = replace(
+        dados,
+        corridas=corridas["quantas"] or 0,
+        maior_corrida_m=corridas["maior"] or 0,
+        total_corrido_m=corridas["total"] or 0,
+    )
 
     # ------------------------------------------------------------- recordes
     #

@@ -223,7 +223,13 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
         # não do tamanho do período — as barras da semana são somadas em
         # Python sobre o mapa do dia. `plans.test_evolucao` mede isso
         # diretamente, comparando "semana" com "3 meses".
-        "plans:history": 31,
+        # 31 -> 32 (26/09/2026, item 4): as quatro conquistas de CORRIDA. É UMA
+        # agregação (`Count`+`Max`+`Sum` de `distancia_m`) dentro de
+        # `achievements.reunir`, que o bloco de conquistas desta tela já
+        # chamava — constante, e a mesma para quem nunca correu. Até aqui a
+        # família CORRIDA estava reservada e vazia, e quem só corre não tinha
+        # conquista nenhuma para ganhar.
+        "plans:history": 32,
         # 15 -> 19: o Perfil passou a CONFERIR se o plano gravado ainda vale.
         #
         # Ele mostrava o número velho chamando-o de "suas metas de hoje" — 2.520

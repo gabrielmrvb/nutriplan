@@ -618,6 +618,29 @@
             </li>
           {% endfor %}
         </ul>
+
+        {% comment %}
+          A PORTA DA CORRIDA VOLTA PARA QUEM TEM FICHA (item 4 da missão "quem
+          entra não desiste", 26/09/2026) — como LINHA, e não como cartão.
+
+          A decisão de 22/09 ao lado ("A CORRIDA SAIU DAQUI") tirou um CARTÃO
+          de área do topo da coluna lateral, e a razão dela continua de pé:
+          Corrida é pilar e tem porta própria, e um cartão aqui divide a mesma
+          porta em duas. O que ela produziu sem querer foi um estado assimétrico
+          — `_corrida.html` continuou nos DOIS ramos de "sem ficha" e em nenhum
+          com ficha —, e quem levanta peso E corre passou a não ter caminho
+          nenhum daqui para as corridas.
+
+          Uma linha de texto no fim da semana não é destino de primeiro nível:
+          ela é o "e também" da tela, no lugar em que a pessoa acabou de ler o
+          que a semana tem. Continua valendo o que o comentário do `_corrida`
+          diz sobre o GPS não medido — nada aqui promete que funciona.
+        {% endcomment %}
+        <p class="acao-solta">
+          <a class="btn-link" href="{% url 'workouts:corridas' %}">
+            Corri hoje — registrar corrida
+          </a>
+        </p>
       </div>
 
       <aside class="split__aside stack">
