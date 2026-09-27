@@ -9,3 +9,39 @@
 # Hoje o arquivo commitado está em LF por sorte da normalização. Isto o mantém
 # assim por regra.
 *.sh text eol=lf
+
+# O CHANGELOG É APPEND DE VÁRIAS SESSÕES AO MESMO TEMPO (27/09/2026).
+#
+# Toda missão que muda o que a pessoa vê acrescenta a linha dela na PRÓPRIA
+# branch, e várias sessões trabalham em paralelo nesta máquina — então duas
+# branches escrevem embaixo do mesmo `## AAAA-MM-DD` no mesmo dia, o git vê
+# duas inserções no mesmo lugar e chama de conflito. Em 27/09 isso aconteceu
+# DUAS vezes em poucas horas, e nas duas o "conflito" era só as duas linhas
+# querendo existir. Resolver isso na disciplina (combinar quem escreve
+# quando) é pedir sincronização para quem trabalha em paralelo de propósito.
+#
+# `merge=union` é o driver embutido do git: no trecho em conflito ele fica
+# com OS DOIS LADOS, um depois do outro, sem marcador. Para um arquivo que
+# só cresce por acréscimo é exatamente o que se quer.
+#
+# MEDIDO em três cenários (repositórios de laboratório, `git merge` de
+# verdade):
+#
+#   1. as duas branches acrescentam item sob uma seção que JÁ EXISTE
+#      -> merge limpo, as duas linhas, nenhum cabeçalho duplicado;
+#   2. as duas CRIAM a seção do dia (`## 2026-09-27`) com um item cada
+#      -> merge limpo, UM cabeçalho e os dois itens: as linhas do cabeçalho
+#         são idênticas nos dois lados, então o trecho em conflito é só o
+#         item;
+#   3. as duas criam a seção com blocos de tamanhos diferentes (uma delas
+#      com a linha de "gerência" no meio) -> merge limpo e sem cabeçalho
+#      duplicado, mas os itens da outra branch caem DEPOIS do marcador de
+#      gerência. Ninguém perde linha; a ordem dentro do dia é que sai
+#      estranha, e a revisão do PR é onde isso se conserta.
+#
+# O que o union NÃO faz: julgar conteúdo. Duas sessões que editem A MESMA
+# linha continuam num merge errado e silencioso — por isso a regra do
+# `CLAUDE.md` é só ACRESCENTAR linha, nunca reordenar nem reescrever a linha
+# de outra sessão. E se um dia um cabeçalho duplicado escapar, quem pega é
+# `ajuda.tests` ("uma seção por dia"), que roda no gate de todo PR.
+CHANGELOG.md merge=union
