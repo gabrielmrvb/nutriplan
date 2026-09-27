@@ -300,7 +300,26 @@ e cada uma foi reescrita com a razão dentro:
 A `expected failure` é o dourado do peso do corpo na letra A, que já era
 `@expectedFailure` nomeado antes desta missão.
 
-### 4.8 `OBSERVAÇÃO` — um teste do relógio caiu por duração da suíte, não por regressão
+### 4.8 `LIMITAÇÃO` — empurrar com uma suíte viva no mesmo banco de teste
+
+O primeiro `git push` foi RECUSADO pelo pre-push com `FAILED (failures=1,
+errors=8)`, e nenhum dos nove era regressão: eu disparei o push com a rodada
+pós-merge (1.485 s) AINDA VIVA no mesmo `test_nutriplan_missaob`. Os sintomas
+são a assinatura da colisão que o B9 existe para impedir —
+`psycopg.errors.UndefinedColumn: column workouts_exercise.progressao does not
+exist` (o schema no meio de um `TransactionTestCase` do outro processo) e
+`FeatureNotSupported: cannot truncate a table referenced in a foreign key
+constraint` (o TRUNCATE de um lado esbarrando na transação aberta do outro).
+Cinco dos oito erros eram `setUpClass`, ou seja consequência, não causa.
+
+`RunnerUnico` não pegou porque ele conta conexões NO INÍCIO, e naquele instante
+a outra execução estava entre dois testes. A lição operacional, que já está
+escrita no protocolo e eu paguei de novo: **espere a suíte terminar antes de
+`git push`** — o hook roda a sua no MESMO banco. Depois de matar a sobra
+(`pg_terminate_backend` só do `test_nutriplan_missaob`) e o processo órfão, o
+push foi repetido limpo.
+
+### 4.9 `OBSERVAÇÃO` — um teste do relógio caiu por duração da suíte, não por regressão
 
 `config.test_relogio.test_a_hora_e_a_da_suite_e_continua_andando` comparou 13
 com 12 numa execução local ANTERIOR, que levou 89 minutos e cruzou a hora
@@ -378,6 +397,72 @@ desfeito)"*. Os números que elas mostram estão todos neste relatório.
 
 ---
 
-## 8. O que preciso de você
+## 8. A revisão multi-agente do PR #162 (27/09/2026)
 
-**nada.**
+`.claude/prompts/revisao-multi-agente.md`, três revisores independentes e
+SOMENTE LEITURA sobre `git diff origin/main...HEAD` (Django/segurança, UI/PWA,
+testes), com os três focos do dono: GET com efeito colateral, as seis
+resoluções do merge, e a migração do campo `busca`. Síntese abaixo:
+deduplicada, do mais grave ao menos, sem opinião de estilo.
+
+### Consertado (mecânico), com teste e sabotagem
+
+| # | achado | quem | classe |
+|---|---|---|---|
+| 1 | a pergunta da corrida desenhava os cartões da musculação — `Corrida` valia `"sim"`/`"nao"`, as chaves de `Musculacao` em `DETALHES` | UI | BUG |
+| 2 | a lista de sugestões era recortada pelo `overflow: hidden` de `.fora__interno` (4 de 8 visíveis na captura do QA) | UI | BUG |
+| 3 | `desbloquear_pendentes` deixava de fora quem só corre e quem já tinha medalha de treino — "Primeira corrida 1/1" trancada (o B35) | Django + testes | BUG |
+| 4 | o `fetch` da busca tinha `/alimentos/buscar/` escrito à mão e morria calado sob `/demo/` | Django | BUG |
+| 5 | ir para as gramas deixava a lista aberta por cima do "Registrar" | UI | BUG |
+| 6 | `nivel` indefinido em `_prescrever_por_ocorrencia` (ruff F821; zero chamadores) | Django | BUG |
+| 7 | a única asserção que ligava o POST da refeição ao `sincronizar` era tautologia (`count() >= antes`), e água e corrida não tinham teste | Django + testes | BUG |
+| 8 | a execução sem carga: coluna vazia, Reps espremido à direita | UI | UX REAL |
+| 9 | `role="listbox"` com `<li>` no meio; opções no Tab; `aria-live` ligado com `hidden` DEPOIS do texto | UI | UX REAL |
+| 10 | a linha "Corri hoje" virou 5º filho da grade no merge, e aparecia para quem disse que não corre | Django + UI | UX REAL |
+| 11 | `Profile.activity_factor` sem a corrida; `sessoes_por_semana` morto; envio parcial zerando `corrida_dias` com "corro" preservado; resumo da etapa 3 sem a corrida; `seed_taco` "curado ganha" por nome exato; cache `{}` sobre `Object.prototype`; comando de build sem `try` por conta | Django + UI + testes | OBSERVAÇÃO |
+| 12 | sete testes que podiam passar pelo motivo errado (frase casada no COMENTÁRIO do JS; guarda de `flex` que ignorava a longhand e reprovava `flex: 1`; proximidade em bytes; tautologia de `activity_factor`; `hasattr` que não guardava nada; `assertEqual` que reprovava melhoria; `"Arroz branco cozido"` dependendo de `nome_curto`) | testes | OBSERVAÇÃO |
+| 13 | comentários que afirmavam errado ("quatro abas", "o mapa usa bicicleta", "zero consulta", "22 rem nunca rola", `test_busca.py` inexistente, "um GET não grava") | UI + testes + Django | OBSERVAÇÃO |
+
+**Sabotagem dos consertos: 11 de 11 vermelhas.** A 6ª (tirar `busca` do
+`seed_catalog`) ficou verde sozinha, e a razão é boa: `Food.save()` e o seed
+escrevem a mesma coluna, e cada um basta — sabotados os DOIS, a varredura dá
+**102 falhas**. **Navegador** (390 e 1280): a lista mostra as oito e passa
+por cima do card seguinte; o foco nas gramas a fecha; a etapa 2 tem "Sim, faço
+musculação" UMA vez e "Sim, corro" no próprio cartão; Reps ocupa a largura do
+formulário (293 de 293); e a 1280 a grade tem os mesmos quatro filhos que
+`main` tinha, com "Corri hoje" logo abaixo das letras da semana.
+
+### Refutado (FALSO POSITIVO, com a razão)
+
+- **`documentElement.scrollWidth` "cego"** para a rolagem horizontal do
+  `.fora`: o instrumento leu POSITIVO (609) e o antes/depois foi no mesmo
+  instrumento; o CSS confirma sem navegador (revisor de UI).
+- **O layout de `main` com o `<aside>` ao lado da semana**: medido, `main` tem
+  QUATRO filhos na grade (`hoje`, `programa`, semana, `aside`) e o `aside` já
+  ia para a 3ª linha. O defeito real era o `<p>` como QUINTO filho, e ele saiu.
+- **As seis resoluções do merge** não perderam código de nenhum lado
+  (conjuntos de seletores, balanço de `<div>` nas cinco revisões, AST dos
+  imports) — a única com consequência era o item 10 acima.
+- **A migração `catalog/0009`**: idempotente, reversível, um lote em produção,
+  e as quatro pontas escrevem o mesmo valor pela mesma função.
+
+### O que preciso de você
+
+Quatro decisões — não são mecânicas, e parei nelas:
+
+1. **O GET que anuncia a conquista marca como vista** (`UPDATE seen_at` em
+   `context_processors.conquistas_pendentes`, decisão de 20/09/2026). Um
+   prefetch ou "abrir em nova aba" com anúncio pendente CONSOME o anúncio.
+   Manter, ou mover o "visto" para o toque em "Continuar"?
+2. **`sincronizar` custa ~13 consultas em TODO toque de água e marcação de
+   refeição**, sem a guarda de "primeira do dia" que a série tem. Guardar
+   perde o desbloqueio da ofensiva fechada pela 3ª refeição do dia; não
+   guardar pesa na rajada da fila offline num dyno de 0,1 CPU.
+3. **Enter com a lista aberta e nada marcado ENVIA o formulário** (registra
+   sem caloria de item). Marcar a primeira sugestão ao abrir, como o
+   `<datalist>` fazia?
+4. **O termo digitado viaja em `?q=`** — fica no log de acesso do Render e no
+   cache do aparelho (`private, max-age=300`). POST, ou aceitar?
+
+(Fora do escopo e só registrado: na captura da execução, a dica do exercício
+quebra letra a letra numa coluna estreita — tela da execução, Missão C.)

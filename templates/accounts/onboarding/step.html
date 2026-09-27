@@ -160,7 +160,7 @@
           precisa dela ainda mais.
         {% endcomment %}
         {% include "partials/choice_cards.html" with field=forms.rotina.corrida %}
-        <div class="field-row" data-so-corrida{% if forms.rotina.corrida.value != "sim" %} hidden{% endif %}>
+        <div class="field-row" data-so-corrida{% if forms.rotina.corrida.value != "corre" %} hidden{% endif %}>
           <div>{% include "partials/field.html" with field=forms.rotina.corrida_dias %}</div>
           <div>{% include "partials/field.html" with field=forms.rotina.corrida_minutos %}</div>
         </div>

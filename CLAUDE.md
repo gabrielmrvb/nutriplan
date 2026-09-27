@@ -1903,6 +1903,12 @@ faixa — a meta de quem não treina (persona 3 do relatório de experiência).
   fica exatamente como estava. Uma segunda pergunta obrigatória cobraria de
   todo frequentador de academia uma resposta sobre corrida para não mudar
   nada.
+- **`Corrida` vale `"corre"`/`"nao_corre"`, e NÃO `"sim"`/`"nao"`** (revisão
+  do PR #162). `accounts.templatetags.escolhas.DETALHES` é chaveado pelo VALOR
+  CRU da opção, sem o nome do campo, e `"sim"`/`"nao"` já são de `Musculacao`:
+  a pergunta da corrida desenhava os dois cartões da musculação, na etapa em
+  que duas das três personas desistiam. Pergunta nova de sim/não: valor
+  próprio, ou entrada própria em `DETALHES` — nunca o `"sim"` de outra.
 - **Os DIAS entram no fator; os MINUTOS não.** A doutrina de
   `plans/calculations.py` recusa somar MET por fora, e a razão vale igual
   aqui: a precisão daquela soma depende de a pessoa saber quantos minutos
@@ -1937,7 +1943,7 @@ quem declara corrida, sem refeição nova) é decisão de produto e está no
 relatório como "recomendo rever".
 
 
-**UM GET NÃO GRAVA (missão "quem entra não desiste", item 0, 26/09/2026).**
+**NENHUM GET CRIA CONQUISTA (missão "quem entra não desiste", item 0, 26/09/2026).**
 `achievements.resumo` desbloqueava a regra que chegou a 100 % DENTRO de uma
 requisição GET, e `ConquistasView` chamava `avaliar` — o catálogo inteiro,
 com escrita — também num GET. Duas consequências reais: a primeira leitura do
@@ -1945,6 +1951,13 @@ Progresso num dia podia devolver um número diferente da segunda com os mesmos
 dados ("mesmos dados, números diferentes" pela porta de trás, item 2 da lista
 que a missão A deixou), e uma requisição que ninguém pediu — um prefetch, um
 "abrir em nova aba" — mudava o banco.
+
+O QUE CONTINUA ESCREVENDO NUM GET, e é decisão anterior (revisão do PR #162,
+27/09/2026): `achievements.context_processors.conquistas_pendentes` marca como
+VISTA (`UPDATE seen_at`) a conquista que ele anuncia — decisão de 20/09/2026,
+com a razão escrita lá (o aviso eterno cobria o CONCLUIR SÉRIE). Nenhum GET
+CRIA conquista; o GET que ANUNCIA fecha o anúncio. Um prefetch com anúncio
+pendente na sessão ainda o consome — ver "O que preciso de você" do relatório.
 
 A saída não é um botão "resgatar", que ninguém tocaria: é **toda conquista
 nascer no POST QUE CRIA O FATO**, que é o que a doutrina de
@@ -2093,7 +2106,11 @@ para ganhar, nem a primeira.
   que a docstring de `boas_vindas` já anuncia —, e as três são renderizadas em
   teste para nenhuma apodrecer calada.
 - **A porta da Corrida volta ao `/treino/` de quem TEM ficha**, como LINHA e
-  não como cartão. A decisão de 22/09 ("A CORRIDA SAIU DAQUI") tirou um cartão
+  não como cartão — e só para quem não respondeu que NÃO corre
+  (`convida_a_correr`). Ela mora no MESMO item de grade da lista de sessões
+  (um `<div class="stack">` em volta dos dois): solta, a 60rem ela virava o
+  quinto filho de `.stack--duas-colunas` e empurrava o `<aside>` de coluna
+  (achado da revisão do PR #162, na resolução do merge com `main`). A decisão de 22/09 ("A CORRIDA SAIU DAQUI") tirou um cartão
   de área da coluna lateral e continua de pé; o que ela produziu sem querer foi
   um estado assimétrico — `_corrida.html` nos dois ramos de "sem ficha" e em
   nenhum com ficha —, e quem levanta peso E corre ficou sem caminho daqui.

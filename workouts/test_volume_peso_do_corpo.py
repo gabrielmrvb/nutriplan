@@ -71,7 +71,12 @@ class VolumeComparavelTests(TestCase):
                 magra = self.LETRA_MAGRA_SEM_BARRA.get(s.label)
                 with self.subTest(retrato=retrato):
                     if magra:
-                        self.assertEqual(len(itens), magra, retrato)
+                        # PISO, e não igualdade (revisão do PR #162): o comentário
+                        # acima promete reprovar se a letra CAIR — e `assertEqual`
+                        # reprovava também quando ela CRESCESSE, ou seja, no dia em
+                        # que o item do `BACKLOG.md` (remada e rosca sem barra)
+                        # fosse feito, a melhoria ficaria vermelha.
+                        self.assertGreaterEqual(len(itens), magra, retrato)
                         continue
                     self.assertGreaterEqual(len(itens), 5, retrato)
                     self.assertGreaterEqual(s.minutos_da_opcao(k), 45, retrato)

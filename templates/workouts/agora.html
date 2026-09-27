@@ -542,7 +542,7 @@
         <a class="btn-link" href="{% url 'workouts:now' %}?exercicio={{ atual.exercise.pk }}&amp;extra=1">Registrar uma série a mais</a>
       </p>
       {% else %}
-      <form class="registro registro--agora" method="post" data-sem-recarga
+      <form class="registro registro--agora{% if atual.exercise.sem_carga %} registro--sem-carga{% endif %}" method="post" data-sem-recarga
             id="registro-serie"
             action="{% url 'workouts:record_set' %}">
         {% csrf_token %}

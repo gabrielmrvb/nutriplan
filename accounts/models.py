@@ -213,8 +213,15 @@ class Corrida(models.TextChoices):
     qualquer outra.
     """
 
-    SIM = "sim", "Sim, corro (ou pedalo, ou nado)"
-    NAO = "nao", "Não"
+    # VALORES PRÓPRIOS, e não "sim"/"nao" (revisão do PR #162, 27/09/2026).
+    # `accounts.templatetags.escolhas.DETALHES` é chaveado pelo VALOR CRU da
+    # opção, sem o nome do campo, e "sim"/"nao" já são as chaves de
+    # `Musculacao`: a pergunta "Você corre, pedala ou nada?" desenhava os dois
+    # cartões da musculação ("Sim, faço musculação · a ficha é sua"), na etapa
+    # em que duas das três personas desistiam. Sem entrada em `DETALHES`, o
+    # cartão cai no rótulo abaixo — que é o texto certo.
+    SIM = "corre", "Sim, corro (ou pedalo, ou nado)"
+    NAO = "nao_corre", "Não"
 
 
 class Experiencia(models.TextChoices):
@@ -585,7 +592,7 @@ class Profile(models.Model):
     #: ver o que declarou.
     corrida = models.CharField(
         "corre, pedala ou nada",
-        max_length=3,
+        max_length=9,
         choices=Corrida.choices,
         blank=True,
         default="",
@@ -809,7 +816,14 @@ class Profile(models.Model):
         """O multiplicador desta pessoa, já posicionado pela frequência de treino."""
         from plans.calculations import activity_factor
 
-        return activity_factor(self.activity_level, self.training_days_per_week)
+        # A CORRIDA ENTRA AQUI TAMBÉM (revisão do PR #162): sem ela, este fator
+        # divergia do que `plans.calculations.calculate` grava no plano para a
+        # mesma pessoa — dois números para a mesma pergunta. Só conta quem
+        # RESPONDEU que corre, como `plans.services.build_inputs`.
+        corrida_dias = self.corrida_dias if self.corrida == Corrida.SIM else 0
+        return activity_factor(
+            self.activity_level, self.training_days_per_week, corrida_dias
+        )
 
     @property
     def nao_faz_musculacao(self) -> bool:

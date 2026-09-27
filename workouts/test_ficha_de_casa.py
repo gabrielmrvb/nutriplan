@@ -250,7 +250,12 @@ class APrimeiraFichaDoInicianteNasceEmMeiaHoraTests(TestCase):
 
     def test_quem_declara_iniciante_comeca_na_faixa_rapido(self):
         user = _pessoa("faixa-ini@exemplo.com", duracao=DuracaoTreino.PADRAO)
-        user.trainingplan_set.all().delete() if hasattr(user, "trainingplan_set") else None
+        # O RAMO SEM FICHA, garantido e não suposto (revisão do PR #162): a
+        # linha que estava aqui procurava `trainingplan_set`, que não existe —
+        # o `related_name` é `training_plans` —, e não fazia nada. Se o
+        # fixture um dia montar ficha, este teste mediria o ramo OPOSTO.
+        user.training_plans.all().delete()
+        self.assertFalse(user.training_plans.filter(is_active=True).exists())
         perfil = self._salvar_etapa_2(user, Experiencia.INICIANTE)
         self.assertEqual(perfil.duracao_treino, DuracaoTreino.RAPIDO)
 
@@ -279,6 +284,11 @@ class OInicianteComecaNoDegrauMaisFacilTests(TestCase):
 
     def test_nenhum_exercicio_da_escada_vem_acima_do_primeiro_degrau(self):
         plano = services.create_routine(_pessoa("degrau@exemplo.com"))
+        # PISO: sem ele, uma regressão que esvaziasse a ficha de peso do corpo
+        # (já aconteceu: `abcde-C` com ZERO exercícios, no `CLAUDE.md`) deixava
+        # `altos` vazio e este teste verde.
+        self.assertGreater(len(_itens(plano)), 0, "a ficha nasceu vazia")
+        permitidos = services.permitidos_do_perfil(plano.user.profile.equipamento)
         altos = [
             (i.exercise.name, (i.exercise.progressao or {}).get("nivel"))
             for i in _itens(plano)
@@ -293,9 +303,18 @@ class OInicianteComecaNoDegrauMaisFacilTests(TestCase):
                     is_active=True, progressao__movimento=escada.get("movimento"),
                     progressao__nivel__lt=nivel,
                 )
+                # A REGRA DO MOTOR, e não metade dela (revisão do PR #162): o
+                # teste reimplementava só o filtro de APARELHO; o motor exige
+                # também o EQUIPAMENTO dentro da sacola. Uma variante de
+                # halteres no degrau 1 seria corretamente ignorada pelo motor e
+                # contada aqui como "degrau mais fácil disponível".
+                disponiveis = [
+                    e.name for e in mais_faceis if services.dentro_do_perfil(e, permitidos)
+                ]
                 self.assertFalse(
-                    mais_faceis.exclude(aparelho__in=FORA_DE_CASA).exists(),
-                    "%s (degrau %s) entrou com degrau mais fácil disponível" % (nome, nivel),
+                    disponiveis,
+                    "%s (degrau %s) entrou com degrau mais fácil disponível: %s"
+                    % (nome, nivel, disponiveis),
                 )
 
     def test_a_flexao_da_persona_e_a_de_joelhos_apoiados(self):
@@ -355,6 +374,10 @@ class PesoDoCorpoNaoPedeCargaTests(TestCase):
         html = self._execucao(user, self._de_hoje(plano, com_carga=False))
         self.assertNotIn('name="weight_kg"', html)
         self.assertIn('name="reps"', html, "as repetições continuam sendo a pergunta")
+        # A GRADE ACOMPANHA (revisão do PR #162, visto na captura do QA): sem
+        # o modificador, a coluna da carga ficava vazia e o campo de Reps era
+        # espremido na faixa da direita, com ~200 px de nada ao lado.
+        self.assertIn("registro--sem-carga", html)
 
     def test_o_supino_continua_pedindo(self):
         """CONTROLE POSITIVO: o campo sumiu de quem não tem anilha, e não da
@@ -366,6 +389,7 @@ class PesoDoCorpoNaoPedeCargaTests(TestCase):
         plano = services.create_routine(user)
         html = self._execucao(user, self._de_hoje(plano, com_carga=True))
         self.assertIn('name="weight_kg"', html)
+        self.assertNotIn("registro--sem-carga", html)
 
 
 class ANotacaoDaFichaTemLegendaNaPrimeiraVezTests(TestCase):

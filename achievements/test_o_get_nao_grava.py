@@ -1,4 +1,4 @@
-"""Um GET não grava — o item 0 da missão "quem entra não desiste".
+"""Nenhum GET CRIA conquista — o item 0 da missão "quem entra não desiste".
 
 A missão A deixou a lista dos números que ainda divergem, e o segundo era
 este: `achievements.resumo` DESBLOQUEAVA a regra que chegou a 100 % dentro
@@ -24,6 +24,8 @@ na hora. O último teste daqui é exatamente esse.
 """
 from datetime import timedelta
 from decimal import Decimal
+
+from unittest import mock
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -62,6 +64,20 @@ class NenhumGETDesbloqueiaConquistaTests(TestCase):
     def _quantas(self):
         return UserAchievement.objects.filter(user=self.user).count()
 
+    def test_a_pre_condicao_ha_o_que_gravar_e_nada_gravado(self):
+        """SEM ESTE TESTE AS VARREDURAS ABAIXO PODIAM PASSAR VAZIAS (revisão do
+        PR #162). Elas comparam `antes` com `depois`; se o fixture nascesse com
+        a conquista já gravada, ou sem nenhuma regra a 100 %, "nada mudou"
+        ficaria verde sem nunca ter havido o que mudar."""
+        from achievements import services
+
+        self.assertEqual(self._quantas(), 0)
+        cheias = [
+            c for c in services.a_caminho(services.reunir(self.user), set())
+            if c["pct"] >= 100
+        ]
+        self.assertTrue(cheias, "o fixture não deixa nenhuma regra a 100 %")
+
     def test_abrir_o_progresso_cinco_vezes_nao_cria_conquista(self):
         antes = self._quantas()
         for _ in range(5):
@@ -83,6 +99,63 @@ class NenhumGETDesbloqueiaConquistaTests(TestCase):
             with self.subTest(rota=rota):
                 self.client.get(reverse(rota))
                 self.assertEqual(self._quantas(), antes, rota)
+
+
+class NenhumaEscritaNaTabelaDeConquistasNumGETTests(TestCase):
+    """A varredura por CONSULTA, e não por contagem de linhas.
+
+    `UserAchievement.objects.count()` é cego a um `UPDATE` (revisão do PR
+    #162): o GET que ANUNCIA uma conquista marca `seen_at`, e a contagem não
+    muda. Aqui se lê o SQL de cada tela e se procura escrita na tabela de
+    conquistas — e o controle positivo prova que a varredura enxerga essa
+    escrita quando ela existe.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+
+    def setUp(self):
+        self.user = create_complete_user(email="get-sql@exemplo.com")
+        self.client.force_login(self.user)
+        treino.create_routine(self.user)
+
+    def _escritas(self, rota):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as capturado:
+            self.client.get(reverse(rota))
+        return [
+            q["sql"] for q in capturado.captured_queries
+            if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+            and "achievements_userachievement" in q["sql"]
+        ]
+
+    def test_nenhuma_tela_escreve_na_tabela_de_conquistas(self):
+        for rota in ("plans:today", "plans:history", "achievements:list", "areas"):
+            with self.subTest(rota=rota):
+                self.assertEqual(self._escritas(rota), [], rota)
+
+    def test_controle_positivo_o_anuncio_marca_vista_e_a_varredura_ve(self):
+        """A EXCEÇÃO CONHECIDA, e a prova de que a varredura acima não é cega.
+
+        `context_processors.conquistas_pendentes` marca como vista a conquista
+        que ele anuncia (decisão de 20/09/2026: o aviso eterno cobria o
+        CONCLUIR SÉRIE). Com um id na sessão, o GET faz esse `UPDATE` — e a
+        mesma varredura que diz "zero" acima tem de enxergá-lo aqui."""
+        from achievements.context_processors import CHAVE
+
+        conquista = UserAchievement.objects.create(user=self.user, slug="primeiro-treino")
+        sessao = self.client.session
+        sessao[CHAVE] = [conquista.pk]
+        sessao.save()
+        escritas = self._escritas("plans:history")
+        self.assertTrue(
+            any(sql.lstrip().upper().startswith("UPDATE") for sql in escritas),
+            escritas,
+        )
 
 
 class OPOSTQueCriaOFatoDesbloqueiaTests(TestCase):
@@ -131,11 +204,64 @@ class OPOSTQueCriaOFatoDesbloqueiaTests(TestCase):
         antes = UserAchievement.objects.filter(user=self.user).count()
         # "Comi esta" exige a OPÇÃO — o filtro que fecha o IDOR do cardápio.
         opcao = slot.options.first()
-        resposta = self.client.post(
-            reverse("plans:mark_meal", args=[slot.pk]),
-            {"status": MealStatus.DONE, "option": opcao.pk},
-        )
+        with mock.patch("plans.views.conquistas.sincronizar") as espiao:
+            resposta = self.client.post(
+                reverse("plans:mark_meal", args=[slot.pk]),
+                {"status": MealStatus.DONE, "option": opcao.pk},
+            )
         self.assertEqual(resposta.status_code, 302)
-        self.assertGreaterEqual(
-            UserAchievement.objects.filter(user=self.user).count(), antes
-        )
+        # O ESPIÃO, e não uma contagem: `count() >= antes` era verdadeiro
+        # sempre — uma contagem nunca cai — e seguia verde com a chamada
+        # apagada da view (revisão do PR #162).
+        espiao.assert_called_once()
+        self.assertEqual(espiao.call_args.args[0], self.user)
+        self.assertGreaterEqual(UserAchievement.objects.filter(user=self.user).count(), antes)
+
+    def test_a_agua_passa_pela_avaliacao(self):
+        """Quem só bebe água também pode fechar o dia — e sem esta chamada, com
+        o GET não gravando mais, nada nasceria até o próximo build."""
+        with mock.patch("plans.views.conquistas.sincronizar") as espiao:
+            resposta = self.client.post(reverse("plans:log_hydration"), {"ml": 250})
+        self.assertIn(resposta.status_code, (200, 302))
+        espiao.assert_called_once()
+
+    def test_a_agua_reenviada_nao_avalia_de_novo(self):
+        """A fila offline reenvia; o reenvio (`op_id` já aplicado) não soma, e
+        não deve pagar a avaliação."""
+        corpo = {"ml": 250, "op_id": "reenvio-agua-1"}
+        self.client.post(reverse("plans:log_hydration"), corpo)
+        with mock.patch("plans.views.conquistas.sincronizar") as espiao:
+            self.client.post(reverse("plans:log_hydration"), corpo)
+        espiao.assert_not_called()
+
+    def test_a_corrida_manual_passa_pela_avaliacao(self):
+        import uuid
+
+        dados = {
+            "distancia_km": "5,2", "tempo": "28:10",
+            "data": timezone.localdate().isoformat(), "sensacao": "normal",
+            "op_id": uuid.uuid4().hex,
+        }
+        with mock.patch("workouts.corrida_views.conquistas.sincronizar") as espiao:
+            resposta = self.client.post(reverse("workouts:corrida_nova"), dados)
+        self.assertEqual(resposta.status_code, 302)
+        espiao.assert_called_once()
+
+    def test_a_corrida_do_gps_passa_pela_avaliacao(self):
+        import json
+        import uuid
+
+        fim = timezone.now()
+        corpo = {
+            "op_id": uuid.uuid4().hex,
+            "comecou_em": (fim - timedelta(minutes=30)).isoformat(),
+            "terminou_em": fim.isoformat(),
+            "distancia_m": 5200, "duracao_s": 1800,
+        }
+        with mock.patch("workouts.corrida_views.conquistas.sincronizar") as espiao:
+            resposta = self.client.post(
+                reverse("workouts:salvar_corrida"),
+                json.dumps(corpo), content_type="application/json",
+            )
+        self.assertLess(resposta.status_code, 400, resposta.content[:200])
+        espiao.assert_called_once()

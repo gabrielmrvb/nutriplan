@@ -103,8 +103,9 @@ class Food(models.Model):
     #: falharia no build. Quem escreve é `catalog.busca.normalizar`, chamada
     #: pelo `save()` daqui, pelos dois seeds (que usam `bulk_create`/`update` e
     #: não passam pelo `save()`) e pela migration que preencheu as linhas
-    #: antigas. `catalog/test_busca.py` varre o catálogo provando que ela não
-    #: divergiu do nome.
+    #: antigas. `catalog/test_taco.py` (`OCuradoGanhaDoImportadoTests`, com
+    #: os DOIS seeds no banco) varre o catálogo provando que ela não divergiu
+    #: do nome.
     busca = models.CharField("nome normalizado", max_length=120, blank=True, db_index=True)
     brand = models.CharField("marca", max_length=80, blank=True)
     base_unit = models.CharField(

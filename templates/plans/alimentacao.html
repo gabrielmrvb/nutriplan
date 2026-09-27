@@ -661,7 +661,7 @@
                       do SERVIDOR.
                     {% endcomment %}
                     {% for _ in itens_fora %}
-                      <div class="fora__item" data-busca-alimento>
+                      <div class="fora__item" data-busca-alimento data-busca-url="{% url 'plans:buscar_alimento' %}">
                         <div class="busca">
                           <input class="field-input" type="text" name="alimento"
                                  autocomplete="off" role="combobox"
@@ -674,18 +674,25 @@
                               id="busca-{{ slot.pk }}-{{ forloop.counter }}"
                               aria-label="Sugestões para o alimento {{ forloop.counter }}"
                               data-busca-lista></ul>
+                          {% comment %}
+                            O AVISO DE NÃO ENCONTRADO FICA AQUI, no card da
+                            refeição e colado no campo — não no topo da página,
+                            onde a faixa de mensagens some da vista no celular e
+                            não diz de qual linha está falando.
+
+                            SEMPRE NA ÁRVORE, e sem `hidden` (revisão do PR #162):
+                            uma região `aria-live` tem de existir ANTES de o texto
+                            chegar, senão o que o leitor de tela vê é a inserção
+                            dela, que não é anunciada de forma confiável. Vazia, ela
+                            não ocupa altura — e por isso mora dentro de `.busca`,
+                            que é bloco, e não solta na grade de `.fora__item`,
+                            onde um filho vazio ainda custaria o `gap` de uma linha.
+                          {% endcomment %}
+                          <p class="busca__vazio" aria-live="polite" data-busca-vazio></p>
                         </div>
                         <input class="field-input num" type="text" name="gramas"
                                inputmode="decimal" maxlength="5" placeholder="g"
                                aria-label="Quantidade em gramas do alimento {{ forloop.counter }}">
-                        {% comment %}
-                          O AVISO DE NÃO ENCONTRADO FICA AQUI, no card da
-                          refeição e ao lado do campo — não no topo da página,
-                          onde a faixa de mensagens some da vista no celular e
-                          não diz de qual linha está falando. `aria-live` para
-                          quem usa leitor de tela ouvir sem sair do campo.
-                        {% endcomment %}
-                        <p class="busca__vazio" hidden aria-live="polite" data-busca-vazio></p>
                       </div>
                     {% endfor %}
 

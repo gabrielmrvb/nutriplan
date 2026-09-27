@@ -670,6 +670,14 @@
           É `<a>` e não `<div>` com JavaScript: o cartão inteiro é o alvo, o
           teclado alcança, o leitor de tela anuncia link, e funciona sem JS.
         {% endcomment %}
+        {% comment %}
+          UM ITEM DE GRADE, e não dois (revisão do PR #162, 27/09/2026). A
+          semana e a linha da corrida moram no mesmo `<div>`: soltos, os dois
+          eram filhos diretos de `.stack--duas-colunas`, e a 60rem a linha
+          ocupava a coluna da direita e empurrava o `<aside>` para a linha de
+          baixo — o oposto de "no fim da semana".
+        {% endcomment %}
+        <div class="stack">
         <ul class="programa__sessoes" data-escalonado>
           {% comment %}
             UM CARTÃO POR LETRA (15/09/2026). A · B · C, e não um cartão por
@@ -706,7 +714,6 @@
             </li>
           {% endfor %}
         </ul>
-
         {% comment %}
           A PORTA DA CORRIDA VOLTA PARA QUEM TEM FICHA (item 4 da missão "quem
           entra não desiste", 26/09/2026) — como LINHA, e não como cartão.
@@ -724,11 +731,15 @@
           que a semana tem. Continua valendo o que o comentário do `_corrida`
           diz sobre o GPS não medido — nada aqui promete que funciona.
         {% endcomment %}
+        {% if convida_a_correr %}
         <p class="acao-solta">
           <a class="btn-link" href="{% url 'workouts:corridas' %}">
             Corri hoje — registrar corrida
           </a>
         </p>
+        {% endif %}
+        </div>
+
 
         {% comment %}
           `stack` e não `split__aside`: ele deixou de ser uma COLUNA e virou o

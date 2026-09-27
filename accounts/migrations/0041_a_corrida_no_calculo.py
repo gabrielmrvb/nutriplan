@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='profile',
             name='corrida',
-            field=models.CharField(blank=True, choices=[('sim', 'Sim, corro (ou pedalo, ou nado)'), ('nao', 'Não')], default='', max_length=3, verbose_name='corre, pedala ou nada'),
+            field=models.CharField(blank=True, choices=[('corre', 'Sim, corro (ou pedalo, ou nado)'), ('nao_corre', 'Não')], default='', max_length=9, verbose_name='corre, pedala ou nada'),
         ),
         migrations.AddField(
             model_name='profile',

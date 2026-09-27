@@ -81,11 +81,19 @@ class ATacoEntraNoCatalogoTests(TestCase):
         """
         for termo in TRINTA:
             with self.subTest(termo=termo):
-                achados = list(busca.sugerir(termo))
+                # POR PREFIXO, e não "algum achado" (revisão do PR #162): com
+                # `assertTrue(achados)` o teste sobrevivia à remoção de
+                # "Manteiga, com sal" porque "Couve, manteiga, crua" carrega o
+                # termo — e quem digitasse "manteiga" registraria a caloria da
+                # couve. O alimento tem de COMEÇAR pelo que a pessoa digitou.
+                prefixos = [
+                    f.name for f in busca.sugerir(termo, limite=50)
+                    if f.busca.startswith(termo)
+                ]
                 self.assertTrue(
-                    achados,
-                    '"%s" não foi achado na TACO — a tela diria "não '
-                    "encontramos\" e a refeição entraria sem caloria" % termo,
+                    prefixos,
+                    '"%s" não foi achado na TACO como NOME de alimento — a tela '
+                    "sugeriria outra comida que só cita a palavra" % termo,
                 )
 
     def test_nenhum_alimento_importado_entra_sem_energia(self):
@@ -117,12 +125,6 @@ class ATacoEntraNoCatalogoTests(TestCase):
                 else:
                     self.assertGreater(macros, 0, food.name)
 
-    def test_a_coluna_de_busca_nao_diverge_do_nome(self):
-        """`busca` é escrita por três caminhos (seed, seed e migration) e lida
-        por um. Divergir é a busca deixar de achar sem ninguém ver."""
-        for nome, chave in Food.objects.values_list("name", "busca"):
-            with self.subTest(nome=nome):
-                self.assertEqual(chave, busca.normalizar(nome))
 
 
 class OCuradoGanhaDoImportadoTests(TestCase):
@@ -155,6 +157,25 @@ class OCuradoGanhaDoImportadoTests(TestCase):
         self.assertEqual(
             Food.objects.filter(source=FoodSource.TACO, is_active=False).count(), 0
         )
+
+    def test_a_coluna_de_busca_nao_diverge_do_nome(self):
+        """`busca` é escrita por QUATRO caminhos — `Food.save()`, os dois seeds
+        e a migration `0009` — e lida por um. Divergir é a busca deixar de
+        achar sem ninguém ver.
+
+        MORA AQUI, com os dois seeds no banco (revisão do PR #162): na turma de
+        cima, só com a TACO, ela nunca via uma linha curada, e apagar o
+        `"busca": normalizar(row["name"])` do `seed_catalog` deixava os 102
+        alimentos do cardápio com `busca=""` sem vermelho nenhum."""
+        linhas = list(Food.objects.values_list("name", "busca", "source"))
+        fontes = {fonte for _nome, _chave, fonte in linhas}
+        # A varredura tem de VER as duas origens; sem isto ela passaria sobre
+        # um banco só com a TACO, que é o buraco que a trouxe para cá.
+        self.assertIn(FoodSource.TACO, fontes)
+        self.assertTrue(fontes - {FoodSource.TACO}, "nenhum alimento curado no banco")
+        for nome, chave, _fonte in linhas:
+            with self.subTest(nome=nome):
+                self.assertEqual(chave, busca.normalizar(nome))
 
     def test_os_trinta_continuam_achados_com_os_dois_seeds(self):
         """O estado real de produção. O teste da turma dos trinta lá em cima

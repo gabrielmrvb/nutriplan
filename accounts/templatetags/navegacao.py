@@ -92,8 +92,10 @@ ABAS = (
 #:
 #: Substitui a aba de treino NA POSIÇÃO dela: a barra continua com as MESMAS
 #: CINCO abas (são cinco desde 22/09/2026, e a conta de largura a 320px foi
-#: refeita ali), então nada de layout muda. `icone-bicicleta` é o mesmo símbolo
-#: que o mapa de áreas já usa para Corrida — o sprite não cresce.
+#: refeita ali), então nada de layout muda. `icone-bicicleta` é o símbolo que
+#: os cartões do onboarding já usam para Corrida (`escolhas.DETALHES`) — o
+#: sprite não cresce. O MAPA de áreas não tem ícone nenhum, por decisão
+#: escrita no `CLAUDE.md`.
 ABA_DE_CORRIDA = {
     "chave": "corrida", "rotulo": "Corrida", "rota": "workouts:corridas",
     "icone": "icone-bicicleta", "navs": ("running",),
@@ -119,13 +121,18 @@ def abas(context, onde="tabbar"):
 
 
 def abas_de(usuario, *, shell_offline=False):
-    """As quatro abas desta pessoa — e o único lugar em que a troca acontece.
+    """As cinco abas desta pessoa — e o único lugar em que a troca acontece.
 
-    CUSTO: zero consulta nas telas do app. Todas passam por
-    `OnboardingRequiredMixin`, que lê `request.user.profile` PELO DESCRITOR e
-    o deixa em cache para a renderização inteira (é a decisão escrita em
-    "A HOME LÊ CADA TABELA UMA VEZ"). As telas que não leem o perfil — login,
-    cadastro, onboarding — não desenham barra nenhuma (`sem_tabbar`).
+    CUSTO: zero consulta nas telas que passam por `OnboardingRequiredMixin`,
+    que lê `request.user.profile` PELO DESCRITOR e o deixa em cache para a
+    renderização inteira (é a decisão escrita em "A HOME LÊ CADA TABELA UMA
+    VEZ"). E UMA consulta, constante, nas telas com barra que NÃO passam por
+    ele: `workouts:corridas` (`HistoricoDeCorridasView`, que é o destino da
+    própria aba nova), `ajuda:index` e `avisos:preferencias`. Nenhuma das três
+    tem teto em `plans/test_stress.TETOS`; quem puser uma delas num orçamento
+    medido conta esta consulta. A segunda chamada da tag na mesma página
+    (barra de cima e de baixo) é grátis — o descritor já guardou. As telas de
+    login, cadastro e onboarding não desenham barra (`sem_tabbar`).
 
     O SHELL DE OFFLINE NÃO LÊ O PERFIL, pela mesma razão que o selo de área
     principal não entra nele: a página é pré-cacheada e servida a quem pegar

@@ -2377,9 +2377,12 @@ class ComiOutraCoisaTests(TestCase):
         fora = html.split('class="fora"', 1)[1]
         self.assertNotIn("<select", fora)
         self.assertNotIn("<datalist", html)
-        # Nem `<option>` de alimento em lugar nenhum da tela: é o mesmo custo
-        # com outro nome.
-        self.assertNotIn("Arroz branco cozido", html.replace("<datalist", ""))
+        # Nem `<option>` em lugar nenhum da tela: é o mesmo custo com outro
+        # nome. A versão anterior procurava "Arroz branco cozido" no HTML e só
+        # passava porque `porcoes.nome_curto` minúscula e corta o preparo do
+        # nome nos cards (revisão do PR #162) — uma asserção que dependia de um
+        # módulo alheio. `<option` é a coisa que custava nó por alimento.
+        self.assertNotIn("<option", html)
         # E a busca está lá — sem isto, "zero nós" ficaria verde numa tela que
         # deixou de sugerir qualquer coisa.
         self.assertIn("data-busca-campo", fora)

@@ -50,14 +50,30 @@ class OFatorDeAtividadeContaACorridaTests(TestCase):
         self.assertEqual(activity_factor("light", 0, 3), activity_factor("light", 3, 0))
         self.assertEqual(activity_factor("active", 1, 2), activity_factor("active", 3, 0))
 
+    #: O fator de ANTES da mudança, MEDIDO em `origin/main` (1b115fd, 27/09/2026)
+    #: — `activity_factor(nivel, dias)` para 0 a 7 dias de academia.
+    #:
+    #: Escrito à mão de propósito (revisão do PR #162): a versão anterior deste
+    #: teste comparava `activity_factor(nivel, dias, 0)` com
+    #: `activity_factor(nivel, dias)`, que é a MESMA chamada pelo default —
+    #: nenhuma regressão da curva base a faria falhar.
+    ANTES = {
+        "sedentary": ("1.25", "1.270", "1.290", "1.310", "1.330", "1.35", "1.35", "1.35"),
+        "light": ("1.40", "1.410", "1.420", "1.430", "1.440", "1.45", "1.45", "1.45"),
+        "active": ("1.50", "1.520", "1.540", "1.560", "1.580", "1.60", "1.60", "1.60"),
+    }
+
     def test_quem_nao_respondeu_recebe_exatamente_o_de_antes(self):
         """A pergunta nova não mexe em conta nenhuma de quem já tem conta:
-        zero corridas é o que toda linha do banco tem hoje."""
-        for nivel in ("sedentary", "light", "active"):
-            for dias in range(0, 6):
+        zero corridas é o que toda linha do banco tem hoje — e o número é o que
+        `origin/main` dava antes desta missão, não o que a função dá agora."""
+        from decimal import Decimal as _D
+
+        for nivel, valores in self.ANTES.items():
+            for dias, esperado in enumerate(valores):
                 with self.subTest(nivel=nivel, dias=dias):
                     self.assertEqual(
-                        activity_factor(nivel, dias, 0), activity_factor(nivel, dias)
+                        activity_factor(nivel, dias, 0), _D(esperado)
                     )
 
     def test_o_teto_da_faixa_continua_sendo_o_teto(self):

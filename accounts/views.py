@@ -1029,6 +1029,19 @@ def resumo_das_escolhas(user, profile) -> list:
         ("Objetivo", titulo_de(profile.goal, profile.get_goal_display())),
         ("Atividade", titulo_de(profile.activity_level, profile.get_activity_level_display())),
     ]
+    # A CORRIDA APARECE AQUI, e antes do ramo da musculação (revisão do PR
+    # #162, 27/09/2026): ela move a meta de calorias — é SESSÃO no fator de
+    # atividade —, e este bloco é a conferência de tudo o que entra na conta,
+    # na tela imediatamente anterior ao número. Antes, quem só corria lia
+    # "Atividade: Pouco ativo" e mais nada, e recebia uma meta que o resumo não
+    # explicava. Só para quem RESPONDEU que corre: "Corrida: não" seria ruído.
+    from accounts.models import Corrida as CorridaResposta
+
+    if profile.corrida == CorridaResposta.SIM and profile.corrida_dias:
+        vezes = "%d× por semana" % profile.corrida_dias
+        if profile.corrida_minutos:
+            vezes += " · %d min" % profile.corrida_minutos
+        itens.append(("Corrida", vezes))
     # Quem não faz musculação vê a resposta e nada do bloco de academia:
     # listar "Dias de treino: nenhum · Equipamento: academia completa" para
     # quem só corre era o resumo contradizendo o que a pessoa acabou de dizer.

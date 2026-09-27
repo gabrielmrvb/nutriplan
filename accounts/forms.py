@@ -773,9 +773,17 @@ class TrainingForm(forms.Form):
             # que não o desenha) mantém o que a pessoa tinha.
             perfil.equipamento = self.cleaned_data.get("equipamento") or perfil.equipamento
             perfil.musculacao = self.cleaned_data.get("musculacao") or perfil.musculacao
-            perfil.corrida = self.cleaned_data.get("corrida") or perfil.corrida
-            perfil.corrida_dias = self.cleaned_data.get("corrida_dias") or 0
-            perfil.corrida_minutos = self.cleaned_data.get("corrida_minutos") or 0
+            # A CORRIDA ANDA EM BLOCO (revisão do PR #162): se este envio não
+            # trouxe a resposta (cliente antigo, tela que não a desenha), a
+            # resposta E a frequência ficam como estavam. Com `or 0` só na
+            # frequência, um envio sem os campos preservava "corro" e zerava os
+            # dias — e o Perfil passava a dizer "0× por semana", a explicação
+            # contradizendo a própria conta. Com a resposta presente, vale o
+            # que o `clean` decidiu (inclusive zerar, com "não").
+            if self.cleaned_data.get("corrida"):
+                perfil.corrida = self.cleaned_data["corrida"]
+                perfil.corrida_dias = self.cleaned_data.get("corrida_dias") or 0
+                perfil.corrida_minutos = self.cleaned_data.get("corrida_minutos") or 0
             perfil.save(update_fields=[
                 "wake_time", "sleep_time", "duracao_treino", "experiencia",
                 "equipamento", "musculacao", "corrida", "corrida_dias",

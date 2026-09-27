@@ -236,7 +236,7 @@
             {% if profile.corrida %}
               <div>
                 <dt>Corrida</dt>
-                <dd>{% if profile.corrida == "sim" %}{{ profile.corrida_dias }}× por semana{% if profile.corrida_minutos %} · {{ profile.corrida_minutos }} min{% endif %}{% else %}Não corro{% endif %}</dd>
+                <dd>{% if profile.corrida == "corre" %}{{ profile.corrida_dias }}× por semana{% if profile.corrida_minutos %} · {{ profile.corrida_minutos }} min{% endif %}{% else %}Não corro{% endif %}</dd>
               </div>
             {% endif %}
           </dl>

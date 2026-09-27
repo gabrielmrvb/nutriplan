@@ -774,7 +774,7 @@
     var corre = document.querySelectorAll('input[name="corrida"]');
     function acertarCorrida() {
       var sim = false;
-      corre.forEach(function (r) { if (r.checked && r.value === "sim") sim = true; });
+      corre.forEach(function (r) { if (r.checked && r.value === "corre") sim = true; });
       soCorrida.hidden = !sim;
     }
     corre.forEach(function (r) { r.addEventListener("change", acertarCorrida); });
@@ -2308,8 +2308,11 @@
 
   var ESPERA_MS = 220;     /* o tempo entre a tecla e a busca */
   var MINIMO = 2;          /* o mesmo de `busca.MINIMO_DE_LETRAS` no servidor */
-  var cache = {};          /* por termo, no processo: corrigir uma letra e
-                              voltar não pede a mesma coisa duas vezes */
+  /* Por termo, no processo: corrigir uma letra e voltar não pede a mesma coisa
+     duas vezes. `Object.create(null)` e não `{}`: com `{}` os termos
+     "constructor", "toString" e "__proto__" achavam `Object.prototype`, o `if`
+     do cache dava verdadeiro sem resposta guardada e `pintar` estourava. */
+  var cache = Object.create(null);
   var aberto = null;       /* o `.busca__lista` visível, um por vez */
   var pedido = 0;          /* ordem dos pedidos: resposta atrasada não pinta */
   var relogio = null;
@@ -2360,8 +2363,11 @@
   function avisar(b, texto) {
     var p = b && b.querySelector("[data-busca-vazio]");
     if (!p) return;
+    /* SÓ O TEXTO MUDA. A região `aria-live` precisa já estar na árvore de
+       acessibilidade quando o texto chega — ligar `hidden` depois de escrever
+       é a INSERÇÃO da região, que os leitores de tela não anunciam de forma
+       confiável, e a pessoa que não enxerga não ouvia o "não encontramos". */
     p.textContent = texto;
-    p.hidden = !texto;
   }
 
   function escolher(campo, nome) {
@@ -2393,8 +2399,18 @@
     avisar(b, "");
     dados.itens.forEach(function (item, i) {
       var li = document.createElement("li");
+      /* `presentation` no `<li>`: o `listbox` precisa ter as `option` como
+         FILHAS na árvore de acessibilidade, e um `listitem` no meio deixava o
+         listbox sem opção nenhuma e o item sem lista (axe
+         `aria-required-children` e `aria-required-parent`) — a decisão que
+         `choice_cards.html` registrou em 20/09/2026 do outro lado. */
+      li.setAttribute("role", "presentation");
       var botao = document.createElement("button");
       botao.type = "button";     /* dentro de um <form>: sem isso, ENVIA */
+      /* Fora da ordem de Tab: com `aria-activedescendant` o foco fica NO
+         CAMPO, e as opções se percorrem pelas setas. Sem isto, Tab a partir
+         do campo passava pelos oito botões antes de chegar às gramas. */
+      botao.tabIndex = -1;
       botao.className = "busca__item";
       botao.id = lista.id + "-" + i;
       botao.setAttribute("role", "option");
@@ -2419,7 +2435,13 @@
   function buscar(b, termo) {
     var meu = ++pedido;
     if (cache[termo]) { pintar(b, cache[termo], termo); return; }
-    fetch("/alimentos/buscar/?q=" + encodeURIComponent(termo), {
+    /* O endereço vem do SERVIDOR (`data-busca-url`, escrito por `{% url %}`), e
+       não daqui: sob `/demo/` o app inteiro vive com prefixo, e um caminho
+       escrito à mão saía dele, caía anônimo no login e a busca morria calada
+       na vitrine do produto (revisão do PR #162). */
+    var url = b.getAttribute("data-busca-url");
+    if (!url) { fechar(); return; }
+    fetch(url + "?q=" + encodeURIComponent(termo), {
       headers: { "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin"
     })
@@ -2475,6 +2497,16 @@
     }
   });
 
+  /* O TOQUE NA SUGESTÃO NÃO TIRA O FOCO DO CAMPO. Safari e iOS não focam um
+     `<button>` no toque: sem isto o campo perdia o foco no `mousedown`, o
+     `focusout` fechava a lista e o `click` chegava a um item que já não
+     existia. `preventDefault` no `mousedown` segura o foco onde ele está (o
+     `click` continua vindo) — é o padrão de combobox com
+     `aria-activedescendant`, em que o foco nunca sai do campo. */
+  document.addEventListener("mousedown", function (e) {
+    if (e.target.closest && e.target.closest(".busca__item")) e.preventDefault();
+  });
+
   /* O clique na sugestão, e o clique FORA dela. `mousedown` fecharia antes do
      `click` do próprio item; por isso o fora usa `click` e checa o alvo. */
   document.addEventListener("click", function (e) {
@@ -2493,8 +2525,13 @@
   document.addEventListener("focusout", function (e) {
     if (!e.target.matches || !e.target.matches("[data-busca-campo]")) return;
     setTimeout(function () {
-      var dentro = document.activeElement && bloco(document.activeElement);
-      if (aberto && dentro !== bloco(e.target)) fechar();
+      /* Fecha sempre que o foco não estiver NA LISTA — e não "no bloco".
+         As gramas são do mesmo bloco: com a régua do bloco, quem digitava o
+         nome inteiro e ia direto para "g" deixava a lista aberta por cima do
+         "Registrar", e o toque no botão acertava uma sugestão. */
+      var ativo = document.activeElement;
+      var naLista = ativo && ativo.closest && ativo.closest("[data-busca-lista]");
+      if (aberto && !naLista) fechar();
     }, 0);
   });
 })();

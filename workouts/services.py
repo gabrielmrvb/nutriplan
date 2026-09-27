@@ -2445,7 +2445,9 @@ def _prescrever_por_ocorrencia(sessoes, modelos, teto=_NAO_INFORMADO,
             ],
             teto,
             principais=principais,
-            nivel=nivel,
+            # Sem `nivel`: esta função não o recebe (`NameError` apontado pelo
+            # ruff F821 na revisão do PR #162). `None` é o comportamento de
+            # antes de o parâmetro existir, que é o que esta referência mede.
         )
         ficaram = {i for i, _series in ficam}
         for i, series_finais in ficam:

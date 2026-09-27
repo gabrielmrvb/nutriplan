@@ -659,7 +659,7 @@ class RetroatividadeTests(BaseDeConquistas):
     A CONTA CONTINUA PAGA, POR OUTRA PORTA (26/09/2026). Era `avaliar` no
     GET da tela; virou `manage.py desbloquear_pendentes`, que roda no build
     e avalia quem tem treino e ZERO conquistas — uma vez por pessoa, porque
-    depois da primeira ela sai do filtro. Um GET não grava (item 0 da missão
+    depois da primeira ela sai do filtro. Nenhum GET cria conquista (item 0 da missão
     "quem entra não desiste"), e daqui para frente toda conquista nasce no
     POST que cria o fato.
     """
@@ -694,6 +694,75 @@ class RetroatividadeTests(BaseDeConquistas):
         saida = StringIO()
         call_command("desbloquear_pendentes", stdout=saida)
         self.assertIn("0 pessoa(s)", saida.getvalue())
+
+    def _correr(self, user, metros=5200, atras=3):
+        from datetime import timedelta as _td
+
+        from workouts.models import Corrida
+
+        fim = timezone.now() - _td(days=atras)
+        return Corrida.objects.create(
+            user=user, op_id="retro-%d-%d" % (user.pk, atras),
+            comecou_em=fim - _td(minutes=30), terminou_em=fim,
+            distancia_m=metros, duracao_s=1800,
+        )
+
+    def test_quem_so_corre_ganha_a_primeira_corrida_no_comando(self):
+        """O CASO DO ITEM 4, e o que o filtro só por treino deixava de fora
+        (revisão do PR #162, revisores 1 e 3): quem só corre não tem
+        `ExerciseLog`, e "Primeira corrida 1/1" ficava trancada com a barra
+        cheia — o defeito B35 — até a pessoa registrar OUTRA corrida."""
+        from django.core.management import call_command
+
+        user = self.pessoa(email="so-corre-retro@exemplo.com")
+        self._correr(user)
+        self.assertEqual(self.slugs(user), [])
+        call_command("desbloquear_pendentes", verbosity=0)
+        self.assertIn("primeira-corrida", self.slugs(user))
+
+    def test_quem_ja_tinha_medalha_de_treino_tambem_ganha_a_de_corrida(self):
+        """O segundo buraco do mesmo filtro: `tem_conquista=False` excluía quem
+        já tinha "Primeiro treino", e as quatro regras novas de corrida nunca
+        eram avaliadas para essa pessoa."""
+        from django.core.management import call_command
+
+        user = self.pessoa(email="treino-e-corrida@exemplo.com")
+        self.treinar(user, timezone.localdate())
+        call_command("desbloquear_pendentes", verbosity=0)
+        self.assertIn("primeiro-treino", self.slugs(user))
+        self._correr(user, metros=10200)
+        call_command("desbloquear_pendentes", verbosity=0)
+        nascidas = set(self.slugs(user))
+        self.assertTrue({"primeira-corrida", "corrida-5k", "corrida-10k"} <= nascidas, nascidas)
+
+    def test_uma_conta_que_falha_nao_derruba_o_build(self):
+        """O comando itera dado de USUÁRIO dentro de um `build.sh` com
+        `errexit`. Uma conta que `avaliar` não digere é registrada e o laço
+        segue — antes, ela derrubaria todo deploy seguinte."""
+        from io import StringIO
+        from unittest import mock
+
+        from django.core.management import call_command
+
+        quebra = self.pessoa(email="quebra@exemplo.com")
+        boa = self.pessoa(email="boa@exemplo.com")
+        self.treinar(quebra, timezone.localdate())
+        self.treinar(boa, timezone.localdate())
+        original = services.avaliar
+
+        def avaliar(user, *a, **k):
+            if user.pk == quebra.pk:
+                raise RuntimeError("estado que reunir não digere")
+            return original(user, *a, **k)
+
+        saida = StringIO()
+        with mock.patch("achievements.services.avaliar", side_effect=avaliar):
+            with self.assertLogs(
+                "achievements.management.commands.desbloquear_pendentes", "ERROR"
+            ):
+                call_command("desbloquear_pendentes", stdout=saida)
+        self.assertIn("1 falha(s)", saida.getvalue())
+        self.assertIn("primeiro-treino", self.slugs(boa))
 
     def test_nada_fica_em_cem_por_cento_na_lista_de_proximas(self):
         """"1/1" numa medalha trancada é o app dizendo que não reconhece o que já viu.

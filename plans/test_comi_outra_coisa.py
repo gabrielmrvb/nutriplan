@@ -244,14 +244,29 @@ class OAvisoFicaNoCardTests(TestCase):
         self.client.force_login(self.user)
 
     def test_o_campo_tem_a_regiao_do_aviso_dentro_do_card(self):
+        """A região do aviso mora DENTRO do bloco de CADA campo — é o que a põe
+        no card da refeição em vez da faixa de mensagens do topo.
+
+        POR BLOCO (revisão do PR #162): a versão anterior media PROXIMIDADE em
+        bytes (`[:2000]`), e com três blocos de menos de 1 kB cada ela achava
+        a região do bloco seguinte quando a de um faltava. Aqui cada bloco é
+        recortado até o início do próximo, e cada um tem de ter as três marcas.
+        """
         html = self.client.get(reverse("plans:alimentacao")).content.decode()
-        self.assertIn("data-busca-alimento", html)
-        self.assertIn("data-busca-vazio", html)
-        # A região do aviso mora DENTRO do bloco do campo: é o que a põe no
-        # card da refeição em vez da faixa de mensagens do topo.
-        bloco = html.split("data-busca-alimento", 1)[1].split("</div>")[0]
-        self.assertIn("data-busca-vazio", html.split("data-busca-alimento", 1)[1][:2000])
-        self.assertIn("data-busca-campo", bloco)
+        pedacos = html.split("data-busca-alimento")[1:]
+        self.assertGreater(len(pedacos), 0, "nenhum campo de busca na tela")
+        for i, pedaco in enumerate(pedacos):
+            # O fim do bloco é o `name="gramas"` dele, que vem DEPOIS do
+            # envoltório `.busca` (onde moram o campo, a lista e o aviso).
+            bloco = pedaco.split('name="gramas"', 1)[0]
+            with self.subTest(bloco=i):
+                self.assertIn("data-busca-campo", bloco)
+                self.assertIn("data-busca-lista", bloco)
+                self.assertIn("data-busca-vazio", bloco)
+                # SEMPRE na árvore: região `aria-live` com `hidden` só é
+                # anunciada pela inserção, e isso os leitores não fazem direito.
+                regiao = bloco.split("data-busca-vazio", 1)[0].rsplit("<p", 1)[1]
+                self.assertNotIn("hidden", regiao)
 
     def test_a_tela_oferece_registrar_sem_caloria_no_proprio_javascript(self):
         """A frase é escrita por `pwa.js` na região ao lado do campo. O que se
@@ -260,10 +275,18 @@ class OAvisoFicaNoCardTests(TestCase):
         from pathlib import Path
         from django.conf import settings
 
+        from config.estaticos import sem_comentarios
+
         js = (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(
             encoding="utf-8"
         )
-        bloco = js.split("BUSCA DE ALIMENTO", 1)[1]
+        # SEM COMENTÁRIOS (revisão do PR #162): o comentário do próprio bloco
+        # diz "a saída dita: registrar assim mesmo", e satisfazia a asserção —
+        # reescrever a MENSAGEM para "Registre assim mesmo" ficava verde. A
+        # âncora também é código: "BUSCA DE ALIMENTO" só existe em comentário.
+        js = sem_comentarios(js)
+        self.assertIn("[data-busca-alimento]", js)
+        bloco = js.split("[data-busca-alimento]", 1)[1]
         # A frase é montada em pedaços de linha no JavaScript, então a busca é
         # sobre o texto com as quebras e a concatenação achatadas.
         corrido = re.sub(r'["\s+]+', " ", bloco)
@@ -292,17 +315,105 @@ class OAvisoFicaNoCardTests(TestCase):
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
-        regra = css.split(".meal__secundarias .fora {", 1)
-        self.assertEqual(len(regra), 2, "a regra do `.fora` no rodapé da refeição saiu")
-        corpo = regra[1].split("}", 1)[0]
-        self.assertIn("flex:", corpo)
-        atalho = corpo.split("flex:", 1)[1].split(";")[0].split()
-        self.assertGreaterEqual(len(atalho), 2, corpo)
-        self.assertNotEqual(
-            atalho[1], "0",
+        from config.estaticos import sem_comentarios
+
+        css = sem_comentarios(css)
+        regras = css.split(".meal__secundarias .fora {")[1:]
+        self.assertTrue(regras, "a regra do `.fora` no rodapé da refeição saiu")
+        erro = (
             "o `.fora` aberto voltou a ter flex-shrink 0 — a página rola na "
-            "horizontal a 390 px (medido: scrollWidth 609 numa janela de 390)",
+            "horizontal a 390 px (medido: scrollWidth 609 numa janela de 390)"
         )
+        for regra in regras:
+            corpo = regra.split("}", 1)[0]
+            declaracoes = {
+                chave.strip(): valor.strip()
+                for chave, _, valor in (
+                    d.partition(":") for d in corpo.split(";") if ":" in d
+                )
+            }
+            # O ATALHO: `flex: <grow> <shrink> <basis>`. Com UM número só
+            # (`flex: 1`) o shrink é 1 — que é o certo, e a versão anterior
+            # desta guarda reprovava.
+            atalho = declaracoes.get("flex", "").split()
+            if len(atalho) >= 2:
+                self.assertNotEqual(atalho[1], "0", erro)
+            # A LONGHAND: `flex-shrink: 0` ao lado do atalho escapava da versão
+            # anterior, que só lia o segundo token do atalho (revisão do PR
+            # #162, sabotagem executada pelo revisor de testes).
+            self.assertNotEqual(declaracoes.get("flex-shrink"), "0", erro)
+            # E `min-width` que TRAVA o encolhimento pelo conteúdo é o mesmo
+            # defeito por outra porta.
+            self.assertNotIn(
+                declaracoes.get("min-width"), ("fit-content", "max-content", "min-content"), erro
+            )
+
+    def test_aberto_o_formulario_nao_recorta_a_lista_de_sugestoes(self):
+        """BUG (revisor de UI, confirmado na captura do QA a 390 px): quatro das
+        oito sugestões visíveis, a lista cortada na borda do formulário.
+        `.fora__interno` tem `overflow: hidden` para esconder o formulário com a
+        linha em `0fr` — e isso recortava a lista `position: absolute`, que mora
+        num descendente dele. Aberto, o recorte tem de sair."""
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from config.estaticos import sem_comentarios
+
+        css = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        )
+        regra = css.split(".fora[open] .fora__interno {", 1)
+        self.assertEqual(len(regra), 2, "sumiu a regra que desliga o recorte com o <details> aberto")
+        self.assertIn("overflow: visible", regra[1].split("}", 1)[0])
+        # CONTROLE POSITIVO: o recorte do FECHADO continua — é ele que esconde
+        # o formulário quando a linha da grade é `0fr`.
+        self.assertIn(".fora__interno { overflow: hidden; }", css)
+
+    def test_o_endereco_da_busca_vem_do_servidor(self):
+        """BUG (revisor de Django): o `fetch` tinha `/alimentos/buscar/` escrito
+        à mão, e sob `/demo/` ele saía do prefixo, caía anônimo no login e a
+        busca morria calada na vitrine do produto."""
+        html = self.client.get(reverse("plans:alimentacao")).content.decode()
+        self.assertIn('data-busca-url="%s"' % reverse("plans:buscar_alimento"), html)
+
+    def test_o_javascript_nao_escreve_o_endereco_a_mao(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from config.estaticos import sem_comentarios
+
+        js = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        )
+        self.assertNotIn('"/alimentos/buscar/', js)
+        self.assertIn('getAttribute("data-busca-url")', js)
+
+    def test_as_opcoes_seguem_o_padrao_de_combobox(self):
+        """UX REAL (revisor de UI): `role="listbox"` com `<li>` no meio deixava
+        o listbox sem opção (axe `aria-required-children`); as opções
+        focáveis roubavam o Tab do campo; o aviso ligava `hidden` DEPOIS de
+        escrever o texto, e a região `aria-live` não era anunciada; e o toque
+        numa sugestão tirava o foco do campo no Safari antes do `click`."""
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from config.estaticos import sem_comentarios
+
+        js = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        )
+        bloco = js.split('closest("[data-busca-alimento]")', 1)[1]
+        self.assertIn('li.setAttribute("role", "presentation")', bloco)
+        self.assertIn("botao.tabIndex = -1", bloco)
+        avisar = bloco.split("function avisar", 1)[1].split("function ", 1)[0]
+        self.assertNotIn("hidden", avisar)
+        self.assertIn('addEventListener("mousedown"', bloco)
+        # O cache é declarado ANTES das funções do bloco, no topo do IIFE.
+        topo = js.split("var ESPERA_MS", 1)[1].split("function bloco", 1)[0]
+        self.assertIn("Object.create(null)", topo)
 
     def test_o_datalist_de_todos_os_nomes_saiu_da_pagina(self):
         """Com a TACO, ele seriam ~20 kB de `<option>` nesta tela em toda

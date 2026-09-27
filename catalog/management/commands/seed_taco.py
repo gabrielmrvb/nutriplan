@@ -44,11 +44,22 @@ class Command(BaseCommand):
             nome: fonte
             for nome, fonte in Food.objects.values_list("name", "source")
         }
+        # O CURADO GANHA POR NOME NORMALIZADO, e não só por nome exato (revisão
+        # do PR #162): a promessa escrita — aqui e no `build.sh` — é "quando os
+        # dois normalizam o mesmo nome". Pelo nome exato, um "Açaí, polpa"
+        # curado ao lado de um "Acai, polpa" da tabela viravam duas linhas com
+        # a mesma `busca`, e a sugestão gastava um dos oito lugares com um nome
+        # igual e um kcal diferente.
+        do_curado = set(
+            Food.objects.exclude(source=FoodSource.TACO).values_list("busca", flat=True)
+        )
 
         novos, atualizados, pulados = [], 0, 0
         for item in alimentos:
             fonte = existentes.get(item["nome"])
-            if fonte is not None and fonte != FoodSource.TACO:
+            if (fonte is not None and fonte != FoodSource.TACO) or (
+                normalizar(item["nome"]) in do_curado
+            ):
                 # Nome que o catálogo curado já usa: ele manda.
                 pulados += 1
                 continue

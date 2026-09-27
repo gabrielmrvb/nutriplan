@@ -16,6 +16,7 @@ from accounts.models import (
     MINUTOS_POR_DURACAO,
     TETO_POR_DURACAO,
     DuracaoTreino,
+    Corrida as CorridaResposta,
     Musculacao,
     Weekday,
 )
@@ -202,11 +203,19 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             plan, hoje_data, linhas, user=user, seq=seq, escolha_hoje=letra_escolhida
         )
 
+        # "Corri hoje" é convite, e convite não se faz a quem já respondeu que
+        # NÃO corre (revisão do PR #162): a mesma régua que o Perfil e a
+        # Alimentação já usam para a linha de corrida. Branco — "não
+        # perguntado" — continua vendo o link. O perfil vem do `dispatch`.
+        perfil = self.perfil_do_dispatch or getattr(user, "profile", None)
         context.update(
             {
                 "nav": "workout",
                 "plan": plan,
                 "sessions": sessions,
+                "convida_a_correr": not (
+                    perfil is not None and perfil.corrida == CorridaResposta.NAO
+                ),
                 "letras": letras_cartoes,
                 "hoje": hoje,
                 # A letra a confirmar quando a troca depois de treinar precisa

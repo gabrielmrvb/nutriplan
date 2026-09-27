@@ -142,10 +142,21 @@ class OAceiteVemLogoAcimaDoBotaoTests(TestCase):
         html = self.client.get(reverse("accounts:signup")).content.decode()
         corpo = html.split("<main", 1)[1].split("</main>", 1)[0]
         aceite = corpo.rindex('name="termos"')
-        botao = corpo.index(">Criar conta<", aceite)
+        # O BOTÃO POR EXPRESSÃO, tolerante a quebra de linha dentro da tag
+        # (revisão do PR #162): `index(">Criar conta<")` exigia o texto colado
+        # nas tags, e reformatar o `<button>` levantava `ValueError` em vez de
+        # uma falha que dissesse algo sobre ORDEM.
+        achou = re.compile(r">\s*Criar conta\s*<", re.I).search(corpo, aceite)
+        self.assertIsNotNone(achou, "não há botão 'Criar conta' DEPOIS da caixa dos termos")
+        botao = achou.start()
         entre = re.sub(r"<[^>]+>", " ", corpo[aceite:botao])
         entre = " ".join(entre.split())
         # Entre a caixa e o botão só pode haver o rótulo da própria caixa e os
-        # dois links legais — nenhum campo, nenhuma outra pergunta.
-        self.assertNotIn("<input", corpo[corpo.index("</label>", aceite):botao])
+        # dois links legais — nenhum campo, nenhuma outra pergunta. E "campo" é
+        # QUALQUER controle: `<select>` e `<textarea>` escapavam de uma régua
+        # que só procurava `<input`.
+        depois_do_rotulo = corpo[corpo.index("</label>", aceite):botao]
+        for controle in ("<input", "<select", "<textarea"):
+            with self.subTest(controle=controle):
+                self.assertNotIn(controle, depois_do_rotulo)
         self.assertIn("Termos de Uso", entre)

@@ -150,16 +150,6 @@ class PlanInputs:
     def training_days_per_week(self) -> int:
         return len(self.session_minutes)
 
-    @property
-    def sessoes_por_semana(self) -> int:
-        """Musculação MAIS corrida — o que o fator de atividade conta.
-
-        Quem corre três vezes por semana e não levanta peso tinha zero aqui,
-        e recebia o piso da faixa do nível de atividade: a meta de quem não
-        treina (persona 3 do relatório de experiência, 21/09/2026).
-        """
-        return self.training_days_per_week + max(int(self.corrida_dias or 0), 0)
-
 
 @dataclass(frozen=True)
 class PlanResult:
