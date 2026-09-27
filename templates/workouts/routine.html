@@ -349,7 +349,7 @@
                       <form method="post" action="{% url 'workouts:escolher_letra' %}">
                         {% csrf_token %}
                         <input type="hidden" name="letra" value="{{ outra.letra }}">
-                        <button type="submit" class="btn btn--quiet btn--block hoje__trocar-btn">
+                        <button type="submit" class="btn btn--quiet btn--block">
                           <span class="session__badge" data-dia="{{ outra.letra }}">{{ outra.letra }}</span>
                           <span class="hoje__trocar-nome">{{ outra.nome }}</span>
                         </button>

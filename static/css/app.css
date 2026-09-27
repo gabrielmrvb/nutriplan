@@ -10472,9 +10472,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: grid;
   gap: var(--espaco-2);
 }
-/* O botão de cada letra: badge + nome, alinhados à esquerda, altura de toque
-   herdada de `.btn`. `min-width: 0` para o nome longo não vazar. */
-.hoje__trocar-btn {
+/* O botão de cada letra: badge + nome, alinhados à esquerda. É um `.btn`, e o
+   retorno ao toque vem dele; aqui só o arranjo, casado pelo contexto da lista
+   para não criar uma classe clicável própria. `min-width: 0` para o nome longo
+   não vazar. */
+.hoje__trocar-lista .btn {
   display: flex;
   align-items: center;
   justify-content: flex-start;
