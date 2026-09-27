@@ -83,6 +83,32 @@
         demo.appendChild(elemento);
         demo.appendChild(botao);
         botao.focus();
+        /* E A DEMONSTRAÇÃO SOBE PARA A FAIXA LIVRE (24/09/2026).
+         *
+         * O `max-height` do CSS garante que o vídeo CABE entre o cabeçalho e
+         * o bloco preso; ele não garante que a pessoa está OLHANDO para lá.
+         * Na execução o toque no poster costuma vir com a página rolada na
+         * série, e o vídeo abria acima da dobra.
+         *
+         * QUEM SOBE É A CABEÇA DO EXERCÍCIO, e não a demonstração. Medido:
+         * rolando o `.demo` para `start`, ele parava em 68px — logo abaixo do
+         * cabeçalho, como se queria — e levava o NOME para -9px, atrás da
+         * barra. Um vídeo sem o nome do exercício por cima é um vídeo de que
+         * exercício? A cabeça (`.agora__topo`) é o irmão anterior da
+         * demonstração, então subir ela põe nome, músculos e vídeo na faixa
+         * livre de uma vez; o `max-height` do CSS desconta `--exec-cabeca`
+         * para o vídeo continuar cabendo depois dela. A rota de LEITURA do
+         * exercício divide este script e não tem `.agora__topo` — lá o alvo
+         * continua sendo a própria demonstração.
+         *
+         * Os dois têm `scroll-margin-top` com `--appbar-h` e
+         * `--exec-descanso`, então `start` basta. Vem DEPOIS do `focus()` de
+         * propósito: o foco também rola, do jeito que o navegador escolher, e
+         * quem manda no resultado é a última rolagem. Quem pediu menos
+         * movimento não recebe animação. */
+        var suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var alvo = document.querySelector(".agora__topo") || demo;
+        alvo.scrollIntoView({ block: "start", behavior: suave ? "smooth" : "auto" });
       };
       abrir.addEventListener("click", montar);
     }

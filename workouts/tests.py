@@ -1122,13 +1122,20 @@ class ShortClipTests(TestCase):
         tarja o que economiza em recorte.
         """
         # Desde o poster (13/09/2026) a caixa do player é `.demo--aberta`:
-        # nasce no toque, dentro da faixa, presa a 60vh.
+        # nasce no toque, dentro da faixa. O TETO deixou de ser 60vh em
+        # 24/09/2026: `60vh` são 506px numa tela de 844 — um número sem
+        # relação com o espaço que sobra —, e o vídeo vertical saía com 391px
+        # numa faixa livre de 355, com o bloco preso cobrindo o pé dele. Hoje
+        # o teto É a faixa: `100dvh` menos cabeçalho, descanso, cabeça do
+        # exercício e bloco. A régua deste teste continua a mesma — a moldura
+        # tem caixa FIXA, e não uma que o conteúdo dita.
         css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
             encoding="utf-8"
         )
         moldura = css.split(chr(10) + ".demo--aberta {", 1)[1].split("}", 1)[0]
         self.assertIn("aspect-ratio: 16 / 9", moldura)
-        self.assertIn("max-height: 60vh", moldura)
+        self.assertIn("max-height: calc(100dvh", moldura)
+        self.assertIn("var(--exec-bloco)", moldura)
 
         vertical = css.split(chr(10) + ".demo--aberta.demo--vertical {", 1)[1].split("}", 1)[0]
         self.assertIn("aspect-ratio: 3 / 4", vertical)
@@ -2258,10 +2265,16 @@ class LoadStepperTests(TestCase):
         self.assertNotIn("salvar", base)
         self.assertNotIn("timer", base)
 
+        # NA EXECUCAO, AS REPS DIVIDEM A LINHA DA CARGA (24/09/2026, decisao do
+        # dono). Eram tres faixas — carga, reps, CTA — e o bloco preso fechava
+        # em 335px, cobrindo o video aberto e, a 375x667, o proprio botao "ver
+        # video". Duas faixas sao ~70px que a faixa livre nao tinha. O nome
+        # deste teste continua valendo: a carga NAO fica espremida, ela leva a
+        # coluna elastica (`minmax(0, 1fr)`) e as reps a estreita.
         agora = regras.split(chr(10) + ".registro--agora {", 1)[1].split("}", 1)[0]
-        self.assertIn('"menos carga mais"', agora)
-        self.assertIn('"reps  reps  reps"', agora)
-        self.assertIn('"cta   cta   cta"', agora)
+        self.assertIn('"menos carga mais reps"', agora)
+        self.assertIn('"cta   cta   cta  cta"', agora)
+        self.assertIn("minmax(0, 1fr)", agora)
 
     def test_the_steps_are_a_touch_target(self):
         regra = self.css.split(chr(10) + ".registro__passo {", 1)[1].split("}", 1)[0]
