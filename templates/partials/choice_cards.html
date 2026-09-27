@@ -56,14 +56,18 @@ irmão do input: `~` alcança, e funciona em qualquer navegador.
                    name="{{ subwidget.data.name }}" value="{{ subwidget.data.value }}"
                    {% if subwidget.data.selected %}checked{% endif %}>
             <span class="choice-card__frame" aria-hidden="true"></span>
-            <span class="choice-card__icon" aria-hidden="true">
-              {% if d %}
+            {% comment %}
+              Sem desenho, sem caixa: a caixa vazia do "Não quero priorizar
+              agora" parecia um ícone que não carregou (QA de 27/09/2026, M7).
+            {% endcomment %}
+            {% if d %}
+              <span class="choice-card__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-linecap="round" stroke-linejoin="round">
                   <use href="#icone-{{ d.icone }}"></use>
                 </svg>
-              {% endif %}
-            </span>
+              </span>
+            {% endif %}
             <span class="choice-card__text">
               {% comment %}
                 Título e selo dividem a linha, e não uma cada.
