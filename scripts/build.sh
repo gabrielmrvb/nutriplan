@@ -9,7 +9,7 @@
 #      manifesto, e sem o manifesto QUALQUER template que use {% static %}
 #      quebra em tempo de execução. Isto precisa acontecer antes do site subir.
 #   3. migrate — o schema tem que estar pronto quando o primeiro pedido chegar.
-#   4. seed — os tres comandos são idempotentes: no primeiro deploy populam o
+#   4. seed — os QUATRO comandos são idempotentes: no primeiro deploy populam o
 #      catálogo, nos seguintes só atualizam o que mudou no JSON. Sem isto o app
 #      sobe sem alimento e sem exercício, e o cadastro termina numa tela vazia.
 #
@@ -45,6 +45,10 @@ python manage.py migrate --no-input
 python manage.py sincronizar_papeis
 
 python manage.py seed_catalog
+# A TABELA TACO, depois do catálogo curado e nunca antes: quando os dois
+# normalizam o mesmo nome, o curado ganha, e é `seed_taco` que pula — ele
+# precisa que o outro já tenha gravado (item 3, 26/09/2026).
+python manage.py seed_taco
 python manage.py seed_workouts
 # O usuário de demonstração, para /demo/ subir pronto. Depois dos outros seeds
 # porque ele MONTA um plano e uma ficha com o motor de verdade, e o motor

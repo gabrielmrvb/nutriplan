@@ -8,6 +8,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -32,6 +33,7 @@ from accounts.models import (
 )
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from achievements import services as conquistas
+from catalog import busca
 from catalog.models import Food
 
 from workouts import progresso
@@ -326,11 +328,13 @@ class PlanRequiredMixin(OnboardingRequiredMixin):
 #: datas da semana para o convite — uma por dia, sete dias.
 PESAGENS_LIDAS = 7
 
-#: Por quanto tempo o `<datalist>` de alimentos vive em cache, por processo.
-#: O catálogo muda no deploy (`seed_catalog`, que reinicia o processo) ou
-#: por edição no admin; quinze minutos é o preço de um alimento novo demorar
-#: a aparecer na sugestão de "comi outra coisa" — contra uma consulta ao
-#: catálogo inteiro a cada abertura da Home.
+#: Por quanto tempo a prévia da lista de compras vive em cache, por processo.
+#: O cardápio muda no deploy (`seed_catalog`, que reinicia o processo) ou
+#: quando o plano é remontado; quinze minutos é o preço de a prévia demorar a
+#: acompanhar — contra as SEIS consultas de `shopping_list` em cada abertura.
+#:
+#: Ela guardava também o `<datalist>` de alimentos, que saiu em 26/09/2026
+#: quando a sugestão virou busca em `plans:buscar_alimento`.
 CACHE_DO_CATALOGO_S = 15 * 60
 
 
@@ -352,15 +356,6 @@ def agua_e_desfazer(user, inicio, hoje) -> tuple:
         if data == hoje:
             desfazer = bool(tem_gole)
     return por_dia, desfazer
-
-
-def alimentos_do_catalogo() -> list:
-    """Os nomes do catálogo para o `<datalist>` de "comi outra coisa"."""
-    nomes = cache.get("plans.alimentos_do_catalogo")
-    if nomes is None:
-        nomes = list(Food.objects.filter(is_active=True).order_by("name").values_list("name", flat=True))
-        cache.set("plans.alimentos_do_catalogo", nomes, CACHE_DO_CATALOGO_S)
-    return nomes
 
 
 def relogio():
@@ -783,11 +778,15 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # estes dois: o catálogo do `<datalist>` é uma consulta, e a
                 # proteína perdida uma varredura dos slots.
                 "proteina_perdida": proteina_perdida(slots) if self.mostra_cardapio else None,
-                # O catálogo do `<datalist>` e as linhas em branco do painel
-                # "comi outra coisa". `range` no contexto porque o template do
-                # Django não sabe contar, e um `{% for %}` sobre uma lista de
-                # três nadas é mais honesto que três blocos copiados.
-                "alimentos": alimentos_do_catalogo() if self.mostra_cardapio else (),
+                # As linhas em branco do painel "comi outra coisa". `range` no
+                # contexto porque o template do Django não sabe contar, e um
+                # `{% for %}` sobre uma lista de três nadas é mais honesto que
+                # três blocos copiados.
+                #
+                # O CATÁLOGO NÃO ENTRA MAIS AQUI (item 3, 26/09/2026): o
+                # `<datalist>` de todos os nomes virou busca em
+                # `plans:buscar_alimento`, e o comentário acima dizia "o
+                # catálogo do `<datalist>` é uma consulta" — hoje é zero.
                 "itens_fora": range(tracking.MAX_ITENS_FORA),
                 "nav": self.nav,
                 # O PAINEL DO DIA: quais cartões, e em que ordem.
@@ -1213,7 +1212,9 @@ def _itens_descritos(dados, desconhecidos=None) -> list:
         # duas de 2 kg passavam e viravam 4 kg de arroz num prato — o teto
         # existe para barrar dedo escorregando no teclado, e escorregar duas
         # vezes é o caso mais provável, não o menos.
-        chave = nome.casefold()
+        # A CHAVE É A NORMALIZADA, a mesma da coluna `Food.busca`: sem isso
+        # "Feijão" e "feijao" seriam duas linhas e a soma do teto não somaria.
+        chave = busca.normalizar(nome)
         somado = pedidos.get(chave, Decimal("0")) + valor
         if somado > LIMITE_GRAMAS:
             continue
@@ -1223,12 +1224,15 @@ def _itens_descritos(dados, desconhecidos=None) -> list:
     if not pedidos:
         return []
 
-    # Uma consulta, e o casamento sem diferenciar maiúscula acontece em
-    # Python: são 61 alimentos ativos, e um `iexact` por linha seriam três
-    # idas ao banco para comparar com uma lista que cabe na memória.
-    por_nome = {
-        food.name.casefold(): food for food in Food.objects.filter(is_active=True)
-    }
+    # Uma consulta, e traz SÓ o que foi digitado.
+    #
+    # A versão anterior carregava o catálogo inteiro e comparava em Python, com
+    # a razão escrita ("são 61 alimentos ativos"): com a TACO são 685, em todo
+    # registro de "comi outra coisa". E ela casava por `casefold` SEM tirar o
+    # acento — quem digitava "feijao" não achava "Feijão", e a refeição entrava
+    # com zero caloria. Agora as duas pontas usam `catalog.busca.normalizar`: a
+    # coluna `Food.busca` e a chave daqui.
+    por_nome = busca.por_nome_digitado(pedidos)
     if desconhecidos is not None:
         # Como a pessoa escreveu, e não a chave normalizada: o aviso cita o
         # que ela digitou.
@@ -1454,6 +1458,53 @@ class RecalculatePlanView(AcaoDeTela, OnboardingRequiredMixin, View):
             return redirect("accounts:onboarding")
         messages.success(request, "Meta recalculada com os seus dados de hoje.")
         return redirect("plans:alimentacao")
+
+
+class BuscarAlimentoView(LoginRequiredMixin, View):
+    """As sugestões de "comi outra coisa", em JSON.
+
+    POR QUE ELA EXISTE: o campo era um `<input list>` com um `<datalist>` de
+    TODOS os nomes ativos, emitido na página. Com os 102 curados já eram 102
+    `<option>`; com os 583 da TABELA TACO seriam 685 — cerca de 20 kB de HTML
+    na tela do cardápio, toda visita, para uma ação que quase nunca acontece.
+    E o `<datalist>` não é busca: ele casa por PREFIXO do nome inteiro, então
+    quem digita "requeijao" não acha "Queijo, requeijão, cremoso", que é como
+    a TACO escreve.
+
+    Só GET, e só para quem tem sessão: é dado do app, e a rota fica fora do
+    `robots.txt` por não estar em `ROTAS_PUBLICAS`. `LoginRequiredMixin` e não
+    `OnboardingRequiredMixin` porque o mixin do onboarding REDIRECIONA quem não
+    terminou — e um redirect no meio de um `fetch` seria uma sugestão vazia sem
+    explicação. Quem não terminou o cadastro não vê o formulário, então a
+    diferença é teórica; o que não é teórico é o comportamento do `fetch`.
+
+    SEM REDE A TELA NÃO QUEBRA: `pwa.js` trata a falha do `fetch` como "sem
+    sugestão", o campo continua sendo texto livre, e o nome digitado é casado
+    no SERVIDOR quando a fila offline drena — `/refeicao/<id>/marcar/` está em
+    `ROTAS` da fila, e o casamento passou a ser sem acento.
+    """
+
+    def get(self, request, *args, **kwargs):
+        termo = (request.GET.get("q") or "")[:60]
+        itens = [
+            {
+                "nome": food.name,
+                # A caloria por 100 g entra na sugestão porque é o que
+                # diferencia duas linhas de nome parecido — "Leite, de vaca,
+                # integral, pó" e "Leite, fermentado" não se escolhem pelo
+                # nome. E é o número que a pessoa está tentando registrar.
+                "kcal": int(round(float(food.kcal))),
+            }
+            for food in busca.sugerir(termo)
+        ]
+        return JsonResponse(
+            {"itens": itens, "minimo": busca.MINIMO_DE_LETRAS},
+            # A sugestão é a mesma para todo mundo (o catálogo não é pessoal),
+            # mas a rota exige sessão — `private` impede um proxy de servir a
+            # resposta a outra pessoa, e cinco minutos evitam repetir a
+            # consulta enquanto alguém corrige uma letra.
+            headers={"Cache-Control": "private, max-age=300"},
+        )
 
 
 class MarcarItemDaListaView(AcaoDeTela, OnboardingRequiredMixin, View):

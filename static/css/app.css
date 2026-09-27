@@ -10457,3 +10457,99 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .coorte tbody tr:last-child th,
 .coorte tbody tr:last-child td { border-bottom: 0; }
 .coorte .hint { font-size: var(--texto-xs); }
+
+/* ==========================================================================
+   55. A BUSCA DE ALIMENTO — "comi outra coisa" que acha (26/09/2026)
+   ==========================================================================
+
+   O campo era `<input list>` com um `<datalist>` de todos os nomes ativos.
+   Dois defeitos, e os dois medidos: o `<datalist>` casa por prefixo do nome
+   INTEIRO (quem digita "requeijao" não acha "Queijo, requeijão, cremoso", que
+   é como a TACO escreve), e com os 583 alimentos da tabela ele seriam ~20 kB
+   de `<option>` no HTML desta tela, toda visita.
+
+   A lista de sugestões é FLUTUANTE e ancorada no campo, `position: absolute`
+   dentro de `.busca` — e não um bloco que empurra o resto. Empurrando, o
+   formulário crescia 350 px enquanto a pessoa digitava, e o botão
+   "Registrar" fugia do dedo a cada tecla. `--camada-flutuante` é o degrau
+   certo: acima do conteúdo, abaixo da barra de baixo, que é a regra da escala
+   de empilhamento.
+
+   `max-height: 22rem` é exatamente o teto de oito: oito linhas de 44 px dão
+   352 px, e 352 px são 22 rem. Ou seja, no caso normal a lista não rola — ela
+   só rola quando um nome longo da TACO ("Carne, bovina, contra-filé, com
+   gordura, grelhada") quebra em duas linhas. E quem rola é a LISTA, nunca a
+   página.
+
+   Alvo de toque: cada sugestão tem 44 px de altura e a largura inteira do
+   campo. A régua mede as duas.  */
+.busca {
+  position: relative;
+  min-width: 0;
+}
+
+.busca__lista {
+  position: absolute;
+  z-index: var(--camada-flutuante);
+  top: calc(100% + var(--espaco-1));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background: var(--surface-2);
+  border: var(--traco) solid var(--fio-forte);
+  border-radius: var(--quina-p);
+  box-shadow: var(--shadow-deep);
+}
+
+.busca__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--texto-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.busca__item + .busca__item { border-top: 1px solid var(--fio); }
+
+/* O item da vez é o mesmo estado para o dedo, para o mouse e para a seta do
+   teclado: uma marcação só, `aria-selected`, escrita pelo JavaScript. Com
+   `:hover` de um lado e uma classe do outro, o teclado e o mouse discordavam
+   na tela. */
+.busca__item:hover,
+.busca__item[aria-selected="true"] {
+  background: var(--brand-soft);
+}
+
+.busca__nome { min-width: 0; }
+
+.busca__kcal {
+  flex: none;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* O AVISO DE NÃO ENCONTRADO mora no card da refeição, ao lado do campo — e
+   atravessa as duas colunas da grade de `.fora__item`, senão ele nasceria
+   embaixo do nome e ao lado das gramas, com meia largura. */
+.busca__vazio {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-mute);
+  font-size: var(--texto-xs);
+  line-height: 1.4;
+}

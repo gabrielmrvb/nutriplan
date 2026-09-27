@@ -96,6 +96,16 @@ class Food(models.Model):
     """Um alimento com valores nutricionais por 100 g (ou 100 ml)."""
 
     name = models.CharField("nome", max_length=120)
+    #: O nome sem acento e em minúscula, para a busca de "comi outra coisa".
+    #:
+    #: É coluna e não `unaccent` do Postgres porque a extensão precisa de
+    #: privilégio que o role do app não tem no Neon — a migration que a criasse
+    #: falharia no build. Quem escreve é `catalog.busca.normalizar`, chamada
+    #: pelo `save()` daqui, pelos dois seeds (que usam `bulk_create`/`update` e
+    #: não passam pelo `save()`) e pela migration que preencheu as linhas
+    #: antigas. `catalog/test_busca.py` varre o catálogo provando que ela não
+    #: divergiu do nome.
+    busca = models.CharField("nome normalizado", max_length=120, blank=True, db_index=True)
     brand = models.CharField("marca", max_length=80, blank=True)
     base_unit = models.CharField(
         "unidade base", max_length=2, choices=BaseUnit.choices, default=BaseUnit.GRAM
@@ -150,6 +160,18 @@ class Food(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.brand})" if self.brand else self.name
+
+    def save(self, *args, **kwargs):
+        """Mantém `busca` colada em `name`.
+
+        Vale para o admin e para todo `Food(...).save()` do código. Os seeds
+        gravam em massa e por isso preenchem o campo à mão — `bulk_create` e
+        `update` não passam por aqui, e é o que o teste de varredura cobra.
+        """
+        from catalog.busca import normalizar
+
+        self.busca = normalizar(self.name)
+        return super().save(*args, **kwargs)
 
     def clean(self):
         """Confere se as calorias batem com os macros (4/4/9 kcal por grama).

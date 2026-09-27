@@ -24,8 +24,10 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from catalog.busca import normalizar
 from catalog.ilustracoes import familia_de
 from catalog.models import (
+    FoodSource,
     DietaryTag,
     Food,
     FoodPortion,
@@ -87,6 +89,11 @@ class Command(BaseCommand):
                 name=row["name"],
                 brand=row.get("brand", ""),
                 defaults={
+                    # `update_or_create` grava por `update()` quando a linha já
+                    # existe, e `update()` não passa pelo `save()` que mantém
+                    # `busca` — por isso ela é escrita aqui, com a mesma função
+                    # que a busca da tela usa.
+                    "busca": normalizar(row["name"]),
                     "base_unit": row.get("base_unit", "g"),
                     "kcal": Decimal(str(row["kcal"])),
                     "protein_g": Decimal(str(row["protein_g"])),
@@ -129,8 +136,14 @@ class Command(BaseCommand):
         # e deixava a velha ativa para sempre, aparecendo nas substituições
         # como se fosse outro alimento. Foi assim que o catálogo de produção
         # passou de 102 para 103 itens sem ninguém ter adicionado nada.
+        # E A TABELA TACO NÃO ENTRA NESSA CONTA (26/09/2026): ela é semeada
+        # por `seed_taco`, de outro arquivo, e "não está no `foods.json`" é
+        # a condição NORMAL dela — sem esta exclusão, o seed do catálogo
+        # curado aposentaria os 583 alimentos da TACO em todo deploy, logo
+        # depois de o outro seed os ativar.
         aposentados = (
             Food.objects.exclude(name__in=no_json)
+            .exclude(source=FoodSource.TACO)
             .filter(is_active=True)
             .update(is_active=False)
         )
