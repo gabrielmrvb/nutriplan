@@ -258,7 +258,9 @@ class OTopoContaODiaTests(TestCase):
         html = resposta.content.decode()
 
         self.assertEqual(resposta.context["topo"]["modo"], "dia")
-        self.assertIn("1 de 5", html)
+        # Até agora, como a Home e o Progresso (decisão de 27/09/2026): às 9h
+        # só o café passou, e a linha é "1/1 até agora", não "1 de 5".
+        self.assertIn("1/%d até agora" % resposta.context["summary"]["ate_agora"], html)
         self.assertIn("faltam", html)
 
     def test_a_proteina_no_rumo_compara_fracoes_e_nao_um_limiar_de_relogio(self):

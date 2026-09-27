@@ -97,7 +97,7 @@
               </span>
             </div>
             <p class="painel__detalhe num">
-              de {{ summary.target_kcal }} kcal · {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+              de {{ summary.target_kcal }} kcal · {{ summary.no_plano }}/{{ summary.ate_agora }} até agora{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
             </p>
             <p class="painel__rodape">
               <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:alimentacao' %}">Ver cardápio</a>

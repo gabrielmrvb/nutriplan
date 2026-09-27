@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-27
 
+- **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".
 - **A última etapa do cadastro respira.** O resumo das suas respostas ganhou espaço antes da primeira pergunta, e "Não quero priorizar agora" deixou de mostrar uma caixa de ícone vazia.
 - **A mesma corrida tem o mesmo número em toda tela.** A lista dizia "5,20 km" e a Home "5,2 km". Agora a distância aparece sempre com até duas casas e sem zero sobrando: 5,2 · 5,23 · 10.
 - **A sequência não pede o que você acabou de fazer.** Com a sequência em zero, a Home convidava a "registrar uma refeição ou um copo d'água" mesmo depois de você registrar. Agora, assim que há registro no dia, ela diz o que ainda falta para o dia contar.

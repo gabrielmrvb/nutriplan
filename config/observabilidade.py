@@ -224,14 +224,28 @@ def _sentry_antes_de_enviar(event, hint):
     """`before_send` do Sentry: a MESMA redação do log comum (`redigir`, que
     já cobre o token de `/tarefas/lembretes/externo/`, o token de três horas
     de `/senha/nova/<uid>/<token>/` e `code=`/`state=`/`token=`/`key=`/
-    `password=` de query string), aplicada à URL e à query string do pedido.
+    `password=` de query string), aplicada à URL e à query string do pedido —
+    e some com os cabeçalhos do pedido inteiros.
 
     Não é uma segunda lista de padrões: `PADROES` já existe para o log, e uma
     cópia estreita dela aqui (só `/externo/`) foi o que deixou o token de
     redefinição de senha e o `code=`/`state=` do OAuth do Google saindo crus
     para o Sentry — achado da revisão de 27/09/2026.
+
+    CABEÇALHOS (achado do mesmo dia, 27/09/2026, evento de teste real
+    NUTRIPLAN-1): `send_default_pii=False` só apaga os nomes que o SDK
+    reconhece (Authorization, Cookie, X-Forwarded-For e primos) — e o
+    Cloudflare na frente do Render manda o IP real de quem usa o app num
+    cabeçalho que o SDK não conhece, `Cf-Connecting-Ip`, que chegou inteiro.
+    IP é dado pessoal pela LGPD, e este app guarda peso e treino: o cabeçalho
+    não serve para depurar (a rota, o método e o `pedido` já vão no evento
+    por outro caminho) e não vale o risco de mais um nome escapar da lista do
+    SDK. Mais simples que ampliar essa lista: não mandar cabeçalho nenhum.
     """
-    pedido = event.get("request") or {}
+    pedido = event.get("request")
+    if pedido is None:
+        return event
+    pedido.pop("headers", None)
     if isinstance(pedido.get("url"), str):
         pedido["url"] = redigir(pedido["url"])
     if isinstance(pedido.get("query_string"), str):
@@ -269,9 +283,16 @@ def opcoes_do_sentry(dsn: str, ambiente: str, versao: str | None) -> dict:
                                      cobre, e este projeto não precisa dele
                                      para saber que algo quebrou.
 
-    `before_send` redige URL e query string (ver `_sentry_antes_de_enviar`);
-    `before_breadcrumb` descarta o de HTTP de saída, que carregaria o
-    endpoint de push por aparelho (ver `_sentry_descarta_breadcrumb_de_http`).
+    `before_send` redige URL e query string e apaga os cabeçalhos do pedido
+    inteiros — `Cf-Connecting-Ip` (o IP real de quem usa o app, que o
+    Cloudflare na frente do Render acrescenta) chegou cru num evento de teste
+    em 27/09/2026 porque `send_default_pii=False` só reconhece nomes como
+    Authorization/Cookie/X-Forwarded-For, não esse (ver
+    `_sentry_antes_de_enviar`). `env` (`SERVER_NAME`/`SERVER_PORT`, os únicos
+    dois campos que a integração Django/WSGI põe ali com PII desligado) fica:
+    não é IP nem identifica ninguém. `before_breadcrumb` descarta o de HTTP de
+    saída, que carregaria o endpoint de push por aparelho (ver
+    `_sentry_descarta_breadcrumb_de_http`).
 
     `environment` é o `NUTRIPLAN_AMBIENTE` de sempre (`config/ambiente.py`),
     ou "producao" quando vazio — a variável não existe em produção, e sem
