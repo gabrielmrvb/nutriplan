@@ -5,7 +5,6 @@ O recomendado é uma sugestão, não uma imposição. "Fazer outro treino" grava
 escolha do dia na letra pedida, um toque, sem confirmação — a não ser que já
 tenha registrado série hoje e a letra seja outra: aí pede confirmação e não
 apaga nada (`ExerciseLog` é por exercício e data)."""
-from datetime import timedelta
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -13,7 +12,7 @@ from django.urls import reverse
 
 from workouts import services
 from workouts.models import EscolhaDeTreino, ExerciseLog
-from workouts.test_sequencia import QUINTA, SEGUNDA, _pessoa, fazer
+from workouts.test_sequencia import QUINTA, _pessoa, fazer
 
 
 class EscolherLetraTests(TestCase):

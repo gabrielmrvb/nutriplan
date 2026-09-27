@@ -26,13 +26,12 @@ from datetime import date, timedelta
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
-from django.utils import timezone
 
 from accounts.models import DuracaoTreino, TrainingDay
 from config import relogio
 from plans.tests import create_complete_user
 from workouts import services
-from workouts.models import EscolhaDeTreino, EventoDeProduto, ExerciseLog, TrainingPlan, VersaoDoTreino
+from workouts.models import EscolhaDeTreino, EventoDeProduto, VersaoDoTreino
 from workouts.test_sequencia import fazer
 from workouts.tests import sem_scripts
 

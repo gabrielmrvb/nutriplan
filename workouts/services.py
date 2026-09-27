@@ -47,12 +47,9 @@ from accounts.models import (
 
 from . import adaptacao
 from .models import (
-    SEGUNDOS_ENTRE_EXERCICIOS,
-    SEGUNDOS_POR_SERIE,
     Equipment,
     Exercise,
     ExerciseLog,
-    Measure,
     MuscleGroup,
     familia_de_opcoes,
     SessionExercise,
@@ -394,7 +391,7 @@ class SequenciaDoTreino:
         return self.feitas[-1][1] if self.feitas else None
 
     def contagem(self, letra) -> int:
-        return sum(1 for _, l in self.feitas if l == letra)
+        return sum(1 for _, lbl in self.feitas if lbl == letra)
 
     def recomendada(self):
         """A letra SEGUINTE à última feita — ou a primeira do ciclo se nada
@@ -431,7 +428,7 @@ def sequencia_do_treino(user, plan, ate=None, sessoes=None) -> SequenciaDoTreino
         .order_by("date")
         .values_list("date", "session__label")
     )
-    return SequenciaDoTreino(letras=letras, feitas=[(d, l) for d, l in feitas])
+    return SequenciaDoTreino(letras=letras, feitas=[(d, lbl) for d, lbl in feitas])
 
 
 def usa_presenca(plan) -> bool:
@@ -525,7 +522,9 @@ def sessao_do_dia(plan, dia, sessoes=None, user=None, seq=None, escolha=_NAO_INF
     return _no_dia(da_letra, molde, dia)
 
 
-def sessoes_da_semana(plan, hoje, sessoes=None, user=None, seq=None, escolha_hoje=_NAO_INFORMADO) -> list:
+def sessoes_da_semana(
+    plan, hoje, sessoes=None, user=None, seq=None, escolha_hoje=_NAO_INFORMADO
+) -> list:
     """A PROJEÇÃO da semana que interessa em `hoje` (24/09/2026): uma sessão
     por dia de treino, na ordem dos dias, com a letra que a SEQUÊNCIA por
     presença projeta. Cada sessão ganha `.projecao`:
@@ -561,9 +560,9 @@ def sessoes_da_semana(plan, hoje, sessoes=None, user=None, seq=None, escolha_hoj
                 escolha_hoje = e.session.label
 
     def _prox(letra):
-        if not letras:
-            return None
-        return letras[(letras.index(letra) + 1) % len(letras)] if letra in letras else letras[0]
+        if not letras or letra not in letras:
+            return letras[0] if letras else None
+        return letras[(letras.index(letra) + 1) % len(letras)]
 
     semana = []
     proxima = None
@@ -3714,7 +3713,9 @@ def variacao_do_dia(plan, dia, sessao, sessoes=None, user=None, seq=None) -> int
     return opcoes[ocorrencia % len(opcoes)]
 
 
-def opcao_do_dia(user, sessao, dia=None, sessoes=None, escolha=_NAO_INFORMADO, seq=None) -> int:
+def opcao_do_dia(
+    user, sessao, dia=None, sessoes=None, escolha=_NAO_INFORMADO, seq=None
+) -> int:
     """A opção que vale HOJE para esta sessão: a gravada pela primeira
     série (o dia fica pinado — a ficha não muda no meio do treino), senão
     a variação por presença. `escolha`/`seq` já carregados evitam a consulta."""
@@ -3782,7 +3783,9 @@ def registrar_escolha_de_letra(user, plan, letra, dia=None, confirmar=False):
     return escolha, False
 
 
-def aviso_de_treino_repetido(user, plan, letra_escolhida, dia=None, seq=None, sessoes=None):
+def aviso_de_treino_repetido(
+    user, plan, letra_escolhida, dia=None, seq=None, sessoes=None
+):
     """Um aviso — NUNCA um bloqueio (24/09/2026) — quando a pessoa escolhe uma
     letra que não é a recomendada e cujo grupo principal foi treinado nas
     últimas 48h. Devolve a frase, ou `None`. A pessoa faz assim mesmo: o app
@@ -3801,9 +3804,9 @@ def aviso_de_treino_repetido(user, plan, letra_escolhida, dia=None, seq=None, se
     if escolhida is None:
         return None
     grupos_escolhidos = set(escolhida.main_groups or [])
-    recentes = [(d, l) for d, l in seq.feitas if 0 <= (dia - d).days <= 1]
-    for d, l in reversed(recentes):
-        linha = next((s for s in sessoes if s.label == l), None)
+    recentes = [(d, lbl) for d, lbl in seq.feitas if 0 <= (dia - d).days <= 1]
+    for d, lbl in reversed(recentes):
+        linha = next((s for s in sessoes if s.label == lbl), None)
         comuns = grupos_escolhidos & set(linha.main_groups or []) if linha else set()
         if comuns:
             quando = "ontem" if (dia - d).days == 1 else "hoje"
@@ -4093,7 +4096,11 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
 
     dia = dia or timezone.localdate()
     escolha = escolha_do_dia(user, dia)
-    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia, user=user)
+    sessao = (
+        escolha.session
+        if escolha is not None
+        else sessao_do_dia(get_active_routine(user), dia, user=user)
+    )
     if sessao is None:
         return None
     # A opção do dia: a pinada, senão a variação do ciclo (ficha única).
@@ -4145,7 +4152,11 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     # A sessão de hoje é a da LETRA de hoje: a escolha gravada já a traz;
     # sem escolha, `sessao_do_dia` a acha (plano + linhas, duas consultas
     # a mais só na primeira série do dia).
-    sessao = escolha.session if escolha is not None else sessao_do_dia(get_active_routine(user), dia, user=user)
+    sessao = (
+        escolha.session
+        if escolha is not None
+        else sessao_do_dia(get_active_routine(user), dia, user=user)
+    )
     if sessao is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
     linhas = _linha_do_exercicio(user, sessao.pk, opcao_do_dia(user, sessao, dia, escolha=escolha), exercise.pk)

@@ -37,7 +37,7 @@ from accounts.models import DuracaoTreino, TrainingDay
 from config import relogio
 from plans.tests import create_complete_user
 from workouts import doutrina, services
-from workouts.models import EscolhaDeTreino, ExerciseLog, TrainingPlan
+from workouts.models import ExerciseLog, TrainingPlan
 from workouts.test_sequencia import fazer
 
 #: Uma segunda-feira: o plano nasce nela.

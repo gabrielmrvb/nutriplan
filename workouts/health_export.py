@@ -16,12 +16,12 @@ séries. Errar para baixo faz a pessoa comer um pouco menos do que poderia;
 errar para cima faz ela não emagrecer e concluir que o app não funciona.
 """
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone as tz
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.utils import timezone
 
-from .models import ExerciseLog, TrainingSession
+from .models import ExerciseLog
 
 #: MET da musculação de esforço leve a moderado (Ainsworth 2011, código 02054).
 MET_MUSCULACAO = Decimal("3.5")

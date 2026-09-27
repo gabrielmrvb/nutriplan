@@ -26,9 +26,8 @@ from django.utils import timezone
 from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay
 
 from . import services
-from decimal import Decimal
 
-from .models import EscolhaDeTreino, ExerciseLog, TrainingPlan, TrainingSession
+from .models import ExerciseLog, TrainingSession
 from .tests import create_user
 
 
@@ -837,7 +836,6 @@ class ACargaAnteriorNaoViraRecomendacaoTests(BaseDoFluxo):
         )
 
     def _semana_passada(self, item, peso):
-        from datetime import timedelta
 
         services.record_load(
             self.user, item.exercise, weight_kg=peso, set_number=1, reps=10,
