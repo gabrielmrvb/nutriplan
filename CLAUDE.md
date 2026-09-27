@@ -3713,8 +3713,13 @@ Actions + UptimeRobot free —, e isso implica três coisas escritas:**
   (27/09/2026, lido nos docs do Render):** hora DORMINDO não conta para a
   cota — mas esgotar as 750 h **suspende todos os serviços free do
   workspace até o mês seguinte**, produção junto, porque produção e
-  staging dividem o mesmo workspace; a confirmação no painel de uso segue
-  pendente (esta máquina não tem login no Render).
+  staging dividem o mesmo workspace; CONFIRMADO no painel (Billing →
+  Monthly Included Usage, 27/09/2026 à tarde): 377,88 h de 750 no mês,
+  com os dois serviços web existindo desde o dia 1 — se hora dormindo
+  contasse, seriam mais de 1.270 h. No mesmo painel: 223 de 500 minutos
+  de build (cada merge constrói o staging e cada promoção constrói a
+  produção), 1,71 de 5 GB de banda, US$ 0,00 no mês e nenhum cartão
+  cadastrado.
 
 - **o staging só acorda pra fila e o E2E, nunca pelo lote adiado
   (27/09/2026).** Três motivos e nenhum outro: o `autoDeploy` de todo
