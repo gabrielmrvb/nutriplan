@@ -17,6 +17,57 @@ As outras quatro continuam valendo para o que decidem: `nutriplan-product`
 
 Pergunta pontual e ajuste de uma linha **não** precisam de protocolo.
 
+## Ponytail e Caveman: ligados neste projeto (26/09/2026)
+
+Dois plugins de Claude Code, escolhidos pelo dono, e a regra deles vale
+para toda sessão que abrir este repositório.
+
+**Ponytail** (`DietrichGebert/ponytail`) é a escada da preguiça: antes de
+escrever código, a sessão desce sete degraus — isto precisa existir? já
+existe equivalente? a biblioteca padrão resolve? há recurso nativo da
+plataforma? há dependência instalada? cabe em uma linha? — e só escreve
+código novo quando os seis primeiros falham, parando no primeiro que
+resolve. Fica em `full`, que é o padrão da instalação. É a mesma doutrina
+que este arquivo já aplica caso a caso ("Antes de criar componente novo,
+procure"; "o melhor código é o que não se escreveu"), agora com um nome e
+uma escada explícita.
+
+**Caveman** (`JuliusBrussee/caveman`) comprime a RESPOSTA — tira enchimento,
+rodeio e formalidade —, e nunca o que este projeto mede: código, número,
+unidade, negação e texto exato de erro passam intactos, e a compressão se
+desliga sozinha em aviso de segurança, em confirmação de ação irreversível
+e onde comprimir criaria ambiguidade técnica.
+
+**Três coisas que NÃO mudam por causa deles**, e estão aqui porque um
+plugin de concisão é exatamente o que as afrouxaria sem querer:
+
+- o **formato do relatório** (o que terminou · o que mudou · testes ·
+  problemas · deploy · próximo passo, mais "Decisões que tomei sozinha" e
+  "O que preciso de você") — ele é curto por conteúdo, não por estilo;
+- a **prosa medida do commit e deste arquivo**: o "porquê" com o número que
+  o provou é o que faz esta base ser lida daqui a um mês. `/caveman-commit`
+  não substitui a mensagem de commit deste repositório;
+- a **evidência**: `[EXECUTADA]`/`[OBSERVADA]`/`[LIDA NO CÓDIGO]`/`[LIDA NA
+  DOCUMENTAÇÃO]`/`[HIPOTÉTICA]` e a régua de "provado em produção" continuam
+  inteiras. Ponytail em `ultra` não autoriza pular teste, sabotagem ou
+  prova — a escada decide o que ESCREVER, nunca o que PROVAR.
+
+**Instalar (uma vez por máquina, na sessão de Claude Code):**
+
+```
+/plugin marketplace add DietrichGebert/ponytail
+/plugin install ponytail@ponytail
+/plugin marketplace add JuliusBrussee/caveman
+/plugin install caveman@caveman
+```
+
+**Ajustar e desligar:** `/ponytail lite|full|ultra` e `/caveman
+lite|full|ultra` valem só na sessão (a seguinte volta ao padrão);
+`/ponytail off` ou "stop ponytail" e `/caveman off` ou "stop caveman"
+desligam na hora; `/plugin remove ponytail` e `/plugin remove caveman`
+desinstalam. Para desligar em TODO o projeto, apague esta seção — é ela
+que os ativa aqui.
+
 ## Autonomia
 
 **DECIDA E REGISTRE (regra permanente, 17/09/2026).** Uma sessão só para e
