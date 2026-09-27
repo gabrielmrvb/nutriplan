@@ -416,11 +416,13 @@
         (avaliação de 16/09/2026, B32). O que a pessoa toca e o que muda com
         o toque ficam juntos, e nada da caixa cobre a fileira.
       {% endcomment %}
-      {# O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta
-         nota aparece. Ele mora AQUI, e não dentro do bloco preso: é status, não
-         controle, e o bloco tem teto de altura — MEDIDO em 24/09/2026, com o
-         selo ligado o conteúdo passava 32px da caixa (`overflow: visible`) e o
-         "Concluir série" saía dela, sem o fundo do bloco por baixo. #}
+      {% comment %}
+        O selo do toque offline (ver `pwa.js`): a série entra na pastilha e esta
+        nota aparece. Ele mora AQUI, e não dentro do bloco preso: é status, não
+        controle, e o bloco tem teto de altura — MEDIDO em 24/09/2026, com o
+        selo ligado o conteúdo passava 32px da caixa (`overflow: visible`) e o
+        "Concluir série" saía dela, sem o fundo do bloco por baixo.
+      {% endcomment %}
       <p class="aguardando-rede" data-aguardando-rede hidden role="status"></p>
 
       <div class="series__historico">
