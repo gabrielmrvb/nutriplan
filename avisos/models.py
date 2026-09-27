@@ -50,6 +50,14 @@ class Preferencia(models.Model):
         pref, _ = cls.objects.get_or_create(user=user)
         return pref
 
+    @classmethod
+    def ler(cls, user):
+        """A preferência SEM gravar: a linha que existe, ou uma em memória
+        com os padrões. É o que a TELA usa — `de` cria a linha, e criar num
+        GET era o R6 do QA de 27/09/2026. A linha que não existe vale
+        LIGADO, a mesma regra dos jobs."""
+        return cls.objects.filter(user=user).first() or cls(user=user)
+
     def __str__(self):
         return f"avisos de {self.user_id}"
 

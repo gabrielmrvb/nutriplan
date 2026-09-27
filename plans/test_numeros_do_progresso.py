@@ -248,14 +248,18 @@ class OPrimeiroDiaNaoTemMediaTests(LeAsTelasMixin, TestCase):
         self.assertIsNone(consolidado["avg_kcal"])
 
     def test_a_tela_nao_inventa_uma_porcentagem_no_primeiro_dia(self):
-        """Sem dia fechado não há nota: o tile diz "—" e convida. Um "0 %"
-        ali seria uma reprovação inventada no primeiro dia de uso, e uma
-        média que muda de hora em hora é o defeito que esta missão fechou."""
+        """Sem dia fechado não há nota: nada de "0 %" nem de porcentagem que
+        muda de hora em hora. O tile mostra a contagem de HOJE, dita como
+        parcial ("hoje, até agora").
+
+        Até 27/09/2026 este teste cobrava "—" e "Marque uma refeição" com
+        uma refeição já marcada — congelava o defeito que o QA exploratório
+        achou (R1; `plans/test_progresso_primeiro_dia.py`)."""
         caixa = self._conferir(_caixa(
             self.client.get(reverse("plans:history")).content.decode()
         ))
-        self.assertEqual(caixa["dieta"]["valor"], "—")
-        self.assertIn("Marque uma refeição", caixa["dieta"]["frase"])
+        self.assertNotIn("%", caixa["dieta"]["valor"])
+        self.assertIn("hoje, até agora", caixa["dieta"]["frase"])
 
 
 class AOfensivaEUmaContaSoNasTresTelasTests(TestCase):
