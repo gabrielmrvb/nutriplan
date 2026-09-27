@@ -149,7 +149,7 @@
               `Corrida.pace_s_km` existir e estar documentado.
             {% endcomment %}
             <dd>
-              {{ corrida.distancia_m|km }} km
+              {{ corrida.distancia_m|distancia }} km
               <span class="corrida-detalhe">
                 {{ corrida.duracao_s|relogio }} em movimento ·
                 {{ corrida|pace }} min/km

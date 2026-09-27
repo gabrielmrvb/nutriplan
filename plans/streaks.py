@@ -91,6 +91,9 @@ class Dia:
     series: int = 0
     refeicoes_feitas: int = 0
     refeicoes_previstas: int = 0
+    #: Qualquer marcação — feita, pulada ou "comi outra coisa". É o que diz
+    #: se a pessoa REGISTROU alguma coisa hoje (QA de 27/09/2026, R2).
+    refeicoes_marcadas: int = 0
     agua_ml: int = 0
     meta_agua_ml: int = 0
 
@@ -168,6 +171,9 @@ class Ofensiva:
     #: "comece hoje" para quem já vinha usando (achado #11 das personas).
     #: `None` quando ontem não conta — primeiro dia de uso.
     falta_ontem: list = None
+    #: Hoje já tem registro (refeição marcada, água ou série)? Com registro,
+    #: o convite de zero sai na mesma resposta (QA de 27/09/2026, R2).
+    hoje_registrou: bool = False
 
     @property
     def em_risco(self) -> bool:
@@ -205,6 +211,17 @@ class Ofensiva:
             # exatamente "ontem não era da conta" — primeiro dia de uso —, e
             # ali "recomeça" seria falso: não há o que recomeçar. Quem já
             # tinha conta ontem recomeça; quem chegou hoje começa.
+            #
+            # E O CONVITE SAI QUANDO A AÇÃO ACONTECE (QA de 27/09/2026, R2):
+            # a Home dizia "registre uma refeição ou um copo d'água" a quem
+            # tinha acabado de registrar os dois. Com registro hoje e o dia
+            # ainda aberto, a frase diz o que FECHA o dia — a mesma lista da
+            # sequência em risco.
+            if self.hoje_registrou and self.falta_hoje:
+                falta = ", ".join(self.falta_hoje)
+                if self.falta_ontem is None:
+                    return f"Falta {falta} para o seu primeiro dia contar."
+                return f"Falta {falta} para a sequência recomeçar hoje."
             verbo = "Comece hoje" if self.falta_ontem is None else "Recomeça hoje"
             return f"{verbo}: registre uma refeição ou um copo d'água."
         if self.em_risco:
@@ -320,9 +337,11 @@ def _ler(user, inicio, meta_agua_ml, ja_lido=None):
 
     por_dia = {}
     for r in registros:
-        registro = por_dia.setdefault(r["date"], {"feitas": 0, "previstas": 0})
+        registro = por_dia.setdefault(r["date"], {"feitas": 0, "previstas": 0, "marcadas": 0})
         if r["status"] == MealStatus.DONE:
             registro["feitas"] += 1
+        if r["status"] != MealStatus.PENDING:
+            registro["marcadas"] += 1
         if not registro["previstas"]:
             registro["previstas"] = r["previstas"] or 0
 
@@ -377,6 +396,7 @@ def _avaliar(user, data, previstos, treinou, dieta_ok, agua_ok, meta_agua_ml, me
         series=(medidas.get("series") or {}).get(data, 0),
         refeicoes_feitas=refeicoes.get("feitas", 0),
         refeicoes_previstas=refeicoes.get("previstas", 0),
+        refeicoes_marcadas=refeicoes.get("marcadas", 0),
         agua_ml=(medidas.get("agua") or {}).get(data) or 0,
         meta_agua_ml=meta_agua_ml or 0,
         # Descansar é o plano nos dias sem treino previsto.
@@ -494,6 +514,9 @@ def calcular(user, hoje=None, meta_agua_ml=None, *, ja_lido=None) -> Ofensiva:
         falta_hoje=dia_de_hoje.pendencias,
         ultimo_dia=ultimo,
         falta_ontem=falta_ontem,
+        hoje_registrou=bool(
+            dia_de_hoje.refeicoes_marcadas or dia_de_hoje.agua_ml or dia_de_hoje.series
+        ),
     )
 
 

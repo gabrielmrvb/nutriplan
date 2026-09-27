@@ -176,6 +176,9 @@ TEMPLATES = [
                 "config.csp.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
+            # Distância num formato só, em todo template sem {% load %}
+            # (config/numeros.py; QA de 27/09/2026).
+            "builtins": ["config.numeros"],
         },
     },
 ]
