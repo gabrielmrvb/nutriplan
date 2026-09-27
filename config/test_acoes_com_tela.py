@@ -74,6 +74,9 @@ class TodaAcaoDevolveUmaTelaTests(TestCase):
             "Tarefa chamada pelo GitHub Actions com token, servidor a servidor; "
             "nunca é destino de navegação, e o GET responde 405 de propósito."
         ),
+        "/tarefas/erro-controlado/": (
+            "servidor falando com servidor: prova do Sentry, não é tela."
+        ),
         "/treino/corridas/salvar/": (
             "API de JSON chamada por `fetch`, nunca destino de navegação: o "
             "cliente trata a resposta, e não o navegador."
