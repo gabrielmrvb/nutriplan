@@ -20,7 +20,6 @@ real. O que cada um prova é o CONTRATO, e não um número mágico:
 Onde um perfil reprovar, o achado é de §16/§18 e vira correção no MOTOR só
 com medição escrita — nunca ajuste da expectativa.
 """
-from collections import Counter
 from datetime import date, time
 from decimal import Decimal
 

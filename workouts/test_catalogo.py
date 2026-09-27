@@ -9,14 +9,13 @@ isso: nenhum rótulo promete um piso que o gerador não garante, "Completo"
 usa por construção o teto que já entregava, "Sem limite" não é oferecido em
 formulário nenhum, e a Home diz o teto de todo mundo.
 """
-import re
 from pathlib import Path
 
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.urls import reverse
 
-from accounts.models import DuracaoTreino, Profile, TETO_POR_DURACAO, TrainingDay
+from accounts.models import DuracaoTreino, TETO_POR_DURACAO, TrainingDay
 from plans.tests import create_complete_user
 from workouts import opcoes, services
 
@@ -521,7 +520,6 @@ class VolumeSemanalPorPropriedadeTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def _plano(self, nivel, preferencia, dias):
-        from django.utils import timezone
 
         user = create_complete_user(
             email="prop-%s-%s-%d@exemplo.com" % (nivel, preferencia, dias),

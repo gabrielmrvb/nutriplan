@@ -157,9 +157,9 @@ principal.
 |---|---|
 | `docs/quality-baseline.md` | criado — a medição (item 5), agora com a seção do ruff |
 | `.claude/prompts/revisao-multi-agente.md` | criado — os três revisores (item 6) |
-| `ruff.toml` | criado — `E,F,W`, `line-length = 100`, migrações fora |
+| `ruff.toml` | criado — `E,F,W`, `line-length = 100`, migrações fora; `E501` ignorado desde 27/09/2026 |
 | `requirements-dev.txt` | criado — `ruff==0.16.9`, fora do que o Render instala |
-| `ruff-baseline.txt` | criado — o piso: **1656** |
+| `ruff-baseline.txt` | criado — o piso: **114** (era 1656 antes do burndown de 27/09/2026) |
 | `scripts/hooks/pre-commit` | modificado — catraca de contagem do ruff; avisa e segue se o ruff não estiver instalado |
 | `.github/workflows/suite-rapida.yml` | modificado — job `ruff (relatório)`, que **não** é o check obrigatório |
 | `CLAUDE.md` | modificado — tabela de comandos canônicos em "## Rodar" (o único buraco do diff D5) |
@@ -169,7 +169,8 @@ principal.
 ### Provas
 
 - **catraca do ruff morde**: linha longa acrescentada a `config/relogio.py` levou
-  a contagem de 1.656 para 1.658; restaurado, voltou a 1.656.
+  a contagem de 1.656 para 1.658; restaurado, voltou a 1.656. (O piso hoje é 111;
+  a prova foi feita antes do burndown.)
 - **agent-browser 0.38.1**: `open http://127.0.0.1:8000/` abriu a landing
   ("NutriPlan — alimentação e treino num app só"), `snapshot -i` devolveu a
   árvore com refs, captura de 93 KB a 390 px. `localhost` recusou e `127.0.0.1`

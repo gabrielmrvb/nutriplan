@@ -17,7 +17,6 @@ Três frases foram apanhadas pela pesquisa de 13/09/2026:
   a pessoa vê uma sessão de treze minutos e precisa saber por quê.
 """
 from datetime import date
-from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase

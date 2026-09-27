@@ -12,7 +12,7 @@ a rápida só aparece onde `hoje.rapida_muda` (`preparar_dia`) — removidos ou
 séries diferentes. O caso "sem corte" é testado com um perfil cuja duração
 já é a rápida (não sobra o que cortar).
 """
-from datetime import date, timedelta
+from datetime import date
 from unittest import mock
 
 from django.core.management import call_command

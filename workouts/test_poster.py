@@ -15,7 +15,6 @@ O HTML servido tem ZERO iframe; a escada de mídia é do servidor e mora nos
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
 
 from workouts import services
 from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts

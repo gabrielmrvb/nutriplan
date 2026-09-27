@@ -18,7 +18,7 @@ dieta. Metas que a pessoa não tem não podem quebrar a sequência dela.
 from dataclasses import dataclass, replace
 from datetime import timedelta
 
-from django.db.models import Count, Sum
+from django.db.models import Count
 from django.utils import timezone
 
 from workouts.models import Corrida, ExerciseLog, TrainingPlan

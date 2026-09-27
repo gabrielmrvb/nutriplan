@@ -23,7 +23,7 @@ depois do 403, depois do login, depois de fechar o app no meio.
 from pathlib import Path
 
 from django.conf import settings
-from django.test import Client, SimpleTestCase, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from accounts.models import User

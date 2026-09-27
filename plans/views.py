@@ -9,8 +9,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.urls import reverse
-from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
 from django.db import transaction
 from django.core.cache import cache
 from django.db.models import Exists, F, OuterRef, Value, prefetch_related_objects
@@ -28,7 +28,6 @@ from accounts.models import (
     Goal,
     Pilar,
     SyncedOperation,
-    WeightEntry,
 )
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from achievements import services as conquistas

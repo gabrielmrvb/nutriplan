@@ -18,13 +18,10 @@ desfazer diz qual série de qual exercício saiu; MOB-12: desfazer série de
 OUTRO exercício pede um segundo toque.
 """
 
-from decimal import Decimal
 
 from django.contrib.messages import get_messages
-from django.test import TestCase
 from django.urls import reverse
 
-from . import services
 from .models import ExerciseLog
 from .test_fluxo_do_treino import BaseDoFluxo, escolher_a_opcao_1, pessoa, tornar_hoje
 

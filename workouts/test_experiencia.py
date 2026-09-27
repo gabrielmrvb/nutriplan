@@ -23,7 +23,6 @@ inteiro — o oposto do que as travas de `aparar_volume_semanal` protegem. O
 teste `test_o_catalogo_ainda_nao_sustenta_filtro_por_equipamento` congela essa
 medição: no dia em que o catálogo crescer, ele avisa.
 """
-from collections import defaultdict
 
 from django.core.management import call_command
 from django.test import TestCase

@@ -15,7 +15,6 @@ comandos. O que se prende:
   capturas sempre (`if: always()`) e abre issue quando falha.
 """
 import io
-import re
 from contextlib import redirect_stdout
 from datetime import date
 from pathlib import Path

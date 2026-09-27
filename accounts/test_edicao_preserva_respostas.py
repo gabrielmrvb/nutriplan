@@ -9,7 +9,7 @@ prioridade promovida ou uma pesagem de hoje que não aconteceu.
 
 A régua é uma só: reabrir + salvar = nada muda.
 """
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase

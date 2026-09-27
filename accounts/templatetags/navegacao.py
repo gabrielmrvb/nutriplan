@@ -161,7 +161,6 @@ def mapa_de_areas(context):
     tela só, `base.html`, e um processor cobraria a montagem de toda resposta
     do projeto, inclusive das que não têm barra nenhuma.
     """
-    from django.urls import reverse
 
     from accounts.templatetags.escolhas import DETALHES
 

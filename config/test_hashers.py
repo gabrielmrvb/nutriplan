@@ -8,7 +8,7 @@ PBKDF2 a 600 000 fica de reserva para o ambiente onde o Argon2 não importa
 e para conferir as senhas antigas — que o Django regrava no login.
 """
 from django.conf import settings
-from django.contrib.auth.hashers import check_password, get_hasher, identify_hasher, make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.test import SimpleTestCase
 
 from config.hashers import Argon2Moderado, PBKDF2SHA256Rapido, argon2_disponivel

@@ -8,7 +8,6 @@ oferecidas mantêm o prato parecido com o que ele era.
 A conferência contra TACO/USDA é por amostragem e feita à mão; o que está
 travado aqui é a consistência, que é o que pega dado digitado errado.
 """
-import re
 import unicodedata
 from decimal import Decimal
 

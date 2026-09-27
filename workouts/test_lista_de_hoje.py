@@ -14,7 +14,6 @@ Estes testes guardam a separação. Sem eles, a próxima pessoa que quiser
 "mostrar mais informação na lista" traz a execução de volta e a tela volta a
 ter quatro mil pixels.
 """
-import re
 from decimal import Decimal
 
 from django.core.management import call_command
