@@ -3709,16 +3709,39 @@ Actions + UptimeRobot free —, e isso implica três coisas escritas:**
   monitores; GitHub pode desligar o `schedule` de repositório sem atividade
   por 60 dias (ele avisa por e-mail) e atrasa ou pula o cron sob carga; o
   Neon pode reduzir a cota. Nada disso quebra o app — só os lembretes e o
-  cold start, e cada um tem o seu dono para reativar.
+  cold start, e cada um tem o seu dono para reativar. **As 750 h
+  (27/09/2026, lido nos docs do Render):** hora DORMINDO não conta para a
+  cota — mas esgotar as 750 h **suspende todos os serviços free do
+  workspace até o mês seguinte**, produção junto, porque produção e
+  staging dividem o mesmo workspace; a confirmação no painel de uso segue
+  pendente (esta máquina não tem login no Render).
 
-**O que mudaria se um dia virar pago:** instância `starter` no Render
-(~US$ 7/mês) elimina o sono, e aí o UptimeRobot vira só alerta de queda; o
-cron do Render (≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo
-no histórico do `render.yaml` até 16/09) substituiria o `schedule` do Actions
-com relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
-deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
-`push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
-novo além de apagar o que existe para contornar o gratuito.
+- **o staging só acorda pra fila e o E2E, nunca pelo lote adiado
+  (27/09/2026).** Três motivos e nenhum outro: o `autoDeploy` de todo
+  merge, a prova de `promover_lote` (smoke + E2E do lote) e o
+  `e2e-noturno.yml` (07:30 UTC); `carga.yml` é manual, nunca cron. A
+  medição de hoje achou um desperdício: o cron de 30 min chamava
+  `esperar_commit(STAGING, …)` ANTES de conferir a janela de uma hora —
+  um lote ADIADO acordava o staging à toa mesmo sem promover nada.
+  Corrigido em `scripts/promover.py:promover_lote` — a janela é conferida
+  primeiro, e o staging dorme enquanto ela está fechada
+  (`config/test_lote.py`).
+
+**Regra do dono para virar pago (27/09/2026):** no primeiro usuário
+pagante, produção sobe para Render Starter (~US$ 7/mês, 0,5 CPU, 512 MB,
+sem sono) — o staging continua free, porque só produção precisa de sono
+zero. Nesse ponto o UptimeRobot vira só alerta de queda; o cron do Render
+(≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo no histórico
+do `render.yaml` até 16/09) substituiria o `schedule` do Actions com
+relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
+deixaria de atrasar. Do lado do banco: o Neon free mede hoje (27/09) 100
+CU-h/projeto de cota, *scale-to-zero* de 5 min que não dá para desligar,
+6 h de janela de restauração e 0,5 GB de armazenamento — o banco de
+produção usa 18 MB dessa cota. O Neon sobe para Launch (sem mínimo: US$ 0,106 por CU-h e US$ 0,35 por GB-mês — ~US$ 19/mês se 0,25 CU ficasse ligado o mês inteiro)
+quando passar de 80 CU-h no mês ou quando precisar de mais de 6 h de
+restauração; até lá, o teto de CU-h e a pausa de `push/tarefas.py`
+continuam valendo. Nenhuma dessas trocas exige código novo além de apagar
+o que existe para contornar o gratuito.
 
 ## Runbook de incidente
 
