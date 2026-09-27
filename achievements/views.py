@@ -43,9 +43,10 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
         # e o Progresso chamava `resumo`, que desbloqueava a regra a 100 %.
         # Duas leituras dos mesmos dados podiam devolver números diferentes,
         # e uma requisição que a pessoa não pediu (um prefetch, um "abrir em
-        # nova aba") mudava o banco. Nenhum GET CRIA conquista — o que
-        # sobra num GET é o `UPDATE seen_at` do anúncio, em
-        # `context_processors.conquistas_pendentes` (decisão de 20/09/2026).
+        # nova aba") mudava o banco. Nenhum GET CRIA conquista, e desde
+        # 27/09/2026 nenhum GET marca o anúncio como visto: o "visto" é o
+        # POST de `marcar_vistas`, que `conquista.js` manda com a página
+        # visível (`config/test_get_nao_grava.py`).
         #
         # O que a avaliação daqui resolvia — RETROATIVIDADE, quem já tinha
         # histórico quando as conquistas nasceram — continua resolvido, por

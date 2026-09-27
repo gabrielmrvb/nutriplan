@@ -446,9 +446,9 @@ formulário (293 de 293); e a 1280 a grade tem os mesmos quatro filhos que
 - **A migração `catalog/0009`**: idempotente, reversível, um lote em produção,
   e as quatro pontas escrevem o mesmo valor pela mesma função.
 
-### O que preciso de você
+### As quatro decisões que pedi
 
-Quatro decisões — não são mecânicas, e parei nelas:
+Não eram mecânicas, e parei nelas:
 
 1. **O GET que anuncia a conquista marca como vista** (`UPDATE seen_at` em
    `context_processors.conquistas_pendentes`, decisão de 20/09/2026). Um
@@ -466,3 +466,148 @@ Quatro decisões — não são mecânicas, e parei nelas:
 
 (Fora do escopo e só registrado: na captura da execução, a dica do exercício
 quebra letra a letra numa coluna estreita — tela da execução, Missão C.)
+
+## 9. As quatro decisões, implementadas (27/09/2026)
+
+O dono respondeu as quatro no mesmo dia: (a) o "visto" sai do GET e vira
+POST; (b) guarda barata antes de `sincronizar`, com teto medido; (c) Enter com
+a lista aberta escolhe, Enter de novo envia, Esc fecha sem enviar; (d) a busca
+continua GET com `?q=`, com `private, no-store` e o `q` redigido no Sentry.
+Tudo no mesmo PR, cada régua com a sabotagem ao lado.
+
+### (a) O anúncio de conquista não é mais consumido por um GET
+
+`achievements.context_processors.conquistas_pendentes` só LÊ: mostra o que a
+sessão lista e ainda está sem `seen_at` (a sessão velha de outra aba não
+reanuncia), e não escreve nem no banco nem na sessão. O "visto" é o POST de
+`achievements:marcar_vistas` — o mesmo do "Continuar" — que
+`static/js/conquista.js` manda com `keepalive`, **só com a página visível e
+fora de pré-renderização** (`visibilityState`, `document.prerendering`, e os
+eventos `visibilitychange`/`prerenderingchange` que o reavaliam). Sem
+JavaScript o aviso volta nas telas seguintes até o "Continuar".
+
+- Régua: `config/test_get_nao_grava.py` ganhou a varredura COM um anúncio
+  pendente na sessão (a antiga abria as telas sem nada a anunciar, e por isso
+  não via a escrita), a sobrevivência do anúncio a um GET, o controle positivo
+  (o POST faz o `UPDATE`, limpa a sessão, a tela seguinte não anuncia) e a
+  régua de texto do `conquista.js`. `achievements/tests.py`,
+  `test_na_hora.py` e `test_o_get_nao_grava.py` passaram a mandar o POST do
+  "visto" entre uma tela e outra, como o navegador faz.
+- **Navegador** `[OBSERVADA]` (Ana, local, 390 escuro): o POST da primeira
+  série por `fetch` — cujo redirect vira um GET que renderiza o anúncio e
+  NINGUÉM vê (`anuncio_no_html: True`) — deixou `primeiro-treino` com
+  `seen_at` nulo; a tela visível seguinte desenhou o aviso e o gravou como
+  visto; a próxima tela já não o traz. `decisao-a-anuncio-visivel-390.png`.
+- `[HIPOTÉTICA]`: a aba realmente escondida e a pré-renderização não foram
+  emuladas no navegador (o headless responde `visible`); o que as cobre é a
+  régua de texto e o contrato da plataforma.
+
+### (b) `sincronizar` só roda quando o toque pode fechar o dia
+
+Um toque de água ou uma refeição só destrava conquista pela OFENSIVA, e só se
+o pilar tocado CRUZOU o limiar NESTE pedido. `plans/streaks.py` ganhou
+`agua_fechou_o_pilar(antes, depois, meta)` (cruzou 90 % da meta) e
+`dieta_fechou_o_pilar(feitas_depois, previstas)` (cruzou 80 % das previstas);
+a view da refeição só conta quando a marcação é NOVA (remarcar a mesma não
+move a contagem), e pular e "comi outra coisa" não avaliam.
+
+`[EXECUTADA]` Consultas por POST, toques equivalentes (não o primeiro do dia),
+medidas no banco de desenvolvimento e de novo na fixture da suíte (os mesmos
+números):
+
+| toque | antes | depois |
+|---|---|---|
+| água que não cruza o alvo | 23 | **13** |
+| água que CRUZA o alvo | 23 | 25 (+2: a releitura e o plano) |
+| refeição que não cruza 80 % | 25 | **16** |
+| refeição que CRUZA 80 % | 25 | 28 (+3: estado de antes, feitas, previstas) |
+
+O caso comum — o segundo copo, a primeira refeição — ficou ~40 % mais barato;
+o raro, que fecha o dia uma vez, paga 2–3 consultas a mais. Régua:
+`plans/test_stress.py`, `OrcamentoDosRegistrosDeAguaERefeicaoTests` — os
+quatro tetos e um espião em `sincronizar` provando que a avaliação roda
+EXATAMENTE quando cruza (segundo copo 0, copo que cruza 1, copo depois do alvo
+0, primeira refeição 0, a que cruza 1, remarcar 0, pular/outra coisa 0). A
+fixture é leve e roda no gate rápido.
+
+### (c) O teclado do "comi outra coisa"
+
+A primeira sugestão já nasce destacada; com a lista aberta o Enter ESCOLHE
+(`preventDefault`), fecha a lista e leva o foco às gramas; o Enter seguinte é
+o do formulário. Esc fecha sem enviar. Fechada a lista, o `keydown` não
+interfere.
+
+- Régua: `plans/test_comi_outra_coisa.py`,
+  `test_o_teclado_do_combobox_escolhe_antes_de_enviar` (sobre o texto do
+  `pwa.js` sem comentários — a suíte não roda JavaScript).
+- **Navegador** `[OBSERVADA]` (Lucas, local, 390 escuro, teclas de verdade):
+  "arroz" → 8 sugestões, a primeira com `aria-selected="true"`; Esc → lista
+  fechada, mesma página, campo com "arroz"; "feijao" + Enter → campo "Feijão
+  carioca cozido" (a destacada), lista fechada, foco nas gramas, mesma página;
+  "120" + Enter → enviou, `MealLog` de Lucas 0 → 1 (`off_plan`).
+  `decisao-c-lista-aberta-390.png`, `decisao-c-registrado-390.png`.
+- `OBSERVAÇÃO`: na primeira passada o Enter nas gramas "não enviou" — era a
+  validação nativa segurando o envio porque "o que você comeu" (`notes`) é
+  obrigatório e estava vazio; o foco foi para ele. Com o campo preenchido,
+  como no uso real, enviou. Não é defeito.
+
+### (d) O termo da busca não fica no aparelho nem no Sentry
+
+A rota continua `GET /alimentos/buscar/?q=`; a resposta é `Cache-Control:
+private, no-store` (era `private, max-age=300`), e `q` entrou no padrão de
+redação de `config/observabilidade.py` ao lado de `code`/`state`/`token` — o
+`[?&]` antes da chave impede `freq=`/`faq=` de casarem. O `redigir` serve o
+log do Django e o `before_send` do Sentry.
+
+- Régua: `config/test_sentry.py`,
+  `OTermoDaBuscaNaoSaiNoEventoSerializadoTests` — uma exceção DE VERDADE na
+  view da busca, pelo `WSGIHandler` (o `Client` do Django não põe a URL no
+  evento), com o transporte capturando o evento e o teste lendo o JSON
+  serializado: sem o `before_send` o termo está lá (controle positivo), com
+  ele não está e `q=[REDIGIDO]` está. E
+  `test_a_resposta_nao_vira_cache_nem_publico_nem_no_aparelho`.
+- `LIMITAÇÃO`, aceita na decisão: o roteador do Render registra o caminho com
+  a query no log de acesso DELE, como já acontece com o token do disparo
+  externo. O log do próprio app (`nutriplan.acesso`) grava a ROTA, não o
+  caminho.
+
+### Sabotagem das quatro réguas: 14 de 14 vermelhas
+
+| # | sabotagem | vermelho em |
+|---|---|---|
+| 1 | o processador volta a gravar `seen_at` no GET | varredura com anúncio pendente (2 falhas) |
+| 2 | tirar o filtro `seen_at__isnull` | a sessão velha reanuncia |
+| 3 | tirar o gate de visibilidade do `conquista.js` | régua do JS |
+| 4 | tirar a chamada `marcarVista()` do carregamento | régua do JS |
+| 5 | água avalia sempre | espião (2 falhas) |
+| 6 | refeição avalia sempre | espião |
+| 7 | `agua_fechou_o_pilar` sempre falso | o copo que cruza |
+| 8 | `dieta_fechou_o_pilar` sempre falso | a refeição que cruza |
+| 9 | remarcar conta de novo | remarcar não avalia |
+| 10 | a primeira sugestão não nasce destacada | régua do teclado |
+| 11 | Enter volta a escolher só com item marcado | régua do teclado |
+| 12 | Esc envia o formulário | régua do teclado |
+| 13 | tirar `q` do padrão de redação | o evento serializado do Sentry |
+| 14 | `Cache-Control` volta a `max-age=300` | a régua do cache |
+
+### Os testes afetados: 2.054, e as três que caíram
+
+`achievements`, `config`, `plans`, `catalog` e os dois módulos de `accounts`
+da missão: **2.054 testes, 3 falhas**, as três de contrato velho, nenhuma de
+regressão. Duas em `achievements/test_o_get_nao_grava.py` esperavam
+`sincronizar` em QUALQUER toque de água ou refeição — o contrato que a decisão
+(b) mudou; passaram a fazer o toque que CRUZA o limiar (e a sabotagem das duas
+guardas as deixa vermelhas). A terceira, `plans/test_opcoes_tocaveis.py`,
+veio de `main` no merge e procurava o `<datalist>` que o item 3 desta missão
+tirou; agora procura o combobox. 35 de 35 verdes depois.
+
+### As contas de QA desta rodada
+
+Ana, Rafael e Lucas recriados no banco LOCAL (`nutriplan_missaob`,
+`@nutriplan.invalid`) e apagados PELA TELA (`/conta/excluir/` com a senha):
+as três saíram do banco e o login seguinte foi recusado com "E-mail ou senha"
+`[OBSERVADA]`.
+
+### O que preciso de você
+
+nada.

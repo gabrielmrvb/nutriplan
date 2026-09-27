@@ -2430,6 +2430,11 @@
     lista.hidden = false;
     campo.setAttribute("aria-expanded", "true");
     aberto = lista;
+    /* A PRIMEIRA JÁ VEM DESTACADA (decisão do dono, 27/09/2026): com a lista
+       aberta sempre há uma sugestão da vez, e o Enter a escolhe — como o
+       `<datalist>` nativo fazia. Sem isso o Enter com oito sugestões na tela
+       ENVIAVA o formulário e registrava a refeição sem a caloria do item. */
+    marcar(lista, lista.querySelector(".busca__item"));
   }
 
   function buscar(b, termo) {
@@ -2484,14 +2489,16 @@
       if (proximo >= itens.length) proximo = 0;
       marcar(lista, itens[proximo]);
     } else if (e.key === "Enter") {
-      /* Enter com item marcado ESCOLHE e não envia o formulário — enviar ali
-         registraria a refeição no meio do preenchimento. Sem item marcado, o
-         Enter é o do formulário, como em qualquer campo. */
-      if (atual) {
-        e.preventDefault();
-        escolher(e.target, atual.querySelector(".busca__nome").textContent);
-      }
+      /* COM A LISTA ABERTA, O ENTER ESCOLHE — nunca envia (decisão do dono,
+         27/09/2026). A sugestão da vez sempre existe (a primeira vem
+         destacada), então este ramo sempre escolhe; escolher FECHA a lista,
+         e o Enter seguinte cai fora daqui (lista fechada) e é o do formulário:
+         Enter para escolher, Enter de novo para enviar. */
+      e.preventDefault();
+      escolher(e.target, (atual || itens[0]).querySelector(".busca__nome").textContent);
     } else if (e.key === "Escape") {
+      /* Esc FECHA a lista e não envia nada — o `preventDefault` segura o Esc
+         dentro do campo (numa sobreposição ele fecharia outra coisa). */
       e.preventDefault();
       fechar();
     }

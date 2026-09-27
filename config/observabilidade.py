@@ -74,8 +74,16 @@ PADROES = (
     # /tarefas/lembretes/externo/<token>/ — o disparo pontual leva o token na
     # URL (o UptimeRobot free não manda cabeçalho); redige do log do Django.
     (re.compile(r"(/tarefas/lembretes/externo/)[^/\s]+"), r"\1[REDIGIDO]"),
-    # ?code=... &state=... &token=...
-    (re.compile(r"([?&](?:code|state|token|key|password)=)[^&\s]+", re.I), r"\1[REDIGIDO]"),
+    # ?code=... &state=... &token=... e ?q=...
+    #
+    # `q` ENTROU em 27/09/2026 (decisão do dono, revisão do PR #162): é o termo
+    # que a pessoa digita em "comi outra coisa" (`/alimentos/buscar/?q=`), e o
+    # que alguém come é dado de saúde — "cerveja" num evento do Sentry ou numa
+    # linha de log é o rastro que a rota não pode deixar. A busca continua GET
+    # (é leitura, e o `?q=` é o que deixa a URL ser a pergunta); o que muda é
+    # que o termo não sai daqui. O `[?&]` antes da chave é o que impede `freq=`
+    # ou `faq=` de casarem.
+    (re.compile(r"([?&](?:code|state|token|key|password|q)=)[^&\s]+", re.I), r"\1[REDIGIDO]"),
     # chaves de SMTP e URLs de banco, caso alguma exceção as carregue
     (re.compile(r"xsmtpsib-[A-Za-z0-9]+"), "[REDIGIDO]"),
     (re.compile(r"postgres(?:ql)?://[^\s]+"), "postgresql://[REDIGIDO]"),

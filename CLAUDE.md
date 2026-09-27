@@ -1996,12 +1996,20 @@ dados ("mesmos dados, números diferentes" pela porta de trás, item 2 da lista
 que a missão A deixou), e uma requisição que ninguém pediu — um prefetch, um
 "abrir em nova aba" — mudava o banco.
 
-O QUE CONTINUA ESCREVENDO NUM GET, e é decisão anterior (revisão do PR #162,
-27/09/2026): `achievements.context_processors.conquistas_pendentes` marca como
-VISTA (`UPDATE seen_at`) a conquista que ele anuncia — decisão de 20/09/2026,
-com a razão escrita lá (o aviso eterno cobria o CONCLUIR SÉRIE). Nenhum GET
-CRIA conquista; o GET que ANUNCIA fecha o anúncio. Um prefetch com anúncio
-pendente na sessão ainda o consome — ver "O que preciso de você" do relatório.
+E O ANÚNCIO TAMBÉM SAIU DO GET (decisão do dono, 27/09/2026, revisão do PR
+#162). `achievements.context_processors.conquistas_pendentes` marcava como
+VISTA (`UPDATE seen_at`) a conquista que anunciava, e tirava o id da sessão:
+um prefetch, uma pré-renderização ou um "abrir em nova aba" com anúncio
+pendente o CONSUMIA sem ninguém ver. Hoje ele só LÊ (filtra `seen_at` nulo,
+para a sessão velha de outra aba não reanunciar), e o "visto" é o POST de
+`achievements:marcar_vistas` que `static/js/conquista.js` manda com
+`keepalive` — **só com a página visível e fora de pré-renderização**
+(`visibilityState`, `document.prerendering`, e os dois eventos que o
+reavaliam). A razão de 20/09 continua servida: o aviso some depois de ser
+visto uma vez, e não fica eterno cobrindo o CONCLUIR SÉRIE. Sem JavaScript o
+anúncio volta nas telas seguintes até o "Continuar", que sempre foi POST. A
+régua é `config/test_get_nao_grava.py` com um anúncio PENDENTE na sessão — a
+varredura antiga abria as telas sem nada a anunciar, e por isso não via.
 
 A saída não é um botão "resgatar", que ninguém tocaria: é **toda conquista
 nascer no POST QUE CRIA O FATO**, que é o que a doutrina de

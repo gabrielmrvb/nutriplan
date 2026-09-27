@@ -528,7 +528,12 @@ class AvisoTests(BaseDeConquistas):
         página — e na execução ele cobre o campo Reps e o CONCLUIR SÉRIE
         (toast em y=576, botão em 645–699 a 844 px). Um aviso ancorado que
         nunca expira vira obstáculo. Regra: anunciado onde nasce, e ali mesmo
-        marcado como visto; a tela seguinte já não o traz."""
+        marcado como visto; a tela seguinte já não o traz.
+
+        POR UM POST DESDE 27/09/2026 (decisão do dono, revisão do PR #162): o
+        GET não marca mais — um prefetch consumia o anúncio. Quem marca é o
+        `fetch` de `conquista.js` quando a página está visível; aqui ele é o
+        POST explícito entre as duas telas."""
         user = self.pessoa(weekdays=(0, 2, 4))
         self.client.force_login(user)
         exercicio = Exercise.objects.filter(is_active=True).first()
@@ -538,9 +543,17 @@ class AvisoTests(BaseDeConquistas):
         )
 
         primeira = self.client.get(reverse("workouts:routine")).content.decode()
-        segunda = self.client.get(reverse("plans:today")).content.decode()
-
         self.assertIn('class="conquista"', primeira)
+        # O "visto" que `conquista.js` manda com a página visível.
+        ids = list(
+            UserAchievement.objects.filter(user=user, seen_at__isnull=True)
+            .values_list("pk", flat=True)
+        )
+        self.client.post(
+            reverse("achievements:marcar_vistas"), {"id": ids},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        segunda = self.client.get(reverse("plans:today")).content.decode()
         self.assertNotIn('class="conquista"', segunda)
         self.assertFalse(
             UserAchievement.objects.filter(user=user, seen_at__isnull=True).exists(),

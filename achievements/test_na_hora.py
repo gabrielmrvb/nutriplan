@@ -151,9 +151,22 @@ class APaginaDeConquistasAvisaTests(_ComTreinoDeHoje):
 
         html = self.client.get(reverse("achievements:list")).content.decode()
         self.assertIn("Conquista desbloqueada", html)
-        # Anunciar é dar por visto (20/09/2026): a chave da sessão sai na
-        # própria renderização e a conquista fica marcada — o aviso não segue
-        # a pessoa página a página.
+        # A RENDERIZAÇÃO SÓ LÊ (decisão do dono, 27/09/2026): a chave continua
+        # na sessão e a conquista continua não vista até o POST do "visto" —
+        # o `fetch` de `conquista.js` com a página visível. Antes a própria
+        # renderização marcava, e um prefetch consumia o anúncio.
+        self.assertIn(CHAVE, self.client.session)
+        self.assertTrue(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()
+        )
+        ids = list(
+            UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True)
+            .values_list("pk", flat=True)
+        )
+        self.client.post(
+            reverse("achievements:marcar_vistas"), {"id": ids},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
         self.assertNotIn(CHAVE, self.client.session)
         self.assertFalse(
             UserAchievement.objects.filter(user=self.pessoa, seen_at__isnull=True).exists()

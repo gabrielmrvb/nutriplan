@@ -86,12 +86,16 @@ class OContratoDoEndpointTests(TestCase):
         self.assertEqual(resposta.status_code, 302)
         self.assertIn("entrar", resposta["Location"])
 
-    def test_a_resposta_nao_vira_cache_publico(self):
-        """A rota exige sessão: um proxy não pode guardar a resposta e servi-la
-        a outra pessoa. A sugestão é igual para todos, mas o caminho é
-        autenticado, e isso é o que a diretiva descreve."""
+    def test_a_resposta_nao_vira_cache_nem_publico_nem_no_aparelho(self):
+        """`private, no-store` (decisão do dono, 27/09/2026, revisão do PR
+        #162). `private` impede um proxy de servir a resposta a outra pessoa; e
+        `no-store`, porque a URL carrega o que a pessoa COMEU (`?q=cerveja`) e
+        `max-age=300` deixava esse rastro no cache do aparelho."""
         resposta = self.client.get(self.url, {"q": "arroz"})
-        self.assertIn("private", resposta["Cache-Control"])
+        diretivas = {d.strip() for d in resposta["Cache-Control"].split(",")}
+        self.assertIn("private", diretivas)
+        self.assertIn("no-store", diretivas)
+        self.assertFalse(any(d.startswith("max-age") for d in diretivas), diretivas)
 
 
 class ABuscaAchaOQueFoiDigitadoTests(TestCase):
@@ -406,6 +410,41 @@ class OAvisoFicaNoCardTests(TestCase):
         # O cache é declarado ANTES das funções do bloco, no topo do IIFE.
         topo = js.split("var ESPERA_MS", 1)[1].split("function bloco", 1)[0]
         self.assertIn("Object.create(null)", topo)
+
+    def test_o_teclado_do_combobox_escolhe_antes_de_enviar(self):
+        """Decisão do dono (27/09/2026, revisão do PR #162): com a lista aberta,
+        o Enter ESCOLHE a sugestão destacada e não envia; o Enter seguinte
+        (lista fechada) envia; o Esc fecha sem enviar.
+
+        Régua sobre o TEXTO do `pwa.js` sem comentários — a suíte não roda
+        JavaScript. A prova de comportamento é a do navegador, com teclas de
+        verdade, no relatório da missão; esta régua é a que fica vermelha se
+        alguém desfizer o desenho."""
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from config.estaticos import sem_comentarios
+
+        js = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "js" / "pwa.js").read_text(encoding="utf-8")
+        )
+        bloco = js.split('closest("[data-busca-alimento]")', 1)[1]
+        pintar = bloco.split("function pintar", 1)[1].split("function buscar", 1)[0]
+        # A primeira sugestão já nasce destacada: é o que garante que o Enter
+        # com a lista aberta sempre tem o que escolher.
+        self.assertIn('marcar(lista, lista.querySelector(".busca__item"))', pintar)
+        teclas = bloco.split('addEventListener("keydown"', 1)[1].split('addEventListener("mousedown"', 1)[0]
+        # Só age com a lista ABERTA — fechada, o Enter é o do formulário.
+        self.assertIn("if (!lista || lista.hidden) return;", teclas)
+        enter = teclas.split('e.key === "Enter"', 1)[1].split('e.key === "Escape"', 1)[0]
+        self.assertIn("e.preventDefault()", enter)
+        self.assertIn("escolher(", enter)
+        self.assertNotIn("if (atual)", enter, "o Enter voltou a só escolher quando havia item marcado")
+        esc = teclas.split('e.key === "Escape"', 1)[1]
+        self.assertIn("e.preventDefault()", esc)
+        self.assertIn("fechar()", esc)
+        self.assertNotIn("submit", esc)
 
     def test_o_datalist_de_todos_os_nomes_saiu_da_pagina(self):
         """Com a TACO, ele seriam ~20 kB de `<option>` nesta tela em toda

@@ -1125,6 +1125,14 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
                     ),
                 )
 
+        # O ESTADO DE ANTES, para a guarda de `sincronizar` lá embaixo: uma
+        # refeição que JÁ estava feita não muda a contagem do dia. Só é lido
+        # quando o pedido marca FEITA — os outros estados não fecham dia nenhum.
+        ja_feita = status == MealStatus.DONE and MealLog.objects.filter(
+            user=request.user, slot=slot, date=timezone.localdate(),
+            status=MealStatus.DONE,
+        ).exists()
+
         # A porção vem do formulário da receita ("comi meia"), e o servidor a
         # valida contra a lista fechada: ela MULTIPLICA o kcal que entra no
         # histórico, e um `porcao=99` forjado escreveria um dia de 280 mil
@@ -1151,7 +1159,18 @@ class MarkMealView(AcaoDeTela, OnboardingRequiredMixin, View):
         # ofensiva — que é o que dez das onze regras leem. Antes isso era
         # descoberto na leitura seguinte do Progresso, dentro de um GET que
         # gravava; agora nasce aqui, e é anunciado na tela que vem depois.
-        conquistas.sincronizar(request.user, request=request)
+        #
+        # COM A GUARDA (decisão do dono, 27/09/2026): só roda quando esta
+        # marcação levou as refeições feitas do dia ao limiar da ofensiva.
+        # "Pulei", "comi outra coisa", desmarcar e remarcar a mesma refeição
+        # não fecham dia nenhum — e a primeira refeição da manhã também não.
+        if status == MealStatus.DONE and not ja_feita:
+            feitas = MealLog.objects.filter(
+                user=request.user, date=timezone.localdate(), status=MealStatus.DONE
+            ).count()
+            previstas = MealSlot.objects.filter(plan_id=slot.plan_id).count()
+            if streaks.dieta_fechou_o_pilar(feitas, previstas):
+                conquistas.sincronizar(request.user, request=request)
         return redirect(_hoje_em("#slot-%d" % slot.pk))
 
 
@@ -1507,11 +1526,14 @@ class BuscarAlimentoView(LoginRequiredMixin, View):
         ]
         return JsonResponse(
             {"itens": itens, "minimo": busca.MINIMO_DE_LETRAS},
-            # A sugestão é a mesma para todo mundo (o catálogo não é pessoal),
-            # mas a rota exige sessão — `private` impede um proxy de servir a
-            # resposta a outra pessoa, e cinco minutos evitam repetir a
-            # consulta enquanto alguém corrige uma letra.
-            headers={"Cache-Control": "private, max-age=300"},
+            # `private, no-store` (decisão do dono, 27/09/2026, revisão do PR
+            # #162). A resposta é o catálogo, que não é pessoal — mas a URL
+            # carrega o que a pessoa COMEU (`?q=cerveja`), e `max-age=300`
+            # deixava esse rastro no cache do aparelho. `private` impede proxy
+            # compartilhado; `no-store` impede o disco. O custo é refazer a
+            # consulta ao corrigir uma letra, e o cache do JS (por termo, na
+            # memória da página) já cobre isso.
+            headers={"Cache-Control": "private, no-store"},
         )
 
 
@@ -1919,7 +1941,23 @@ class LogHydrationView(AcaoDeTela, OnboardingRequiredMixin, View):
             # devolveu em `ja_aplicada`, lá em cima. Fora da transação,
             # pelo mesmo motivo do analytics: um erro aqui não pode
             # derrubar o commit da água.
-            conquistas.sincronizar(request.user, request=request)
+            #
+            # COM A GUARDA (decisão do dono, 27/09/2026): só a OFENSIVA pode
+            # destravar aqui, e só se este toque levou a água do dia para cima
+            # do alvo. O total de DEPOIS é relido — dois toques simultâneos
+            # leem o mesmo `registro.ml`, e o "antes" calculado a partir dele
+            # perderia o cruzamento do segundo. Duas consultas no caso comum,
+            # contra as ~13 de `sincronizar` em todo toque.
+            depois = (
+                HydrationLog.objects.filter(pk=registro.pk)
+                .values_list("ml", flat=True).first() or 0
+            )
+            plano = services.get_active_plan(request.user)
+            if streaks.agua_fechou_o_pilar(
+                max(depois - ml, 0), depois,
+                weight_trend.hidratacao_ml(plano.weight_kg) if plano else None,
+            ):
+                conquistas.sincronizar(request.user, request=request)
 
         return self._volta(request)
 

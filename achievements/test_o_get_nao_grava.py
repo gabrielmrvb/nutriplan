@@ -138,24 +138,40 @@ class NenhumaEscritaNaTabelaDeConquistasNumGETTests(TestCase):
             with self.subTest(rota=rota):
                 self.assertEqual(self._escritas(rota), [], rota)
 
-    def test_controle_positivo_o_anuncio_marca_vista_e_a_varredura_ve(self):
-        """A EXCEÇÃO CONHECIDA, e a prova de que a varredura acima não é cega.
+    def test_com_anuncio_pendente_o_get_continua_sem_escrever(self):
+        """ERA a exceção conhecida (o anúncio marcava `seen_at` no GET) e
+        deixou de ser (decisão do dono, 27/09/2026): um prefetch consumia o
+        anúncio. Com um id na sessão, a tela desenha o aviso e NÃO escreve.
 
-        `context_processors.conquistas_pendentes` marca como vista a conquista
-        que ele anuncia (decisão de 20/09/2026: o aviso eterno cobria o
-        CONCLUIR SÉRIE). Com um id na sessão, o GET faz esse `UPDATE` — e a
-        mesma varredura que diz "zero" acima tem de enxergá-lo aqui."""
+        O controle positivo desta varredura é o POST do "visto", e mora em
+        `config/test_get_nao_grava.py` junto da régua geral."""
         from achievements.context_processors import CHAVE
 
         conquista = UserAchievement.objects.create(user=self.user, slug="primeiro-treino")
         sessao = self.client.session
         sessao[CHAVE] = [conquista.pk]
         sessao.save()
-        escritas = self._escritas("plans:history")
-        self.assertTrue(
-            any(sql.lstrip().upper().startswith("UPDATE") for sql in escritas),
-            escritas,
-        )
+        self.assertEqual(self._escritas("plans:history"), [])
+        conquista.refresh_from_db()
+        self.assertIsNone(conquista.seen_at)
+
+    def test_controle_positivo_o_post_do_visto_escreve_e_a_varredura_ve(self):
+        """A varredura não é cega: capturando o POST do "visto", a mesma
+        função que diz "zero" nas telas enxerga o `UPDATE`."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        conquista = UserAchievement.objects.create(user=self.user, slug="primeiro-treino")
+        with CaptureQueriesContext(connection) as capturado:
+            self.client.post(
+                reverse("achievements:marcar_vistas"), {"id": conquista.pk},
+                HTTP_X_REQUESTED_WITH="fetch",
+            )
+        self.assertTrue(any(
+            q["sql"].lstrip().upper().startswith("UPDATE")
+            and "achievements_userachievement" in q["sql"]
+            for q in capturado.captured_queries
+        ))
 
 
 class OPOSTQueCriaOFatoDesbloqueiaTests(TestCase):
@@ -199,8 +215,23 @@ class OPOSTQueCriaOFatoDesbloqueiaTests(TestCase):
         """
         from plans import services as plano_services
 
+        import math
+
+        from plans import streaks
+        from plans.models import MealLog
+
         plano, _ = plano_services.sync_active_plan(self.user)
-        slot = plano.slots.order_by("time").first()
+        slots = list(plano.slots.order_by("time"))
+        # A avaliação só roda quando a refeição LEVA o dia ao limiar (decisão
+        # do dono, 27/09/2026: `streaks.dieta_fechou_o_pilar`); as de antes
+        # são gravadas direto, e a que cruza passa pela view.
+        precisa = math.ceil(len(slots) * streaks.ADESAO_MINIMA_PCT / 100)
+        for anterior in slots[: precisa - 1]:
+            MealLog.objects.create(
+                user=self.user, slot=anterior, date=timezone.localdate(),
+                status=MealStatus.DONE, chosen_option=anterior.options.first(),
+            )
+        slot = slots[precisa - 1]
         antes = UserAchievement.objects.filter(user=self.user).count()
         # "Comi esta" exige a OPÇÃO — o filtro que fecha o IDOR do cardápio.
         opcao = slot.options.first()
@@ -219,7 +250,17 @@ class OPOSTQueCriaOFatoDesbloqueiaTests(TestCase):
 
     def test_a_agua_passa_pela_avaliacao(self):
         """Quem só bebe água também pode fechar o dia — e sem esta chamada, com
-        o GET não gravando mais, nada nasceria até o próximo build."""
+        o GET não gravando mais, nada nasceria até o próximo build. O copo é
+        o que CRUZA o alvo — só esse pode fechar o dia (`streaks.
+        agua_fechou_o_pilar`); o caso que não cruza está em `plans/
+        test_stress.py`."""
+        from plans import services as plano_services
+        from plans import streaks, weight_trend
+        from plans.models import HydrationLog
+
+        plano, _ = plano_services.sync_active_plan(self.user)
+        alvo = weight_trend.hidratacao_ml(plano.weight_kg) * streaks.HIDRATACAO_MINIMA_PCT / 100
+        HydrationLog.objects.create(user=self.user, date=timezone.localdate(), ml=int(alvo) - 100)
         with mock.patch("plans.views.conquistas.sincronizar") as espiao:
             resposta = self.client.post(reverse("plans:log_hydration"), {"ml": 250})
         self.assertIn(resposta.status_code, (200, 302))

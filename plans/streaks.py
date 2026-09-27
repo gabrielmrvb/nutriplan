@@ -46,6 +46,48 @@ ADESAO_MINIMA_PCT = 80
 #: e cobrar o número cheio de uma estimativa é falsa precisão.
 HIDRATACAO_MINIMA_PCT = 90
 
+# --------------------------------------------- a guarda de `sincronizar`
+#
+# DECISÃO DO DONO (27/09/2026, revisão do PR #162): `achievements.sincronizar`
+# custa ~13 consultas sobre 400 dias e rodava em TODO toque de água e toda
+# marcação de refeição. Um toque desses só destrava conquista por UM caminho —
+# a OFENSIVA, quando o dia FECHA —, e o dia só pode ter fechado agora se o
+# pilar tocado CRUZOU o limiar neste pedido. As duas funções abaixo dizem
+# isso com aritmética sobre o que a view já tem, e moram AQUI porque os
+# limiares são estes dois números: uma cópia deles na view seria a régua que
+# diverge em silêncio.
+#
+# É condição NECESSÁRIA, não suficiente: cruzar não garante que o dia fechou
+# (o treino é obrigatório no dia previsto), e quem decide continua sendo
+# `sincronizar`. O que a guarda corta é o caso que NÃO pode destravar nada — o
+# comum: o segundo copo, a primeira refeição.
+
+
+def agua_fechou_o_pilar(antes_ml, depois_ml, meta_agua_ml) -> bool:
+    """Este toque levou a água do dia de abaixo para acima do alvo?
+
+    Sem meta (sem plano) o pilar da água vale sempre (`_avaliar`), então um
+    toque não muda nada. A meta é a BASE do plano, a mesma da ofensiva — e não
+    a do dia com corrida, que a ofensiva não usa por decisão escrita."""
+    if not meta_agua_ml:
+        return False
+    alvo = meta_agua_ml * HIDRATACAO_MINIMA_PCT / 100
+    return (antes_ml or 0) < alvo <= (depois_ml or 0)
+
+
+def dieta_fechou_o_pilar(feitas_depois, previstas) -> bool:
+    """A refeição que acabou de virar FEITA levou o dia ao limiar?
+
+    Quem chama garante que ela virou feita AGORA (não estava feita antes): é
+    isso que faz "uma a menos" ser o estado de antes."""
+    if not previstas:
+        return False
+    return (
+        feitas_depois * 100 / previstas >= ADESAO_MINIMA_PCT
+        > (feitas_depois - 1) * 100 / previstas
+    )
+
+
 #: Até onde olhar para trás. Uma sequência de um ano é possível e a consulta
 #: precisa de um teto.
 DIAS_NO_HISTORICO = 400
