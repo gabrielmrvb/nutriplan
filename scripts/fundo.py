@@ -133,7 +133,15 @@ def rodar(comando, log=None, cwd=None):
 
 
 def _log_padrao(nome):
-    return Path(tempfile.gettempdir()) / ("nutriplan-%s.log" % nome)
+    """`nutriplan-<slug da branch>-<nome>.log`: duas sessões em branches
+    diferentes não escrevem no mesmo log. Sem branch, o nome de sempre."""
+    if str(RAIZ) not in sys.path:
+        sys.path.insert(0, str(RAIZ))
+    from config import branch  # stdlib pura: não sobe o Django
+
+    ramo = branch.branch_atual(RAIZ)
+    prefixo = "nutriplan-%s-" % branch.slug(ramo) if ramo else "nutriplan-"
+    return Path(tempfile.gettempdir()) / (prefixo + nome + ".log")
 
 
 # ---------------------------------------------------------------- notificar

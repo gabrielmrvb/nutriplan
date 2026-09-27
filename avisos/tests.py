@@ -12,7 +12,7 @@ O que estes testes guardam, e o caso que motivou cada guarda:
 - o boas-vindas sai no cadastro por senha E por Google, e nunca derruba o
   cadastro quando o SMTP falha.
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from decimal import Decimal
 from unittest.mock import patch
 

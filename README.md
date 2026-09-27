@@ -158,7 +158,7 @@ no banco.
   vez seriam dezenove conexões ao YouTube na abertura da tela.
 - **Cada refeição é um cartão**, com o horário em destaque, o alvo do horário e as duas
   opções como cartões clicáveis que abrem os ingredientes já nas quantidades certas. O
-  botão "Comi esta" só aparece dentro da opção aberta — marcar é uma decisão, não um
+  botão "Registrar" só aparece dentro da opção aberta — marcar é uma decisão, não um
   clique de passagem.
 - **O anel de progresso é conic-gradient puro**, sem biblioteca de gráfico: é uma
   variável CSS `--pct` preenchida pelo template.
@@ -428,7 +428,7 @@ pessoas reais. O `clean()` de `Food` avisa quando as calorias não batem com os 
 - **Uma marcação por (pessoa, dia, horário)**, com `update_or_create`. Marcar de novo é
   corriqueiro — a pessoa clica em "pulei", muda de ideia e come. O registro é o estado
   final do horário naquele dia, não um log de auditoria de cliques.
-- **Só o que foi comido conforme o plano soma macros.** "Pulei" zera e "comi outra coisa"
+- **Só o que foi comido conforme o plano soma macros.** "Não comi" zera e "comi outra coisa"
   também: não sabemos o que foi, e chutar contaminaria o histórico com número inventado.
 - **Refeição pendente não é falha.** A aderência é `feitas / marcadas`, não
   `feitas / total do dia` — senão a tela acusa a pessoa de furar a dieta às oito da manhã,

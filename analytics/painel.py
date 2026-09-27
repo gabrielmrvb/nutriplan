@@ -9,7 +9,7 @@ com o volume — a camada `consultas.py` faz o trabalho, aqui é só montar.
 """
 import csv
 
-from django.http import Http404, HttpResponse
+from django.http import HttpResponse
 from django.views.generic import TemplateView
 
 from gestao.acesso import PainelDeGestaoMixin

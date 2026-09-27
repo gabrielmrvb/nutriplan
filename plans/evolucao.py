@@ -582,6 +582,18 @@ def tile_de_dieta(mapa_dieta, linhas) -> Tile:
     feitas = sum(linha["done"] for linha in fechados)
     previstas = sum(linha.get("previstas", 0) for linha in fechados)
     if not previstas:
+        # SEM DIA FECHADO, HOJE RESPONDE — sem nota. A tela dizia "Marque uma
+        # refeição" para quem tinha marcado três no primeiro dia, enquanto a
+        # Home dizia "1/5" (QA de 27/09/2026, R1). A doutrina de 22/09 já
+        # dava a forma: "1/2 · hoje, até agora", sem porcentagem e sem seta.
+        hoje = next((linha for linha in linhas if linha.get("is_today")), None)
+        if hoje and hoje.get("previstas"):
+            return Tile(chave="dieta", titulo="Cardápio",
+                        valor="%d/%d" % (hoje["done"], hoje["previstas"]),
+                        frase="refeições do cardápio · hoje, até agora")
+        if hoje and hoje.get("marked"):
+            return Tile(chave="dieta", titulo="Cardápio", valor="—",
+                        frase="Registro de hoje anotado — a aderência começa quando o dia fechar.")
         return Tile(chave="dieta", titulo="Cardápio", valor="—",
                     frase="Marque uma refeição para a aderência começar.")
     pct = int(round(feitas * 100 / previstas))
@@ -600,7 +612,10 @@ def tile_de_agua(mapa_agua, por_dia_ml, meta_ml) -> Tile:
                     frase="Nenhum copo registrado no período.")
     media = sum(com_registro) / len(com_registro)
     direcao = SEM_DIRECAO
-    if meta_ml:
+    # Seta é tendência, e hoje ainda não terminou: com registro só de hoje,
+    # 750 ml às oito da manhã saía com "↓" (QA de 27/09/2026, M6).
+    so_hoje = all(dia == timezone.localdate() for dia, v in por_dia_ml.items() if v)
+    if meta_ml and not so_hoje:
         direcao = SUBINDO if media >= meta_ml * 0.9 else (
             PARADO if media >= meta_ml * 0.6 else CAINDO)
     frase = "média dos %d dia%s com registro" % (

@@ -23,7 +23,6 @@ o redirect apontar para a ancora, a ancora precisa EXISTIR na pagina. Um
 `#hidratacao` que nao existe no HTML deixa o navegador exatamente onde ele
 estaria sem ancora nenhuma, e o teste do redirect passaria mesmo assim.
 """
-from django.test import TestCase
 from django.urls import reverse
 
 from plans import services

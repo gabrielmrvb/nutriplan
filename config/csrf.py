@@ -20,7 +20,6 @@ Isto NÃO é bypass de CSRF. A view não executa, nada é mutado, e o pedido
 continua recusado. Só a forma de dizer muda, para o cliente não jogar fora o
 que ainda pode ser sincronizado.
 """
-from django.middleware.csrf import CsrfViewMiddleware
 from django.views.csrf import csrf_failure as csrf_failure_padrao
 
 from accounts.replay import CODIGO_CSRF_VELHO, e_replay, resposta_que_preserva, veio_da_tela

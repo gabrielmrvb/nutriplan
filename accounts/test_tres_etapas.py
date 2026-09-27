@@ -7,7 +7,7 @@ mostrava "Passo 1/6 · 16%" em `/conta/onboarding/1/`, seis rotas e CTA
 corromper, e a conclusão montando cardápio E ficha.
 """
 import re
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -358,8 +358,26 @@ class ErrosJuntoAoCampoTests(TestCase):
         resposta = self.client.post(etapa(2), {k: v for k, v in ETAPA2.items() if k != "goal"})
         self.assertEqual(resposta.status_code, 200)
         html = resposta.content.decode()
-        objetivo = html.split("Qual é o seu objetivo?", 1)[1].split("</ul>", 1)[0]
-        self.assertIn("Este campo é obrigatório", html)
+        # "NO PRÓPRIO CAMPO" É A LIGAÇÃO ARIA, e o teste não a media.
+        #
+        # Havia aqui um recorte `objetivo` que ficou SEM USO numa refatoração, e
+        # a asserção caiu em `html` — ou seja, "o erro aparece em algum lugar da
+        # página", que é bem menos do que o nome promete. Reaproveitar o recorte
+        # como estava também não serve: ele terminava no primeiro `</ul>`, que é
+        # o fim da lista de opções, e o erro sai DEPOIS dela — `field.html:121`
+        # põe `<ul class="field__errors" id="{{ auto_id }}_error">` fora do
+        # `role="group"`. Medido: a asserção sobre aquele recorte reprovava com
+        # o app correto.
+        #
+        # Quem liga o erro ao campo é o `aria-describedby` do grupo, e é isso
+        # que faz o leitor de tela anunciar os dois juntos e o "FOCO NO ERRO" do
+        # `pwa.js` rolar até ele. São as duas pontas:
+        grupo = html.split('aria-labelledby="id_goal_label"', 1)[1].split(">", 1)[0]
+        self.assertIn("id_goal_error", grupo, "o grupo do objetivo não aponta para o erro")
+
+        self.assertIn('id="id_goal_error"', html, "o erro perdeu o id para onde o grupo aponta")
+        erro = html.split('id="id_goal_error"', 1)[1].split("</ul>", 1)[0]
+        self.assertIn("Este campo é obrigatório", erro)
         self.assertIn('value="4"', html)  # o dia de sexta continua marcado
         self.assertIn('checked', html)
 

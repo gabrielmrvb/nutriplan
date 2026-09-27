@@ -520,7 +520,7 @@
 
   /* O toque precisa dizer "recebi" antes do servidor responder.
    *
-   * "Comi esta" e "Pulei" fazem POST e esperam o redirecionamento. Numa rede
+   * "Registrar" e "Não comi" fazem POST e esperam o redirecionamento. Numa rede
    * de academia isso leva segundos, e nesses segundos a tela fica idêntica ao
    * que era: nada se move, e a pessoa toca de novo. O segundo toque não
    * duplica nada — `update_or_create` cuida disso —, mas ensina que o botão
@@ -2212,7 +2212,7 @@
 
    Qualquer falha — rede, HTML inesperado, navegador sem `showModal` — cai na
    navegação de sempre. Nada aqui é a única porta para nada, e o POST de
-   "Comi esta" dentro da folha é um POST normal: ele redireciona para o
+   "Registrar" dentro da folha é um POST normal: ele redireciona para o
    cardápio com a refeição marcada, que é exatamente onde a pessoa quer estar.
    ========================================================================== */
 (function () {

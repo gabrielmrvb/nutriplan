@@ -5,6 +5,7 @@ Toda configuracao sensivel ou que muda entre ambientes vem do arquivo .env
 (veja .env.example). Nada de senha hardcoded aqui.
 """
 import mimetypes
+import os
 import sys
 from pathlib import Path
 
@@ -175,6 +176,9 @@ TEMPLATES = [
                 "config.csp.contexto",
                 "achievements.context_processors.conquistas_pendentes",
             ],
+            # Distância num formato só, em todo template sem {% load %}
+            # (config/numeros.py; QA de 27/09/2026).
+            "builtins": ["config.numeros"],
         },
     },
 ]
@@ -658,4 +662,13 @@ NUTRIPLAN_ALERTA_EMAIL = env("NUTRIPLAN_ALERTA_EMAIL", default="")
 NUTRIPLAN_ALERTA_5XX = env.int("NUTRIPLAN_ALERTA_5XX", default=3)
 LOGGING = observabilidade.configuracao(
     DEBUG, json_=NUTRIPLAN_LOG_JSON, acesso_ligado=NUTRIPLAN_LOG_ACESSO, limite_5xx=NUTRIPLAN_ALERTA_5XX,
+)
+
+#: Sentry (plano grátis), DESLIGADO por padrão: vazio = `ligar_sentry` nem
+#: importa `sentry_sdk` (ver `config/observabilidade.py`). Ligar em produção
+#: é preencher `SENTRY_DSN` no painel do Render — nenhuma conta é criada
+#: daqui.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+observabilidade.ligar_sentry(
+    SENTRY_DSN, NUTRIPLAN_AMBIENTE, os.environ.get("RENDER_GIT_COMMIT", "")[:7] or None,
 )

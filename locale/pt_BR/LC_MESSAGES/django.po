@@ -56,7 +56,7 @@ msgid "Você registrou esta refeição."
 msgstr ""
 
 #: templates/plans/_receita.html
-msgid "Comi esta"
+msgid "Registrar"
 msgstr ""
 
 #: templates/plans/_receita.html
@@ -85,6 +85,18 @@ msgstr ""
 
 #: templates/plans/_progresso_area.html
 msgid "dia cheio"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "sem corrida"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "a mais longa do período"
+msgstr ""
+
+#: templates/plans/_progresso_area.html
+msgid "meta batida"
 msgstr ""
 
 #: templates/plans/_progresso_area.html

@@ -22,7 +22,6 @@ o POST + redirecionamento é o que cria a entrada, e só um envio sem
 navegação resolve — é o caminho de `fila.js` online, que não é desta onda.
 """
 
-from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.messages import get_messages

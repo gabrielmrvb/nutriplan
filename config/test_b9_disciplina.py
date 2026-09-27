@@ -372,12 +372,16 @@ class OQueORunnerPerguntaTests(SimpleTestCase):
 
         self.assertEqual(runner.nome_do_banco_de_teste(conexao), "outro_banco")
 
-    def test_sem_nome_configurado_vale_o_prefixo_do_django(self):
+    def test_sem_branch_e_sem_nome_configurado_vale_o_prefixo_do_django(self):
+        """Sem branch (HEAD destacado: CI de PR, fila) o nome continua o de sempre; com branch, ver config/test_banco_por_branch.py."""
         conexao = self.ConexaoFalsa()
 
-        self.assertEqual(
-            runner.nome_do_banco_de_teste(conexao), "test_nutriplan"
-        )
+        with mock.patch.dict(os.environ, {"NUTRIPLAN_BRANCH": "HEAD"}):
+            os.environ.pop("NUTRIPLAN_BANCO_DE_TESTE", None)
+            os.environ.pop("NUTRIPLAN_BANCO_SUFIXO", None)
+            self.assertEqual(
+                runner.nome_do_banco_de_teste(conexao), "test_nutriplan"
+            )
 
 
 class AMensagemPrecisaDizerOQueFazerTests(SimpleTestCase):

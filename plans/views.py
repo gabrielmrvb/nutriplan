@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.db import transaction
 from django.core.cache import cache
 from django.db.models import Exists, F, OuterRef, Value, prefetch_related_objects
@@ -20,7 +20,6 @@ from django.utils import timezone
 
 from .porcoes import PORCAO_ESCRITA, PORCOES, passos_do_preparo, porcao_valida
 from .weight_trend import TETO_DIARIO_ML
-from django.views import View
 from django.views.generic import TemplateView, View
 
 from accounts.models import (
@@ -29,7 +28,6 @@ from accounts.models import (
     Goal,
     Pilar,
     SyncedOperation,
-    WeightEntry,
 )
 from accounts.views import OnboardingRequiredMixin, recusa_pendente
 from achievements import services as conquistas
@@ -682,7 +680,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # afirma que o dia fechou empatado — e o app não sabe disso,
                 # porque ninguém comeu ainda.
                 #
-                # A porta é `marked`, e não `consumed_kcal`: quem marcou "Pulei"
+                # A porta é `marked`, e não `consumed_kcal`: quem marcou "Não comi"
                 # nas cinco refeições consumiu zero E registrou o dia inteiro.
                 # Mandar essa pessoa registrar seria pedir o que ela já fez.
                 # Registro ausente e consumo zero são estados diferentes.
@@ -766,7 +764,7 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 # Os fatos da área promovida, consultados SÓ quando ela é a
                 # promovida. Quem não declarou não paga consulta nenhuma.
                 "ultima_corrida": ultima_corrida,
-                "corrida_km": (ultima_corrida.distancia_m / 1000) if ultima_corrida else 0,
+                "corrida_m": ultima_corrida.distancia_m if ultima_corrida else 0,
                 "ultimo_peso": ultimo_peso,
                 # `None` quando não há erro pendente DESTA tela; string
                 # (às vezes vazia) quando há. `houve_recusa` carrega essa
@@ -1012,7 +1010,7 @@ class ReceitaView(OnboardingRequiredMixin, TemplateView):
     A PORÇÃO chega por `?porcao=` e a conta é do SERVIDOR. Fazê-la no
     navegador daria o número na hora e faria a tela e o registro discordarem
     no instante em que a rede caísse — e é o mesmo número que vai para o
-    histórico quando a pessoa toca "Comi esta".
+    histórico quando a pessoa toca "Registrar".
     """
 
     template_name = "plans/receita.html"
@@ -1031,7 +1029,7 @@ class ReceitaView(OnboardingRequiredMixin, TemplateView):
             slot__plan__user=self.request.user,
             slot__plan__is_active=True,
         )
-        # O registro de HOJE daquele horário: a tela que oferece "Comi esta"
+        # O registro de HOJE daquele horário: a tela que oferece "Registrar"
         # para uma refeição já registrada oferece uma ação que só pode dar
         # errado. Uma consulta, e ela responde a pergunta que a pessoa faria.
         log = MealLog.objects.filter(

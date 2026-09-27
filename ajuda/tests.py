@@ -233,6 +233,44 @@ class OQueMudouTests(TestCase):
         item = leitor.ler(self.TEXTO)[0]["itens"][0]
         self.assertEqual(item, "<strong>Um.</strong> Com <code>código</code> e &lt;b&gt;html&lt;/b&gt;.")
 
+    def test_o_que_vem_depois_do_marcador_de_gerencia_nao_chega_a_tela(self):
+        """O marcador era decorativo, e a frase dele era falsa.
+
+        `*(gerência, não aparece para quem usa)*` separa no arquivo os itens
+        que são de quem OPERA o produto — e o leitor conhecia só `## data` e
+        `- item`, então coletava esses também. Medido em 27/09/2026 contra
+        produção: um item ("O painel de gestão passou a responder três
+        perguntas de produto") aparecia em `/ajuda/o-que-mudou/`.
+        """
+        texto = (
+            "## 2026-09-21\n\n- Público um.\n\n"
+            "*(gerência, não aparece para quem usa)*\n\n- Interno.\n\n"
+            "## 2026-09-20\n\n- Público dois.\n"
+        )
+        secoes = leitor.ler(texto)
+
+        self.assertEqual(secoes[0]["itens"], ["Público um."])
+        self.assertEqual(secoes[1]["itens"], ["Público dois."], "o marcador vale até a próxima data")
+
+    def test_o_changelog_do_repositorio_nao_mostra_item_de_gerencia(self):
+        """A mesma régua sobre o arquivo de verdade: nenhum item da tela é
+        um dos que estão depois do marcador."""
+        arquivo = leitor.ARQUIVO.read_text(encoding="utf-8")
+        internos, depois = [], False
+        for linha in arquivo.splitlines():
+            if linha.startswith("## "):
+                depois = False
+            elif leitor._GERENCIA.match(linha):
+                depois = True
+            elif depois and linha.startswith("- "):
+                internos.append(linha[2:].split(".")[0])
+
+        self.assertTrue(internos, "o arquivo não tem item de gerência — a régua deixou de medir algo")
+        visiveis = " ".join(item for secao in leitor.mudancas() for item in secao["itens"])
+        for interno in internos:
+            with self.subTest(item=interno[:40]):
+                self.assertNotIn(interno.replace("**", ""), visiveis.replace("<strong>", "").replace("</strong>", ""))
+
     def test_o_changelog_do_repositorio_tem_a_forma_esperada_e_o_mais_recente_primeiro(self):
         secoes = leitor.mudancas()
         self.assertGreaterEqual(len(secoes), 3)

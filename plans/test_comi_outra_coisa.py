@@ -294,59 +294,51 @@ class OAvisoFicaNoCardTests(TestCase):
         self.assertIn("sem contar a caloria deste item", corrido)
 
     def test_o_formulario_aberto_nao_faz_a_pagina_rolar_na_horizontal(self):
-        """ACHADO DO QA DE NAVEGADOR (26/09/2026), medido a 390 px.
+        """ACHADO DO QA DE NAVEGADOR (26/09/2026), medido a 390 px:
+        `scrollWidth` 375 → 609 com o "Comi outra coisa" aberto.
 
-        `.meal__secundarias .fora` era `flex: 1 0 auto`. Com `flex-shrink: 0` o
-        item nunca encolhe abaixo do conteúdo — e `min-width: 0` NÃO muda isso,
-        porque ele só libera o limite automático; quem proíbe encolher é o
-        shrink. Aberto o "Comi outra coisa", a largura natural do campo "O que
-        você comeu?" (~539 px) virava a largura do `<details>`: 568 px dentro de
-        um container de 293, e `scrollWidth` ia de 375 para 609 — a PÁGINA
-        rolando na horizontal.
+        A causa era `.meal__secundarias .fora { flex: 1 0 auto }` — com
+        `flex-shrink: 0` o item não encolhia abaixo da largura natural do campo.
+        Em `main` o bloco virou GRADE (sessão `alimentacao`, 27/09/2026), e a
+        régua acompanhou a forma nova, que é a que vale hoje: colunas
+        `minmax(0, …)` — o `0` é o que impede o conteúdo de forçar largura — e o
+        `.fora` aberto atravessando a linha inteira. E nenhuma regra devolve o
+        `flex-shrink: 0` ao item, por nenhuma das portas.
 
-        A asserção é sobre o CSS porque a suíte não tem motor de layout; a
-        medição está no relatório e no comentário da regra. O que se prende aqui
-        é a causa: aquele item não pode voltar a ter shrink zero.
+        A asserção é sobre o CSS porque a suíte não tem motor de layout.
         """
         from pathlib import Path
 
         from django.conf import settings
 
-        css = (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(
-            encoding="utf-8"
-        )
         from config.estaticos import sem_comentarios
 
-        css = sem_comentarios(css)
-        regras = css.split(".meal__secundarias .fora {")[1:]
-        self.assertTrue(regras, "a regra do `.fora` no rodapé da refeição saiu")
-        erro = (
-            "o `.fora` aberto voltou a ter flex-shrink 0 — a página rola na "
-            "horizontal a 390 px (medido: scrollWidth 609 numa janela de 390)"
+        css = sem_comentarios(
+            (Path(settings.BASE_DIR) / "static" / "css" / "app.css").read_text(encoding="utf-8")
         )
-        for regra in regras:
-            corpo = regra.split("}", 1)[0]
+
+        def corpos(seletor):
+            return [r.split("}", 1)[0] for r in css.split(seletor + " {")[1:]]
+
+        grade = corpos(".meal__secundarias")
+        self.assertTrue(grade, "sumiu a regra de `.meal__secundarias`")
+        colunas = " ".join(
+            c.split("grid-template-columns:", 1)[1].split(";")[0]
+            for c in grade if "grid-template-columns:" in c
+        )
+        self.assertIn("minmax(0,", colunas.replace(" ", ""))
+        aberto = " ".join(corpos(".meal__secundarias .fora[open]"))
+        self.assertIn("grid-column: 1 / -1", aberto)
+        erro = "o `.fora` voltou a ter flex-shrink 0 — a página rola na horizontal a 390 px"
+        for corpo in corpos(".meal__secundarias .fora") + corpos(".fora"):
             declaracoes = {
-                chave.strip(): valor.strip()
-                for chave, _, valor in (
-                    d.partition(":") for d in corpo.split(";") if ":" in d
-                )
+                k.strip(): v.strip()
+                for k, _, v in (d.partition(":") for d in corpo.split(";") if ":" in d)
             }
-            # O ATALHO: `flex: <grow> <shrink> <basis>`. Com UM número só
-            # (`flex: 1`) o shrink é 1 — que é o certo, e a versão anterior
-            # desta guarda reprovava.
             atalho = declaracoes.get("flex", "").split()
             if len(atalho) >= 2:
                 self.assertNotEqual(atalho[1], "0", erro)
-            # A LONGHAND: `flex-shrink: 0` ao lado do atalho escapava da versão
-            # anterior, que só lia o segundo token do atalho (revisão do PR
-            # #162, sabotagem executada pelo revisor de testes).
             self.assertNotEqual(declaracoes.get("flex-shrink"), "0", erro)
-            # E `min-width` que TRAVA o encolhimento pelo conteúdo é o mesmo
-            # defeito por outra porta.
-            self.assertNotIn(
-                declaracoes.get("min-width"), ("fit-content", "max-content", "min-content"), erro
-            )
 
     def test_aberto_o_formulario_nao_recorta_a_lista_de_sugestoes(self):
         """BUG (revisor de UI, confirmado na captura do QA a 390 px): quatro das

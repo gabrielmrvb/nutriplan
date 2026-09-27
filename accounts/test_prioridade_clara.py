@@ -21,7 +21,6 @@ cobrança que ele mesmo desmentia.
 Este arquivo guarda as duas metades — a comunicação e o consumo. Sem a segunda,
 um refactor futuro poderia apagar a personalização mantendo os textos bonitos.
 """
-from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase

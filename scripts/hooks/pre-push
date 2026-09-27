@@ -35,8 +35,9 @@
 # que o pre-push de 15/09 passou "3044 OK" e o mesmo `main` reprovava dois
 # dias depois — o teste que reprovou dependia do calendário, e a árvore
 # testada não era o commit. O SHA do push é exportado num worktree
-# descartável, o `.env` é copiado (o banco de teste é o mesmo, e o
-# `RunnerUnico` continua valendo) e o subconjunto roda LÁ.
+# descartável, o `.env` é copiado (o banco de teste é o da branch, com
+# `_push` — ver abaixo — e o `RunnerUnico` continua valendo) e o subconjunto
+# roda LÁ.
 set -o errexit
 set -o pipefail
 
@@ -58,6 +59,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
   sha="$local_sha"
+  ramo="${remote_ref#refs/heads/}"
 done
 if [ -z "$sha" ]; then
   echo "→ nada para testar (push sem commit)"
@@ -87,16 +89,34 @@ fi
 git worktree add --detach "$WT" "$sha" >/dev/null
 [ -f "$RAIZ/.env" ] && cp "$RAIZ/.env" "$WT/.env"
 
+# O BANCO DE TESTE É O DA BRANCH QUE SOBE, com sufixo próprio (27/09/2026).
+# O `.env` copiado dava ao push o MESMO banco da sessão que empurrava — a
+# colisão do ledger em 24/09. `config/branch.py` deriva o nome da branch; o
+# `_push` separa o hook da suíte que a mesma sessão pode estar rodando. Banco
+# só dele, então `--keepdb` não embaralha ninguém e poupa a migração a cada
+# push. O log leva o slug da branch: dois pushes ao mesmo tempo não escrevem
+# no mesmo arquivo. O slug vem do `config/branch.py` do `$WT` — o SHA que sobe,
+# o mesmo commit deste hook —, e não da `$RAIZ`, que pode ser o checkout
+# principal sem ele. SHA antigo sem o arquivo: `sem_branch`, e o push segue.
+export NUTRIPLAN_BRANCH="$ramo" NUTRIPLAN_BANCO_SUFIXO=_push
+slug=sem_branch
+[ -f "$WT/config/branch.py" ] && slug="$("$PY" -c 'import sys; sys.path.insert(0, sys.argv[1]); from config.branch import slug; sys.stdout.write(slug(sys.argv[2]))' "$WT" "$ramo")"
+LOG="${TMPDIR:-/tmp}/nutriplan-push-$slug.log"
+# Schema velho no banco guardado (migração não mergeada reescrita com o mesmo nome)? Zere só ele: dropdb -U postgres test_nutriplan_<slug do log>_push (com _b antes do _push se o slug termina em número).
+
 # `--noinput` nos testes não é detalhe: um banco de teste órfão de uma execução
 # interrompida faz o Django PERGUNTAR se pode apagá-lo, e um hook não tem
 # terminal para responder. Sem isto ele morre com EOFError e o push é
-# abortado por um motivo que não tem nada a ver com o código.
+# abortado por um motivo que não tem nada a ver com o código. O `tee` não
+# engole a falha: `pipefail` (lá em cima) mantém o código do teste mandando.
 # shellcheck disable=SC2086
 inicio=$(date +%s)
-( cd "$WT" && "$PY" manage.py test $ALVOS --verbosity=1 --noinput )
+# Antes do teste: um push reprovado também diz onde está o log.
+echo "→ log: $LOG"
+( cd "$WT" && "$PY" manage.py test $ALVOS --verbosity=1 --noinput --keepdb ) 2>&1 | tee "$LOG"
 # O tempo, dito: sozinho o atalho leva ~4 min; com três suítes de sessões
 # diferentes disputando a máquina, 6–25 (medido em 17/09/2026). Quem vê o
 # número sabe se é o hook ou a máquina.
 echo "→ atalho levou $(( $(date +%s) - inicio )) s"
 
-echo "✓ push liberado — o julgamento é o check \"suíte rápida\" no PR"
+echo "✓ push liberado — o julgamento é o check \"suíte rápida\" no PR (log: $LOG)"

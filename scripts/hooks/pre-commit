@@ -46,9 +46,10 @@ echo "→ migrações pendentes"
 
 echo "-> ruff (catraca de contagem, nao portao)"
 # O piso e `ruff-baseline.txt`, e a regra do dono e: nenhum numero pode subir.
-# Contagem, e nao "arquivo tocado fica limpo": 87% dos achados de hoje sao
-# E501 em comentario de prosa deliberada, e cobrar limpeza de quem encosta num
-# arquivo desses transforma um commit de uma linha numa reforma.
+# Contagem, e nao "arquivo tocado fica limpo": o que sobra depois do burndown
+# de 27/09/2026 e julgamento humano (E741, E702, E701, E731, F841), e cobrar
+# limpeza de quem so encosta num arquivo transforma commit de uma linha em
+# reforma. O que dava para corrigir sozinho ja foi.
 # Sem o ruff instalado o hook AVISA e segue -- ele e de desenvolvimento
 # (`requirements-dev.txt`), e travar o commit de quem nao instalou seria punir
 # pela ausencia de uma ferramenta que nao e de producao.

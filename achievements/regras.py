@@ -28,7 +28,7 @@ catálogo é esta lista. Se a conquista precisar de um dado que `Dados` ainda n�
 carrega, o campo entra lá — e é nesse momento que se descobre se ela é mesmo
 verificável.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Callable
 

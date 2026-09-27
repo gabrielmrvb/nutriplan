@@ -14,7 +14,7 @@ funcionalidades. Aqui está a camada de interface.
 
 ## 1. Onde tudo mora
 
-Um arquivo: **`static/css/app.css`**, ~4.570 linhas, **35 seções numeradas**, lido
+Um arquivo: **`static/css/app.css`** (~10.500 linhas em 27/09/2026), com seções numeradas, lido
 de ponta a ponta. Sem framework, sem build step, sem Node.
 
 A ordem das seções é a ordem em que a tela é montada: tokens → reset → shell →
@@ -30,38 +30,28 @@ templates.
 
 ## 2. Tokens
 
-Cor (escuro é o padrão; há bloco `prefers-color-scheme: light`):
+**A fonte dos tokens é `docs/briefs/design/DESIGN.md` (NERVURA · ANDAIME,
+veto do dono em 17/09/2026) e o `:root` de `static/css/app.css`.** Leia os
+dois antes de propor cor, quina, fonte ou movimento. Esta seção NÃO copia
+valores: a primeira versão dela copiava, e ficou descrevendo a paleta verde
+#10b981, os raios de 26/20/15/11 px e o `--pill` de antes da NERVURA meses
+depois de eles saírem do CSS — uma análise de UX que lesse daqui propunha
+token que não existe (achado de 27/09/2026).
 
-```
---bg #0d0f12   --surface #15181e   --surface-2 #1a1d24   --surface-3 #232733
---border #2a2e39            --border-strong #3a4050
---text #ffffff  --text-dim #cbd2dc  --text-mute #9ca3af
---brand #10b981  --brand-strong #34d399  --brand-soft #103028  --on-brand #04140e
---accent #6cc7ff  --warm #f59e0b  --danger #ff8a80
---carb #e0b25f   --fat #8fa8d8
---dia-a … --dia-e   uma cor por dia de treino (A verde, B azul, C âmbar, D violeta, E coral)
-```
+O que muda a leitura de uma tela, em uma linha cada:
 
-Forma e profundidade:
-
-```
---radius-xl 26px   --radius-lg 20px   --radius 15px   --radius-sm 11px   --pill 999px
---edge      fio de luz na quina de cima
---inlay     contorno por dentro, para bloco afundado sem borda
---halo      halo de ESTADO (aba atual, refeição feita, botão sob o dedo)
---glow      halo de FOCO
---shadow-rest / --shadow-lift / --shadow-deep
---glass + --glass-blur   vidro das barras flutuantes
---grad-brand             gradiente da marca
-```
-
-Movimento, espaço e tipo:
-
-```
---ease cubic-bezier(.2,.8,.3,1)   --dur .2s
---gap 1rem   --pad 1.25rem   --max 30rem   --tabbar-h 4.5rem
---font (system-ui)   --font-mono
-```
+- **dois regimes**: Ferro (escuro) é a base e Papel (claro) o derivado; os
+  valores moram em `--ferro-*`/`--papel-*` e `--x` só aponta para eles;
+- **quina zero**: `--quina-g`/`--quina`/`--quina-p` são slots que valem 0;
+  não há `--radius-*` nem `--pill`, e nada clicável é pílula;
+- **duas fontes**: `--font-display` (Big Shoulders, caixa alta, só herói ≥
+  20 px e SEM `tnum`) e `--font` (Archivo, texto e toda coluna de números);
+- **andaime**: `--traco` (borda de 2 px), `--nervura` (régua diagonal),
+  `--inclinado` (o CTA primário), `--ponta` (ponta de folha);
+- **movimento**: só pelos tokens `--mov-*`; valor escrito à mão tem catraca
+  em zero (`config/test_movimento.py`);
+- **pilares com cor nomeada**: `--agua`, `--brasa`, `--terra`, `--chama`,
+  `--folha`.
 
 **Nenhuma cor ou raio escrito à mão.** `DesignSystemTests` trava isso: cor de
 acento, raio de quina e tratamento de texto são globais por definição.
@@ -79,7 +69,7 @@ Antes de propor um novo, procure aqui.
 **Shell** — `.app-bar` (topo, vidro), `.tabbar` (5 abas, vidro, fixa embaixo),
 `.container` (largura máxima 30rem).
 
-**Superfície** — `.card`, `.card__head`. Widgets de destaque usam `--radius-xl`.
+**Superfície** — `.card`, `.card__head`. Widgets de destaque usam `--quina-g`.
 
 **Ação** — `.btn` com `--primary`, `--ghost`, `--quiet`, `--perigo`, `--sm`,
 `--block`; `.btn-link` (link com alvo de 44px por padding negativo).

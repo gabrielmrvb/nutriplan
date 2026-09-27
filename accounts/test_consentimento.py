@@ -33,7 +33,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from accounts import consentimento
-from accounts.models import ONBOARDING_DONE, Consentimento, Profile, User
+from accounts.models import Consentimento, Profile, User
 from accounts.test_tres_etapas import ETAPA1_SEM_CAIXAS as ETAPA1, ETAPA2, ETAPA3, etapa
 
 CAIXAS = {"saude": "on", "transferencia": "on"}
@@ -148,7 +148,7 @@ class ConsentimentoTests(TestCase):
         self.assertEqual(consentimento.faltam(perfil), set())
 
     def test_voltar_a_etapa_1_depois_de_consentir_nao_pede_de_novo(self):
-        user = self.pessoa()
+        self.pessoa()
         self.client.post(etapa(1), {**ETAPA1, **TRES})
         html = sem_scripts(self.client.get(etapa(1)).content.decode())
         self.assertNotIn('name="saude"', html)
@@ -157,7 +157,7 @@ class ConsentimentoTests(TestCase):
         self.assertRedirects(resposta, etapa(2))
 
     def test_a_edicao_do_perfil_pela_etapa_1_nao_mostra_as_caixas(self):
-        user = self.pessoa()
+        self.pessoa()
         self.client.post(etapa(1), {**ETAPA1, **TRES})
         self.client.post(etapa(2), ETAPA2)
         self.client.post(etapa(3), ETAPA3)

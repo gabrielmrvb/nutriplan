@@ -20,6 +20,7 @@ from datetime import datetime, time
 from decimal import Decimal
 from unittest import mock
 
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -71,16 +72,30 @@ class CardDeRefeicaoTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _tela(self, hora=8):
         with mock.patch("plans.views.relogio", return_value=_as(hora)):
             return self.client.get(reverse("plans:alimentacao")).content.decode()
 
-    def test_a_refeicao_da_vez_nasce_aberta_com_as_duas_receitas(self):
-        """O toque deixou de ser para DESCOBRIR e passou a ser para
-        APROFUNDAR: as duas opções estão na tela, com ilustração, caloria, os
-        três macros, o tempo e os ingredientes."""
+    def test_a_refeicao_da_vez_nasce_fechada_e_marcada(self):
+        """As duas opções continuam completas — ilustração, caloria, os três
+        macros, o tempo e os ingredientes —, atrás de UM toque.
+
+        Até 24/09/2026 a da vez nascia aberta. O dono usou o app e decidiu que
+        nenhuma abre sozinha: a marca na linha diz qual é a da vez, e quem
+        escolhe o que abrir é a pessoa.
+        """
         html = self._tela(hora=8)
         primeiro = self.plan.slots.order_by("order").first()
 
@@ -88,15 +103,28 @@ class CardDeRefeicaoTests(TestCase):
         # As duas receitas do dia, cada uma num card com ação própria.
         self.assertEqual(html.count('<article class="receita'), 2 * 5)
         self.assertIn("receita--sugerida", html)
-        self.assertIn("Comi esta", html)
+        self.assertIn("receita__chip", html)
+        # O TEXTO do botão: o template quebra a linha depois do `<button>`, e
+        # uma âncora com os sinais de tag reprovaria por espaço em branco.
+        rotulos = {
+            texto.strip()
+            for texto in re.findall(
+                r'<form[^>]*class="receita__acao".*?<button[^>]*>(.*?)</button>',
+                html,
+                re.S,
+            )
+        }
+        self.assertEqual(rotulos, {"Registrar"})
         # O rótulo interno A/B não chega na tela.
         # Com os sinais de tag: "Registrar A" casa com o `aria-label`
         # novo ("Registrar Arroz com lentilha...").
         self.assertNotIn(">Registrar A<", html)
         self.assertNotIn(">Registrar B<", html)
-        # E o card da vez NÃO está dentro do `<details>` das futuras.
+        # E o card da vez está fechado como os outros, com a marca na linha.
         pedaco = _card(html, primeiro.pk)
-        self.assertNotIn('<details class="meal__futuro">', pedaco)
+        self.assertIn('<details class="meal__futuro">', pedaco)
+        self.assertNotIn('<details class="meal__futuro" open', pedaco)
+        self.assertIn("meal__marca--agora", pedaco)
 
     def test_a_refeicao_futura_e_uma_linha_com_hora_nome_e_alvo(self):
         """Item 11: as outras colapsadas em uma linha cada. O cabeçalho de
@@ -114,7 +142,7 @@ class CardDeRefeicaoTests(TestCase):
 
     def test_a_refeicao_registrada_mostra_o_que_foi_comido_e_o_desfazer(self):
         """Feita é um terceiro desenho: o resultado e a saída, sem as duas
-        opções — oferecer "Comi esta" embaixo de um registro que já existe é
+        opções — oferecer "Registrar" embaixo de um registro que já existe é
         oferecer uma ação que só pode dar errado."""
         slot = self.plan.slots.order_by("order").first()
         opcao = slot.options.order_by("rank").first()
@@ -185,6 +213,16 @@ class OTopoContaODiaTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _contexto(self, hora=8):
@@ -253,6 +291,16 @@ class APorcaoRecalculaTests(TestCase):
         cls.opcao = cls.slot.options.order_by("rank").first()
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _receita(self, **params):
@@ -353,6 +401,16 @@ class AReceitaEUmaTelaTests(TestCase):
         cls.outro_plano = services.create_plan(cls.outra_pessoa)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def test_a_receita_traz_ingredientes_preparo_macros_e_a_troca(self):
@@ -395,7 +453,7 @@ class AReceitaEUmaTelaTests(TestCase):
             reverse("plans:receita", args=[self.slot.pk, self.opcao.pk])
         ).content.decode()
         self.assertIn("Você registrou esta refeição", html)
-        self.assertNotIn(">Comi esta<", html)
+        self.assertNotIn("receita-folha__acao", html)
 
 
 class OPreparoViraPassosTests(TestCase):
@@ -457,6 +515,16 @@ class OPainelDaDireitaTests(TestCase):
         cls.plan = services.create_plan(cls.user)
 
     def setUp(self):
+        # A prévia de compras e o `<datalist>` vivem em CACHE de processo
+        # (LocMem) chaveado por `plano.pk`. Em produção o pk é único por conta;
+        # na suíte ele se REPETE entre testes (rollback devolve a sequência) e o
+        # LocMem NÃO é limpo entre testes, então uma prévia de outro teste com o
+        # mesmo pk vazava para cá — a tela abria sem os ingredientes deste plano.
+        # (Achado no CI: `fatia 0` inteira vermelha, `'peito' not found`; os
+        # halves passavam porque só o prefixo inteiro reproduz a colisão de pk.)
+        # `OPainelDaDireitaTests` já limpava por isto; agora todas as telas de
+        # Alimentação começam com o cache limpo.
+        cache.clear()
         self.client.force_login(self.user)
 
     def _tela(self, hora=8):
@@ -531,3 +599,44 @@ class OPainelDaDireitaTests(TestCase):
 
         self.assertIn("pendente", estados.values(), "o fixture precisa de uma vencida")
         self.assertEqual(estados[painel["slot"].pk], "agora")
+
+
+class OCartaoAgoraFicaSoNaHomeTests(TestCase):
+    """O cartão AGORA repetia a refeição que estava logo abaixo, com o mesmo
+    botão — decisão do dono em 24/09/2026, depois de usar o app.
+
+    A Alimentação abre com o anel (meta e saldo) e o cardápio; quem orquestra o
+    dia é a Hoje, e lá o cartão continua sendo o herói — apontando a refeição,
+    não registrando por ela.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_catalog", verbosity=0)
+        cls.user = create_complete_user(email="sem-agora@exemplo.com")
+        cls.plan = services.create_plan(cls.user)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_a_alimentacao_nao_tem_o_cartao_agora(self):
+        with mock.patch("plans.views.relogio", return_value=_as(8)):
+            html = self.client.get(reverse("plans:alimentacao")).content.decode()
+
+        self.assertNotIn("agora-card", html)
+        self.assertNotIn("agora__sugestao", html)
+        # Controle positivo: a tela continua sendo a da Alimentação, com o anel
+        # e o cardápio. Sem isto, a asserção de ausência passaria por acidente
+        # num redirect ou numa página de erro.
+        self.assertIn("today-hero", html)
+        self.assertIn('<article class="receita', html)
+
+    def test_a_hoje_continua_com_o_cartao_agora_apontando_a_refeicao(self):
+        with mock.patch("plans.views.relogio", return_value=_as(8)):
+            html = self.client.get(reverse("plans:today")).content.decode()
+
+        self.assertIn("agora-card", html)
+        self.assertIn("Ver refeição", html)
+        # E a Hoje nunca registrou comida: o ramo que fazia isso era da
+        # Alimentação, e saiu junto com o cartão de lá.
+        self.assertNotIn("agora__sugestao", html)

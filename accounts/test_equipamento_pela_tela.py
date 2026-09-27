@@ -18,7 +18,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import Equipamento, Profile, User
-from accounts.test_tres_etapas import ETAPA1, etapa
+from accounts.test_tres_etapas import etapa
 
 
 def campos_do_formulario(html):

@@ -18,7 +18,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Musculacao, Profile, User
-from accounts.test_tres_etapas import ETAPA1, ETAPA2, ETAPA3, etapa
+from accounts.test_tres_etapas import ETAPA1, ETAPA2, etapa
 from workouts.models import TrainingPlan
 
 SO_CORRO = {"goal": "cut", "activity_level": "light", "musculacao": "nao", "wake_time": "07:00", "sleep_time": "23:30"}

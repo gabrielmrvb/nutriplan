@@ -5,7 +5,7 @@ O caminho que motivou isto, medido de ponta a ponta:
 
   1. a sessão expira — que é o jeito mais comum de uma sessão acabar, porque
      ninguém sai do app de propósito;
-  2. a pessoa toca em "+250 ml", "Comi esta" ou "Salvar peso";
+  2. a pessoa toca em "+250 ml", "Registrar" ou "Salvar peso";
   3. `login_required` manda para `/conta/entrar/?next=/agua/`;
   4. ela entra corretamente;
   5. o Django redireciona para o `next` — com um GET;

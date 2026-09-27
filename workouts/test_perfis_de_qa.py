@@ -20,7 +20,6 @@ real. O que cada um prova é o CONTRATO, e não um número mágico:
 Onde um perfil reprovar, o achado é de §16/§18 e vira correção no MOTOR só
 com medição escrita — nunca ajuste da expectativa.
 """
-from collections import Counter
 from datetime import date, time
 from decimal import Decimal
 
@@ -103,7 +102,7 @@ class CincoPerfisTests(TestCase):
 
     def test_cada_perfil_recebe_uma_semana_coerente(self):
         for perfil in PERFIS:
-            rotulo, dias, exp, dur, pref = perfil[0], perfil[6], perfil[7], perfil[8], perfil[9]
+            rotulo, dias, dur, pref = perfil[0], perfil[6], perfil[8], perfil[9]
             with self.subTest(perfil=rotulo):
                 user = nascer(*perfil)
                 sessoes = self._sessoes(user)

@@ -352,8 +352,9 @@ A ordem tem três regras, e as três são de prescrição, não de estética:
 ## Mapa de equipamento — o que cada perfil tem à mão
 
 Quatro respostas no perfil (`accounts.models.Equipamento`, pergunta na
-etapa 2 do onboarding e no Perfil, 17/09/2026), e o motor FILTRA o catálogo
-antes de prescrever (`services.prescrever_opcoes(..., permitidos=)`). A
+etapa 2 do onboarding e no Perfil, 17/09/2026), e o motor SUBSTITUI — nunca
+filtra — o que está fora do perfil antes de prescrever
+(`services.substituir_por_equipamento`, explicado logo abaixo da tabela). A
 chave é o `Exercise.equipment` do catálogo; a coluna lista o que o perfil
 PODE usar.
 
@@ -402,7 +403,7 @@ perfil, e só sai quando não há substituto. É por isso que a letra que era
 cinco barras fixas vira cinco exercícios de verdade em vez de virar uma
 letra vazia.
 
-Como o filtro obedece, e por que ele não é um `filter()`: a prescrição não
+Como o perfil é obedecido, e por que não é um `filter()`: a prescrição não
 SELECIONA exercícios — copia MODELOS curados de `splits.json` —, então tirar
 o que o perfil não tem abriria buraco no modelo (medido em 10/09/2026: oito
 modelos perdiam grupo em casa com halteres). O item fora do perfil é
@@ -411,7 +412,7 @@ mesmo grupo dentro do perfil que ainda não esteja no modelo, com a mesma
 dose — supino reto com barra vira supino com halteres, mesmas quatro
 séries; agachamento livre vira goblet. Sem substituto, o item sai, e a
 cadeia de sempre (opções, preenchimento, teto, tempo) roda sobre o que
-sobrou. `completa` não filtra nada e é a ficha de sempre: o teste dourado
+sobrou. `completa` não substitui nada e é a ficha de sempre: o teste dourado
 e o gate por letra valem nela e em `basica`; `casa_halteres` e
 `peso_corporal` são MEDIDOS e o que falta ao catálogo está listado no
 `BACKLOG.md`. Perfil que muda torna a ficha inválida e remonta, como nível

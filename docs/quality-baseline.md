@@ -129,38 +129,90 @@ exige ler cada uma, e é trabalho de outra missão.
 ## 4. ruff — o piso, e o que ele mede
 
 **ruff 0.16.9**, config em `ruff.toml`: `select = ["E", "F", "W"]`,
-`line-length = 100`, migrações excluídas (código gerado pelo Django).
+`ignore = ["E501"]`, `line-length = 100`, migrações excluídas (código gerado
+pelo Django).
 
-**Total: 1.656 achados.** O piso vive em `ruff-baseline.txt` e a regra do dono é
+**Total: 104 achados.** O piso vive em `ruff-baseline.txt` e a regra do dono é
 que **a contagem não sobe** — o `pre-commit` e o job `ruff (relatório)` do CI
 comparam contra ele. Nenhum dos dois barra merge: o check obrigatório continua
 sendo a "suíte rápida".
 
 | nº | regra | o que é |
 |---|---|---|
-| 1.439 | `E501` | linha acima de 100 caracteres |
-| 106 | `F401` | import não usado (**corrigível automático**) |
-| 55 | `E741` | nome de variável ambíguo (`l`, `I`, `O`) |
+| 58 | `E741` | nome de variável ambíguo (`l`, `I`, `O`) |
 | 20 | `E702` | duas instruções na mesma linha, com `;` |
 | 18 | `E701` | duas instruções na mesma linha, com `:` |
 | 8 | `E731` | `lambda` atribuído a nome |
-| 6 | `F841` | variável atribuída e nunca usada |
-| 2 | `F601` | chave repetida em literal |
-| 2 | `F811` | redefinido sem uso |
 
-**Leia o 1.439 com cuidado: ele é 87% do total e é quase todo comentário.** Esta
-base documenta decisão em prosa dentro do código — é a razão de o `CLAUDE.md` ter
-1.900 linhas e de cada `ponytail:`/docstring explicar o porquê. Cobrar 100
-caracteres disso é pedir para reescrever a documentação, não o código.
+### Como saiu de 1.656 para 114 (27/09/2026)
 
-**O burndown que interessa são os 217 restantes**, e ele tem uma ordem óbvia:
-os 106 `F401` saem com `ruff check --fix` (correção automática, sem julgamento);
-os 6 `F841`, 2 `F601` e 2 `F811` são achados reais e pequenos; `E741`, `E701`,
-`E702` e `E731` são estilo com 101 ocorrências.
+Duas mudanças, e nenhuma delas tocou lógica.
 
-**Nada disso foi corrigido aqui** — nem o `--fix` automático. O pedido era medir,
-e correr o `--fix` num commit de setup misturaria 106 arquivos tocados com a
-instalação da ferramenta.
+**`E501` saiu do `select`** — 1.439 dos 1.656, 87% do total, e quase todos em
+COMENTÁRIO. Esta base documenta decisão em prosa dentro do código: é a razão de
+o `CLAUDE.md` ter 1.900 linhas e de cada docstring explicar o porquê. Cobrar 100
+caracteres disso é pedir para reescrever a documentação, não o código — e uma
+catraca que ninguém pretende zerar deixa de ser catraca. `line-length = 100`
+ficou: continua sendo a referência escrita, sem a regra reprovar.
+
+**Os 97 `F401` saíram com `ruff check --fix`** — correção SEGURA, sem
+`--unsafe-fixes`. 65 arquivos tocados, e
+a auditoria do diff antes de rodar a suíte:
+
+- **toda linha acrescentada é `import` ou `from ... import`** — são blocos
+  multilinha que o ruff reescreveu ao remover um nome do meio;
+- das removidas, **5 não começam com `import`** (`OptionLabel,`, `WeightEntry,`,
+  `SEGUNDOS_ENTRE_EXERCICIOS,`, `SEGUNDOS_POR_SERIE,`, `Measure,`) e as cinco são
+  linha de continuação dentro de um import multilinha;
+- **nenhum `__init__.py`, `signals.py`, `apps.py` ou `conftest.py`** estava na
+  lista — é ali que import "não usado" costuma ser re-exportação ou efeito
+  colateral de carga;
+- cada um dos cinco nomes foi procurado no resto do repositório: quem os importa
+  os importa do módulo de ORIGEM (`.models`), nunca do arquivo que perdeu a
+  linha. Nenhuma cadeia de re-exportação quebrada.
+
+Resultado: **zero mudança de comportamento**, e a suíte rápida
+(`--exclude-tag lento`) confirma.
+
+### Os dez achados reais (27/09/2026, tarde) — 114 para 104
+
+Cada um foi lido e classificado antes de mexer, com a pergunta do dono: **a
+correção muda comportamento?**
+
+| regra | onde | o que era | veredito |
+|---|---|---|---|
+| `F601` | `accounts/test_duracao_portao.py`, 2× | `"experiencia": "intermediario"` repetido no mesmo dict, com o **mesmo valor** | não muda — a chave sobrescrita escrevia o que já estava lá. Duplicata removida. Resto de uma edição que acrescentou `musculacao`/`experiencia`/`equipamento` numa linha que já tinha a chave embaixo. |
+| `F811` | `plans/views.py` | `from django.views import View` e `from django.views.generic import TemplateView, View` | não muda — é o mesmo objeto. Ficou a linha de `generic`. |
+| `F811` | `demo/tests.py` | `User` importado de `accounts.models` e redefinido por `get_user_model()` | não muda — `AUTH_USER_MODEL` é esse mesmo `User`. Ficou `get_user_model()`. |
+| `F841` | `accounts/test_consentimento.py`, 2× | `user = self.pessoa()` com `user` nunca lido | não muda — a CHAMADA cria e loga a pessoa, e continua; só o nome saiu. Das sete ocorrências da linha no arquivo, as outras cinco usam `user` e ficaram. |
+| `F841` | `workouts/test_lista_de_hoje.py` | `sessao = self._uma_sessao()` | não muda — mesma coisa: a chamada monta a sessão e continua. |
+| `F841` | `workouts/test_perfis_de_qa.py` | `exp` no desempacotamento de `perfil`, nunca lido | não muda — saiu da tupla. O `exp` de `nascer()` é outro escopo e ficou. |
+| `F841` | `demo/tests.py` | `ontem = hoje - timedelta(days=1)`, nunca lido | não muda — conta morta: o laço subtrai da data de CADA registro, não de hoje. |
+| `F841` | `accounts/test_tres_etapas.py` | recorte `objetivo` montado e nunca usado; a asserção lia `html` | **MUDA** — ver abaixo. |
+
+**O único que mudava comportamento era um teste mais fraco do que o nome.**
+`test_o_campo_obrigatorio_erra_no_proprio_campo_e_preserva_o_resto` recortava o
+bloco do objetivo e depois afirmava o erro contra a PÁGINA inteira — "o erro
+aparece em algum lugar", bem menos do que "no próprio campo". Reaproveitar o
+recorte como estava também reprovava, com o app correto: ele terminava no
+primeiro `</ul>`, que é o fim da lista de opções, e o erro sai DEPOIS dela
+(`choice_cards.html:122`, fora do `role="group"`).
+
+O que liga erro e campo é o `aria-describedby` do grupo, e o teste agora prende
+as duas pontas: o grupo do objetivo aponta para `id_goal_error`, e a mensagem
+mora dentro do elemento com esse id. **Sabotado nos dois sentidos**, no template
+que o campo de fato usa: tirar o `_error` do `aria-describedby` → vermelho;
+trocar o `id` do bloco de erro → vermelho; restaurado → verde. (A primeira
+sabotagem foi feita em `field.html` e passou verde — o `goal` é cartão de escolha
+e não passa por ele. Fica o registro: sabotagem no arquivo errado prova nada.)
+
+### O que sobra, e a ordem
+
+**104, todos de estilo**, e o ruff não corrige nenhum com segurança
+(`No fixes available`; os 8 atrás de `--unsafe-fixes` não foram usados):
+`E741` (58), `E702` (20), `E701` (18), `E731` (8). `E741` é o maior, e vale olhar
+caso a caso — um `l` de `linha` num laço curto não é o mesmo problema que um `I`
+solto.
 
 ## Como usar este documento
 

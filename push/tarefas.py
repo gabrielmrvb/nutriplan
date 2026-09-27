@@ -20,7 +20,7 @@ some no restart; nada disso é persistido, de propósito — persistir seria
 uma consulta.
 """
 import hmac
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone

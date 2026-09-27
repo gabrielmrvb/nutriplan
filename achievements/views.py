@@ -16,7 +16,7 @@ from accounts.views import OnboardingRequiredMixin
 
 from . import services
 from .models import UserAchievement
-from .regras import CATALOGO, POR_SLUG, Familia
+from .regras import CATALOGO, Familia
 from config.acoes import AcaoDeTela
 
 

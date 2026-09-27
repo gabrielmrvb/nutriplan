@@ -19,7 +19,6 @@ E a saída da tela ganha duas portas que faltavam: "Depois: X" vira link e o
 cabeçalho ganha "← Ficha".
 """
 import re
-from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase

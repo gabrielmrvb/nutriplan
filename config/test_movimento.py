@@ -24,7 +24,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import TrainingDay, User
+from accounts.models import TrainingDay
 from push.test_cache_privado import sem_comentarios
 
 RAIZ = Path(__file__).resolve().parent.parent

@@ -70,7 +70,7 @@ igual ao online.
 | `dieta.comeu_outra_coisa` | — | `MarkMealView` (OFF_PLAN) |
 | `agua.registrada` | — | `LogHydrationView` (só o somar) |
 | `progresso.peso_registrado` | `faixa` | `WeightLogView` |
-| `treino.serie_concluida` | `exercicio`, `carga`, `reps` | `ConcluirSerieView` (só o `criada`) |
+| `treino.serie_concluida` | `exercicio` (id), `exercicio_nome`, `carga`, `reps` | `workouts.telas.concluir_serie`, chamada por `ConcluirSerieView` (só o `criada`; UM evento por série desde 27/09/2026 — o painel descarta a cópia de texto gravada entre 24/09 12:30 UTC e o conserto) |
 | `treino.iniciado` | `letra` (omitida) | `ConcluirSerieView` (primeira série do dia) |
 | `treino.troca` | `de`, `para` | `TrocarExercicioView` |
 | `corrida.registrada` | `origem` | `RegistrarCorridaView` (manual) e importação (arquivo) |

@@ -22,3 +22,8 @@ django-allauth[socialaccount]>=65.19,<66.0
 gunicorn>=23.0
 whitenoise>=6.8
 google-auth>=2.30,<3.0
+
+# Sentry (plano gratis), DESLIGADO sem SENTRY_DSN — ver config/observabilidade.py
+# (ligar_sentry so importa isto quando ha DSN). O extra [django] traz a
+# integracao que resolve o middleware/view que quebrou a partir do traceback.
+sentry-sdk[django]>=2,<3

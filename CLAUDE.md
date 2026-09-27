@@ -160,9 +160,11 @@ que pediria um fica vazia de propósito em vez de apontar para nada.
 `ruff-baseline.txt` e a regra é que a contagem **não sobe**. O `pre-commit` e o
 job `ruff (relatório)` do CI comparam contra esse número; o check que barra o
 merge continua sendo só a "suíte rápida". Portão bloqueante quando o burndown
-zerar. Hoje são 1.656 achados, e **1.439 são `E501`** — linha longa em
-comentário de prosa deliberada, que é o estilo desta base; o alvo que interessa
-são os 217 restantes. `docs/quality-baseline.md` tem a tabela.
+zerar. **Hoje são 104**, e o caminho até aqui está em `docs/quality-baseline.md`:
+`E501` saiu do `select` em 27/09/2026 (eram 1.439 de 1.656 — 87% —, quase todos
+em comentário de prosa deliberada, que é o estilo desta base) e os 97 `F401`
+saíram com `ruff check --fix`, correção segura, só import. O que sobra é
+estilo: o ruff não corrige nenhum dos 104 sozinho, e os dez achados reais (`F601`, `F811`, `F841`) já saíram.
 
 **Nunca rode servidor pelo Bash** — `preview_start`, sempre.
 
@@ -383,12 +385,9 @@ compras é feita deles).
 - **O ESTADO DA REFEIÇÃO VEM DO SERVIDOR NUMA PALAVRA.** `plans/agora.py`
   escreve `slot.estado` ao lado do `marcador`: `resolvida` · `agora` ·
   `pendente` · `futura`. A tela desenha quatro coisas a partir dela e não
-  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). **Só a
-  `agora` nasce aberta** — a decisão de 20/09 sobre a Home compacta vale
-  para a vencida também, e esta reforma quase a desfez: com cards de receita
-  no lugar das linhas, abrir `pendente` poria dois cardápios na tela às 15h.
-  Quem segurou foi `test_a_vencida_fica_em_uma_linha_com_o_convite_a_registrar`.
-  Fechada, a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
+  recalcula nada (`test_o_template_nao_recalcula_quem_e_a_vez`). Até 23/09 a
+  `agora` nascia ABERTA; desde 24/09/2026 **nenhuma nasce** (abaixo). Fechada,
+  a refeição é UMA LINHA (hora · nome · alvo, ou "Não registrada ·
   registrar"): 150 → 86 px, medidos a 390.
 - **A opção é um CARD DE RECEITA**, não uma linha com sanfona: ilustração,
   nome, caloria, os TRÊS macros, tempo e os ingredientes com a porção numa
@@ -396,7 +395,7 @@ compras é feita deles).
   já fazia — zero consulta nova). A linha ABREVIA a medida ("6,5 col. de
   sopa"); a receita escreve por extenso. O rótulo A/B **saiu da interface** —
   é nome interno do rodízio; `OptionLabel` continua no banco e na lista de
-  compras. O CTA é "Comi esta", e só a sugestão do dia é verde.
+  compras. O CTA e o peso dos dois botões são de 24/09/2026 (abaixo).
 - **A RECEITA É UM MARKUP SÓ EM TRÊS LUGARES** (`templates/plans/_receita.html`):
   a tela `/refeicao/<slot>/receita/<opcao>/`, a folha do celular e o painel
   da direita no desktop. A folha e o painel são a seção `#receita`
@@ -1715,6 +1714,51 @@ no navegador antes de tocados, e cada um com a régua que impede a volta:
   da ÁREA, "Ver progresso"); ficam o cartão AGORA, que é a ação do momento,
   e a faixa, que é onde o campo mora.
 
+**A ALIMENTAÇÃO SUGERE, NÃO IMPÕE (24/09/2026).** Cinco decisões do dono
+depois de usar o app. Elas SUBSTITUEM, com data e motivo, três regras
+anteriores: "só a refeição da vez nasce aberta" (20/09, reforçada em 23/09),
+"só a sugestão do dia é verde" e "o CTA é Comi esta" (as duas de 23/09). As
+três foram boas decisões para a tela que existia quando foram tomadas — uma
+refeição aberta custava quatro linhas de texto, não dois cards de receita.
+
+- **O cartão AGORA é da Hoje, e só dela.** Na Alimentação ele repetia a
+  refeição que estava logo abaixo, com o mesmo botão: o herói e o primeiro
+  card eram a mesma coisa dita duas vezes. A tela abre com o anel (meta e
+  saldo) e o cardápio. `_agora.html` perdeu o ramo `sugestao`, que só a
+  Alimentação usava — na Hoje ele é PONTEIRO ("Ver refeição"), e a única
+  ação que executa é a água.
+- **Nenhuma refeição nasce aberta; a da vez é MARCADA.** Toda refeição em
+  aberto é uma linha, e quem abre é a pessoa. A linha da `agora` traz o selo
+  "Agora" e a da `pendente`, "Ficou para trás" — dentro do próprio
+  `<summary>`, sem custar altura. **Uma marca por linha:** na `pendente` ela
+  SUBSTITUI o convite "Não registrada · registrar" (25/09). Dois rótulos
+  `flex: none` na mesma linha espremiam o nome da refeição a zero — 145px de
+  altura a 390px, com uma letra por linha, e o transbordo recortado pelo
+  `overflow-x` da raiz, que é o motivo de nenhuma barra de rolagem denunciar.
+  `test_a_linha_fechada_nao_espreme_o_nome_da_refeicao` é a régua. Medido a 390px com a conta de QA: **2.568 →
+  1.561 px às 9h, 2.580 → 1.773 às 14h, 2.596 → 2.131 às 20h**.
+- **O botão diz a AÇÃO: "Registrar".** "Comi esta" saiu de toda tela — o
+  card já é a receita, e na folha aberta por link não havia "esta" a que
+  apontar. `config/test_linguagem.py` cobra a ausência da frase no cardápio e
+  na folha; o `aria-label` continua nomeando receita e horário.
+- **As duas opções pesam igual, e a sugestão vira CHIP.** Os dois CTAs são
+  `btn--ghost`: o verde só na primeira lia como "faça a primeira", e com
+  cinco refeições por dia seriam dez primários na mesma tela. O rodízio
+  continua escolhendo — é ele que equilibra a lista de compras — e diz qual
+  escolheu num chip "sugestão de hoje" dentro do card.
+- **"Não comi" e "Comi outra coisa" são duas ações do mesmo tamanho.** Eram
+  um link de 15px de texto e um resumo disfarçado de link; viraram dois
+  `btn--ghost` lado a lado (grade de duas colunas, uma só abaixo de 24rem),
+  com a altura de 3,25rem do `.btn` — que o `.fora__abrir` precisa REPETIR,
+  porque ele declara `min-height` 3.000 linhas depois e vencia a cascata. Secundárias pelo CONTORNO e pela posição, não
+  pelo tamanho. O `<details>` aberto ocupa a largura toda. Contrato intacto:
+  mesma URL, `status=skipped`/`off_plan`, mesmo `data-celebra`, mesma
+  idempotência da fila offline.
+
+Continuam valendo: o card de receita e a folha, o anel e o `topo.modo`, a
+lista de compras, `OptionLabel` no banco e o teto de consultas de
+`plans:alimentacao` (`plans/test_stress.py`, hoje 19 — é TETO, e tirar
+trabalho da tela só pode baixá-lo).
 **O CARTÃO DE HOJE CONTA O TREINO DE HOJE, E NÃO A REFERÊNCIA DA SEMANA
 (24/09/2026).** `TrainingSession.total_sets` e `estimated_minutes` são da
 OPÇÃO 1 — o retrato da LETRA, que é o que os cartões das outras mostram e o
@@ -2920,7 +2964,12 @@ nem número de PR. `ajuda/mudancas.py` lê pouco de propósito — escapa tudo
 e só conhece `**negrito**` e `` `código` ``; Markdown inteiro seria uma
 dependência para três marcas — e relê quando o mtime muda. Há teste
 cobrando a forma do arquivo real (datas decrescentes, uma seção por dia,
-nenhuma vazia). Toda missão que muda o que a pessoa vê acrescenta a linha
+nenhuma vazia). **O marcador `*(gerência, não aparece para quem usa)*`
+FECHA a seção pública** (`_GERENCIA`, 27/09/2026): dele até a próxima data,
+item nenhum chega à tela. Ele era decorativo — o leitor conhecia só `##
+data` e `- item` —, e a frase dele era falsa: medido contra produção, "O
+painel de gestão passou a responder três perguntas de produto" aparecia em
+`/ajuda/o-que-mudou/`. Toda missão que muda o que a pessoa vê acrescenta a linha
 dela ANTES do merge, na própria branch — e uma linha só entra quando a
 mudança que ela descreve está na mesma branch ou já em `main` (a linha
 do placar saiu deste PR por isso e entra no dele).
@@ -3553,10 +3602,13 @@ nenhum — a noite é da `noturna.yml`.
   de novo, o primeiro lugar a olhar é o `TimeoutError` do socket, não o Django.
 - **O banco saiu do Render e foi para o Neon em 01/09/2026.** Provado em 04/09
   pelo cabeçalho do dump daquele dia: servidor 16.9, e o Render rodava 18.4 —
-  um cliente 16.9 não despeja um servidor 18.4. O banco do Render **é apagado
-  por volta de 23/09/2026** (verbo do painel: *deleted*), e continua declarado
-  no `render.yaml` de propósito: ele é o rollback. Se o plano gratuito do Neon
-  tem prazo próprio, ninguém verificou — é uma olhada no painel dele.
+  um cliente 16.9 não despeja um servidor 18.4. **O banco do Render NÃO é
+  mais rollback**: lido pela API em 27/09/2026 (`GET /v1/postgres`),
+  `nutriplan-db` está `suspended`, com `expiresAt` 24/09/2026 — o plano
+  gratuito dele venceu. Ele continua declarado no `render.yaml`, e tirá-lo
+  de lá é decisão do dono (um Sync do Blueprint mexe no painel). A volta
+  hoje é o Neon: *restore* no lugar ou branch de um instante, e o backup
+  próprio (`scripts/backup.sh`).
   Ver **Backup e restauração** e [`docs/infra-recuperacao.md`](docs/infra-recuperacao.md).
 - **O SMART APP CONTROL DESTA MÁQUINA FOI DESLIGADO PELO DONO EM
   20/09/2026, e é irreversível** (`VerifiedAndReputablePolicyState = 0`;
@@ -3922,8 +3974,8 @@ uma rede falsa e prova que nada além de GET chega nela.
 
 - **Web service `nutriplan`** (`srv-da6f5kou01pc73fsfkqg`): plano **free**,
   deploy automático de `main`, build em `scripts/build.sh`, healthcheck
-  `/saude/`. Variáveis, por nome: `DATABASE_URL` (Neon — o banco do Render
-  é só rollback), `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
+  `/saude/`. Variáveis, por nome: `DATABASE_URL` (Neon; o banco do Render
+  venceu em 24/09/2026), `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
   `DJANGO_EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, `EMAIL_HOST`, `EMAIL_PORT`,
   `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (Brevo, 2525),
   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PYTHON_VERSION`,
@@ -4001,16 +4053,44 @@ Actions + UptimeRobot free —, e isso implica três coisas escritas:**
   monitores; GitHub pode desligar o `schedule` de repositório sem atividade
   por 60 dias (ele avisa por e-mail) e atrasa ou pula o cron sob carga; o
   Neon pode reduzir a cota. Nada disso quebra o app — só os lembretes e o
-  cold start, e cada um tem o seu dono para reativar.
+  cold start, e cada um tem o seu dono para reativar. **As 750 h
+  (27/09/2026, lido nos docs do Render):** hora DORMINDO não conta para a
+  cota — mas esgotar as 750 h **suspende todos os serviços free do
+  workspace até o mês seguinte**, produção junto, porque produção e
+  staging dividem o mesmo workspace; CONFIRMADO no painel (Billing →
+  Monthly Included Usage, 27/09/2026 à tarde): 377,88 h de 750 no mês,
+  com os dois serviços web existindo desde o dia 1 — se hora dormindo
+  contasse, seriam mais de 1.270 h. No mesmo painel: 223 de 500 minutos
+  de build (cada merge constrói o staging e cada promoção constrói a
+  produção), 1,71 de 5 GB de banda, US$ 0,00 no mês e nenhum cartão
+  cadastrado.
 
-**O que mudaria se um dia virar pago:** instância `starter` no Render
-(~US$ 7/mês) elimina o sono, e aí o UptimeRobot vira só alerta de queda; o
-cron do Render (≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo
-no histórico do `render.yaml` até 16/09) substituiria o `schedule` do Actions
-com relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
-deixaria de atrasar; o Neon pago tira o teto de CU-h e a pausa de
-`push/tarefas.py` viraria só economia. Nenhuma dessas trocas exige código
-novo além de apagar o que existe para contornar o gratuito.
+- **o staging só acorda pra fila e o E2E, nunca pelo lote adiado
+  (27/09/2026).** Três motivos e nenhum outro: o `autoDeploy` de todo
+  merge, a prova de `promover_lote` (smoke + E2E do lote) e o
+  `e2e-noturno.yml` (07:30 UTC); `carga.yml` é manual, nunca cron. A
+  medição de hoje achou um desperdício: o cron de 30 min chamava
+  `esperar_commit(STAGING, …)` ANTES de conferir a janela de uma hora —
+  um lote ADIADO acordava o staging à toa mesmo sem promover nada.
+  Corrigido em `scripts/promover.py:promover_lote` — a janela é conferida
+  primeiro, e o staging dorme enquanto ela está fechada
+  (`config/test_lote.py`).
+
+**Regra do dono para virar pago (27/09/2026):** no primeiro usuário
+pagante, produção sobe para Render Starter (~US$ 7/mês, 0,5 CPU, 512 MB,
+sem sono) — o staging continua free, porque só produção precisa de sono
+zero. Nesse ponto o UptimeRobot vira só alerta de queda; o cron do Render
+(≥ US$ 1/mês, `scripts/render_api.py cron`, bloco de exemplo no histórico
+do `render.yaml` até 16/09) substituiria o `schedule` do Actions com
+relógio exato — e a janela de 15 min poderia voltar a 10, e o lembrete
+deixaria de atrasar. Do lado do banco: o Neon free mede hoje (27/09) 100
+CU-h/projeto de cota, *scale-to-zero* de 5 min que não dá para desligar,
+6 h de janela de restauração e 0,5 GB de armazenamento — o banco de
+produção usa 18 MB dessa cota. O Neon sobe para Launch (sem mínimo: US$ 0,106 por CU-h e US$ 0,35 por GB-mês — ~US$ 19/mês se 0,25 CU ficasse ligado o mês inteiro)
+quando passar de 80 CU-h no mês ou quando precisar de mais de 6 h de
+restauração; até lá, o teto de CU-h e a pausa de `push/tarefas.py`
+continuam valendo. Nenhuma dessas trocas exige código novo além de apagar
+o que existe para contornar o gratuito.
 
 ## Runbook de incidente
 
@@ -4061,7 +4141,7 @@ ENSAIADO no staging com a branch `staging-restaurada` (criada da `staging`
 com dados): `PUT` + redeploy em 1 min 30, `/saude/` ok, e `pg_stat_activity`
 mostrou a conexão do app na branch nova e nenhuma na antiga; a volta é o
 mesmo comando com a URL de sempre. O Postgres do Render que era o rollback
-some por volta de 23/09/2026; depois disso o caminho (4) é o Neon.
+venceu em 24/09/2026 (`suspended` na API, 27/09): o caminho (4) é o Neon.
 
 **Deploy quebrou.** `deploy` lista os últimos deploys com status e commit.
 `build_failed`/`update_failed`: o deploy anterior continua no ar, nada a

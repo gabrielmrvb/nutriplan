@@ -37,7 +37,7 @@ from django.utils import timezone
 from accounts.models import TrainingDay
 from workouts import adaptacao, services
 from workouts.models import ExerciseLog, Measure, MuscleGroup, SessionExercise
-from workouts.test_dupla_progressao import _anterior, _Item, _Log
+from workouts.test_dupla_progressao import _anterior, _Item
 from workouts.tests import create_user, dias_incluindo_hoje, escolher_opcao_de_hoje, sem_scripts
 
 HOJE = date(2026, 9, 16)

@@ -99,7 +99,7 @@ def log_meal(
     "pulei", muda de ideia e come. O registro é o estado final do horário
     naquele dia, não um log de auditoria de cliques.
 
-    Só a opção efetivamente comida traz macros do PLANO. "Pulei" zera sempre.
+    Só a opção efetivamente comida traz macros do PLANO. "Não comi" zera sempre.
 
     "Comi outra coisa" agora pode trazer os seus, em `macros`, calculados a
     partir dos alimentos que a pessoa descreveu. Quando ela não descreve

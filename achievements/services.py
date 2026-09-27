@@ -28,7 +28,7 @@ from django.utils import timezone
 
 from accounts.models import TrainingDay
 from plans import services as plan_services
-from plans import streaks, weight_trend
+from plans import streaks
 from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
 from .models import UserAchievement

@@ -36,7 +36,7 @@ diferente, transformaria o limite num oráculo".
 import json
 import re
 
-from django.test import Client, TestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 

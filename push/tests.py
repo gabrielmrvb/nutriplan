@@ -7,8 +7,7 @@ não provaria nada sobre o nosso código.
 """
 import re
 import struct
-from datetime import date, time, timedelta
-from decimal import Decimal
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,7 +16,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import ActivityLevel, Goal, Profile, Sex, TrainingDay, User, WeightEntry
+from accounts.models import User
 from plans import services
 from plans.models import MealStatus
 from plans.tests import CatalogFixture, create_complete_user

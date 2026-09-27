@@ -10,7 +10,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import TestCase
-from django.urls import reverse
 
 PASTA = Path(settings.BASE_DIR) / "static" / "img" / "landing"
 PROVAS = ("prova-dia", "prova-treino", "prova-progresso")

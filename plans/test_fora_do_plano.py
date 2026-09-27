@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from catalog.models import Food
-from plans.models import MealLog, MealStatus
+from plans.models import MealStatus
 from plans import tracking
 
 

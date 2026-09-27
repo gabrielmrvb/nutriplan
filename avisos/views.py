@@ -33,7 +33,7 @@ class PreferenciasView(LoginRequiredMixin, FormView):
     def get_form(self, form_class=None):
         if self.request.method == "POST":
             return PreferenciaForm(self.request.POST)
-        return PreferenciaForm.de(Preferencia.de(self.request.user))
+        return PreferenciaForm.de(Preferencia.ler(self.request.user))
 
     def form_valid(self, form):
         form.aplicar(Preferencia.de(self.request.user))

@@ -6,6 +6,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-27
 
+- **A última etapa do cadastro respira.** O resumo das suas respostas ganhou espaço antes da primeira pergunta, e "Não quero priorizar agora" deixou de mostrar uma caixa de ícone vazia.
+- **A mesma corrida tem o mesmo número em toda tela.** A lista dizia "5,20 km" e a Home "5,2 km". Agora a distância aparece sempre com até duas casas e sem zero sobrando: 5,2 · 5,23 · 10.
+- **A sequência não pede o que você acabou de fazer.** Com a sequência em zero, a Home convidava a "registrar uma refeição ou um copo d'água" mesmo depois de você registrar. Agora, assim que há registro no dia, ela diz o que ainda falta para o dia contar.
+- **O Progresso conta o seu primeiro dia.** Com refeições marcadas hoje, o cartão do cardápio mostra quantas você já fez ("1/1 · hoje, até agora") em vez de pedir que você marque uma. A água do primeiro dia não ganha mais uma seta de tendência, a legenda da corrida diz "a mais longa do período" e a da água diz "meta batida".
 - **Faltou um dia? O próximo treino continua de onde você parou, e você escolhe qual fazer.** O app decidia o treino de hoje pela posição no calendário: se você pulava a quarta, na quinta ele já abria com o treino seguinte e o de quarta sumia. Agora "Treino de hoje" é o próximo do que você fez de verdade — quem pulou faz o treino pulado no dia seguinte. Ele vem marcado como "recomendado", você pode fazer outro com um toque em "Fazer outro treino", e a tira da semana mostra o que você fez, o de hoje e o que vem a seguir.
 - **"Comi outra coisa" acha o que você digita.** A busca conhecia 102 alimentos — os do cardápio — e exigia o acento no lugar certo: pão de queijo, açaí, cuscuz, coxinha e mortadela não existiam, e "feijao" sem acento não achava "Feijão". A refeição ficava registrada com zero caloria. Agora são quase setecentos alimentos (a Tabela TACO, a oficial brasileira), a busca ignora acento e maiúscula, e as sugestões aparecem a partir da segunda letra com a caloria de cada um ao lado.
 - **E quando o alimento não existe, o app diz ali mesmo.** O aviso nasce ao lado do campo, no card da refeição, e oferece a saída: registrar assim mesmo — a refeição fica salva, sem contar a caloria daquele item.
@@ -30,6 +34,11 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-24
 
+- **A tela de Alimentação abre com o cardápio, não com um cartão repetido.** O cartão AGORA mostrava a mesma refeição que estava logo abaixo, com o mesmo botão. Ele continua na Hoje, que é a tela do dia.
+- **Nenhuma refeição nasce aberta.** Todas viram uma linha — hora, nome e o alvo — e você abre a que quiser. A da vez ganha o selo "Agora" e a que passou, "Ficou para trás", sem precisar abrir nada. A tela encolheu de 2.568 para 1.561 px num celular de 390 px.
+- **O botão diz o que faz: "Registrar".** Era "Comi esta" — o card já mostra qual receita é.
+- **As duas opções têm o mesmo peso.** Nenhuma das duas é "a certa": a sugestão do dia agora é um selo no card ("sugestão de hoje") em vez de um botão verde.
+- **"Não comi" e "Comi outra coisa" viraram botões de verdade.** Eram dois links pequenos no rodapé do cartão; agora são duas ações do mesmo tamanho, e "Comi outra coisa" abre um campo com os alimentos do catálogo.
 - **Nada mais cobre o exercício durante o treino.** O bloco de registro preso no rodapé ocupava quase metade da tela: num iPhone SE ele tapava os músculos, o "ver vídeo" e a dica, e com o descanso rodando não sobrava nada. Agora ele tem só a carga, as repetições e o "Concluir série"; as bolinhas das séries e o "Anotar algo" voltaram para a página, logo acima. O vídeo abre do tamanho do espaço que sobra e sobe junto com o nome do exercício.
 - **"Ver vídeo" volta a funcionar depois da primeira série.** Ao concluir uma série, os botões da tela de treino paravam de responder até a página recarregar sozinha: o vídeo não abria, o −2,5/+2,5 não mexia na carga e o relógio de descanso ficava parado no mesmo número.
 - **Mudou a restrição alimentar, o cardápio muda junto.** Marcar "sem peixe" (ou trocar o estilo do cardápio) no Perfil dizia "Alterações salvas." e o cardápio continuava oferecendo a mesma receita — naquela tela e nas seguintes. Agora ele é remontado no mesmo toque, e a mensagem diz isso.
