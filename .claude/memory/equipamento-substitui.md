@@ -10,7 +10,7 @@ exercício ativo do mesmo `padrao` e grupo, com a mesma dose; sem
 substituto, o item sai. Por que não filtrar: a prescrição copia MODELOS
 curados de `splits.json`, e o filtro medido em 10/09 deixava oito modelos
 sem grupo (`abcde-C` com zero exercícios). O default é "completa", não
-vazio. Cuidado: o `TREINO.md` diz "o motor FILTRA o catálogo" (:343-344) —
-redação enganosa; o mecanismo descrito logo abaixo (:355-362) é substituição.
+vazio. O `TREINO.md` dizia "o motor FILTRA" até 27/09/2026; a palavra
+certa é SUBSTITUI, e ela voltou a ser a do documento.
 
 Fonte: CLAUDE.md:1400-1412; docs/briefs/treino/TREINO.md:340-369; workouts/services.py:1242
