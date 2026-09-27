@@ -26,6 +26,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **O que você registrou não some quando a ficha muda.** Trocar o equipamento no Perfil remonta a ficha, e o exercício que saiu dela respondia "página não encontrada" — com as suas séries guardadas. Ele abre normalmente, dizendo que não está na ficha de hoje, e **Treino › Exercícios que já fiz** lista tudo em que você registrou série.
 - **A dica da Alimentação parou de falar em "A e B".** O rótulo das opções saiu da tela em 23/09; a frase abaixo do cardápio, a pergunta da Ajuda e o e-mail de boas-vindas ainda citavam as letras. Agora dizem "as duas opções", sem mudar o sentido.
 - **Os números do gráfico de peso ficaram legíveis no celular.** Os valores do eixo e as datas saíam pequenos demais para ler (9px, abaixo do piso do app); agora saem no mesmo tamanho mínimo do resto da interface.
+- **"Melhores cargas", e recorde é o que você superou.** O Progresso listava a sua maior carga de cada exercício sob o título "Seus recordes" — e as Conquistas, na mesma conta e no mesmo dia, diziam "0 recordes". Agora o título diz o que a lista é, e a palavra "recorde" aparece só na carga que passou do seu melhor anterior.
+- **A lista de compras diz o que cada botão traz.** "Opção A" e "Opção B" viraram "Com a sugestão do dia" e "Com a outra opção" — a letra não aparece mais em tela nenhuma.
+- **Estado vazio não grita.** "Nenhuma ainda", "Sem pesagem", "Sem ficha" e "Descanso" saíram da fonte de número, de 72 px, e viraram texto.
+- **O Progresso fala de dias previstos**, e não de "dias combinados": os dias de treino você declarou no cadastro, não combinou com ninguém.
 
 *(gerência, não aparece para quem usa)*
 

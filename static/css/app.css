@@ -9415,6 +9415,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   letter-spacing: -.02em;
 }
 
+/* O valor que é uma PALAVRA ("Dia de descanso", "Sem ficha") não usa a
+   display: ela é a fonte dos números deste app — caixa alta, 900, tracking
+   negativo — e uma frase nela lê como manchete de jornal dentro de um
+   cartão. Mesmo degrau de hierarquia, outra família. */
+.painel__valor--palavra {
+  font-family: var(--font);
+  font-size: var(--texto-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
 .painel__de {
   font-family: var(--font);

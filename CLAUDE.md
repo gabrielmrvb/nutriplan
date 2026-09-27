@@ -1732,6 +1732,47 @@ ficha do mesmo dia — nunca um número escrito à mão, que envelhece com o
 catálogo — e o teste que protege o significado da referência tem controle
 positivo: a letra A dá 59 min nas duas opções, e sem uma letra que as
 distinga a sabotagem passava verde.
+**RECORDE É O QUE SUPEROU UMA DATA ANTERIOR — NAS DUAS TELAS (24/09/2026).**
+O Progresso listava a maior carga de cada exercício sob o título "Seus
+recordes"; `achievements` só chama de recorde o que passou de uma data
+anterior ("estreia não é recorde"). A varredura de 24/09 mediu uma conta com
+UMA série (40 kg × 6) e viu as duas telas juntas: "Seus recordes ·
+Agachamento livre 40 kg" e "0 recordes". As duas certas dentro da própria
+definição, e a palavra igual nas duas. Decisão do dono: **a primeira série
+não é recorde em lugar nenhum**. A lista virou "Melhores cargas" — título
+que diz o que ela É — e `evolucao.recordes` devolve `e_recorde` por linha,
+comparando com o MÁXIMO das datas anteriores daquele exercício (`date__lt`:
+subir a anilha entre a série 1 e a 2 do mesmo treino é aquecimento, não
+marca). **É o máximo, e não "existe alguma menor"** — a revisão adversarial
+achou onde as duas contas divergem, e não é caso de laboratório: 60 kg em
+julho, 50 em agosto (deload), 60 em setembro; o `DISTINCT ON` fica com a
+linha mais recente das empatadas em 60, e ali existe SIM uma data anterior
+com carga menor, então o `Exists` chamava de recorde um dia que só empatou
+com o próprio pico. `achievements` sempre comparou com o máximo. A
+subconsulta viaja no `DISTINCT ON` que já existia —
+UMA consulta, com teste de `assertNumQueries`, porque `plans:history` tem
+teto medido. Preço na tela, medido a 390: a `pill` de "recorde" empurra o
+valor para a segunda linha nas linhas de nome curto (25 → 52 px); para quem
+já treina há semanas quase toda linha tem a marca, e é verdade que tem —
+quem estreia é que precisa ver a ausência dela.
+
+**A LISTA DE COMPRAS NÃO FALA "OPÇÃO A" (24/09/2026).** Era o último lugar
+do app que pedia para a pessoa escolher entre duas coisas cujo nome ela
+nunca viu — o card de receita parou de escrever a letra em 23/09. Os chips
+viraram "Com a sugestão do dia" e "Com a outra opção"
+(`plans.models.ROTULOS_DA_LISTA_DE_COMPRAS`), porque a primeira opção
+projetada do dia é a que o cardápio sugere. A LETRA continua sendo
+identidade — banco, `?opcao=`, rodízio — e é isso que `OptionLabel` sempre
+disse que era: rótulo de tela de um lado, identidade de dado do outro.
+
+**VALOR QUE É PALAVRA NÃO USA A FONTE DO NÚMERO (24/09/2026).** Os quatro
+`painel__valor` de palavra da Home ("Descanso", "Sem ficha", "Nenhuma
+ainda", "Sem pesagem") saíam em display 900 a 28 px — estado vazio em
+manchete, contra os outros 16 do app. Eles ganharam
+`painel__valor--palavra` (mesmo degrau, outra família: `var(--font)`, 700,
+`--texto-lg`), e a regra é **a mesma, copiada verbatim** da branch da Home
+(#138), para as duas mergearem sem briga. Medido depois: 18 px em Archivo na
+palavra, 28 px em Big Shoulders no número.
 
 **A área de Treino são TRÊS telas, e cada uma responde UMA pergunta.**
 
@@ -3032,6 +3073,18 @@ Armadilha recorrente neste repositório: **o seletor do JavaScript e o marcador
 do HTML são a mesma string.** `assertNotIn("data-x", html)` passa por acidente
 porque `data-x` também está dentro do `<script>`. Ancore na classe
 (`class="card resumo"`) ou no texto visível.
+
+**Régua de varredura recorta caminho RELATIVO À RAIZ (24/09/2026).** A
+checagem de classe órfã (`config.tests`) lê os `.py` do projeto e descarta
+`artifacts/` e `scratchpad/` — e fazia isso com `caminho.parts`, que olha o
+caminho ABSOLUTO. O worktree de uma sessão do Claude Code mora dentro de um
+diretório chamado `scratchpad`, então ali o filtro descartava TODOS os
+arquivos do repositório: zero `.py` lidos, e as duas classes que
+`accounts/forms.py` escreve com `mark_safe` (`senha__regras`,
+`senha__titulo`) viravam órfãs. Verde no CI, vermelho na máquina, e uma hora
+procurando o defeito no app. Quem escrever a próxima varredura recorta por
+`caminho.relative_to(RAIZ).parts`: régua que muda de veredito com o lugar do
+checkout não é régua.
 
 Contraste é medido, não julgado: `config.tests` recalcula a razão WCAG a partir
 dos tokens, inclusive contra os fundos tingidos (`--brand-soft` e companhia).
