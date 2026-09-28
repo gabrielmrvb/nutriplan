@@ -21,7 +21,7 @@ from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from . import entrada
 from analytics import servidor as analytics
-from analytics.privacidade import CHAVE_SEM_RASTREIO, marcar_sessao
+from analytics.privacidade import sincronizar_sessao
 from .forms import (
     DIA_CURTO,
     BodyDataForm,
@@ -1109,6 +1109,11 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 perfil = request.user.profile
             except Profile.DoesNotExist:
                 perfil = None
+            if perfil is not None:
+                # O Perfil também ressincroniza o opt-out de análise: ele não
+                # herda o mixin, e abrir SÓ esta tela noutro aparelho deixava a
+                # sessão gravando (decisão do dono, 28/09/2026).
+                sincronizar_sessao(request, perfil)
             if perfil is not None and perfil.onboarding_complete and consentimento.deve_consentir(perfil):
                 return redirect("accounts:consentimento")
         return super().dispatch(request, *args, **kwargs)
@@ -1240,8 +1245,7 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
             # seguia gravando eventos identificados, renovada para sempre
             # (I-A da revisão final, 28/09/2026). O perfil já está aqui, então
             # conferir custa zero consultas — e só escreve quando diverge.
-            if bool(request.session.get(CHAVE_SEM_RASTREIO)) == profile.rastrear_uso:
-                marcar_sessao(request, profile.rastrear_uso)
+            sincronizar_sessao(request, profile)
             # Conta de antes dos consentimentos (ou de uma versão anterior dos
             # legais) passa UMA vez por `/conta/consentimento/` antes de
             # qualquer tela. Custa zero consultas: a versão está no perfil.

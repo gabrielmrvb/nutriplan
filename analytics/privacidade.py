@@ -48,6 +48,15 @@ def pode_registrar(request):
     )
 
 
+def sincronizar_sessao(request, perfil):
+    """A sessão segue o PERFIL, que é quem manda: o opt-out feito noutro
+    aparelho vale aqui na próxima tela. Zero consultas (o perfil já está em
+    mãos) e só escreve na sessão quando diverge. Chamado pelo
+    `OnboardingRequiredMixin` e pelo Perfil, que não herda o mixin."""
+    if bool(request.session.get(CHAVE_SEM_RASTREIO)) == perfil.rastrear_uso:
+        marcar_sessao(request, perfil.rastrear_uso)
+
+
 def marcar_sessao(request, rastrear_uso):
     """Escreve na sessão se a pessoa NÃO quer ser rastreada. Chamado no login e
     quando o opt-out do perfil muda — os dois pontos em que dá para pagar a

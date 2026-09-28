@@ -104,3 +104,14 @@ class OOptOutValeNoOutroAparelhoTests(TestCase):
         self.celular.get(reverse("plans:today"))
         self.celular.post(reverse("plans:log_hydration"), {"ml": "250", "de": "topo"})
         self.assertGreater(Event.objects.filter(user=self.user).count(), 0)
+
+    def test_so_o_perfil_aberto_no_celular_ja_ressincroniza(self):
+        """O Perfil não herda `OnboardingRequiredMixin` (abre para quem não
+        terminou o cadastro) e ficava de fora da sincronização: no celular,
+        abrir SÓ o Perfil e depois mandar eventos pelo navegador gravava
+        tudo identificado (resíduo da revisão final; decisão do dono, 28/09)."""
+        self.notebook.post(reverse("accounts:rastreio"), {"rastrear_uso": "0"})
+        self.celular.get(reverse("accounts:profile"))
+        self.celular.post(reverse("analytics:ingest"),
+                          data=corpo([{"name": "agua.registrada"}]), content_type="text/plain")
+        self.assertEqual(Event.objects.count(), 0)
