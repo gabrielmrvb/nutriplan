@@ -70,19 +70,23 @@ que os ativa aqui.
 
 ## Autonomia
 
-**DECIDA E REGISTRE (regra permanente, 17/09/2026).** Uma sessão só para e
-pergunta quando UMA das quatro condições vale:
+**QUANDO PARAR (regra permanente, 28/09/2026; substitui a de 17/09).** Uma
+sessão só para e pergunta quando UMA das cinco vale:
 
-1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
-2. **apaga ou altera dado de usuário real em produção**;
-3. **muda direção visual ou de produto que ainda não está escrita** em
-   `DESIGN.md` / `TREINO.md`;
-4. **precisa de credencial que não existe no ambiente**.
+1. **texto jurídico ou de consentimento** — Termos, Política, caixa de
+   consentimento, aviso regulatório (CRN/CREF): entra marcado `[REVISAR]`,
+   o PR espera o ok do dono;
+2. **dinheiro** — plano do Render, serviço pago, API cobrada;
+3. **apagar ou reescrever dado de gente real**;
+4. **ação em conta de terceiro** — loja, Sentry, Render, GitHub fora do fluxo
+   de PR e fila;
+5. **regra de doutrina nova sem princípio escrito** em `CLAUDE.md`,
+   `DESIGN.md` ou `TREINO.md`.
 
-Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
-tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
-decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
-uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
+Tudo o mais se decide pelo princípio que já existe nesses três documentos e
+se registra no relatório como **"decidi sozinho + por quê + como reverter"**,
+e a sessão segue. **Nunca esperar resposta por item que não está na lista.**
+Vetos vêm depois, no relatório; nunca antes.
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda missão
 · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o gate é o
@@ -104,8 +108,8 @@ teste dourado da ficha nunca afrouxa · spec (`DESIGN.md` / `TREINO.md`) vence
 proposta externa, e a divergência vai para "recomendo rever" · segredo nunca
 no repositório nem no relatório.
 
-**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
-condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo item
+**Relatório:** "O que preciso de você" só lista itens que caem nas cinco
+paradas. Lista vazia se escreve "nada" — e a sessão vai para o próximo item
 do plano mestre sem esperar.
 
 **Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
@@ -176,6 +180,15 @@ bash scripts/instalar_hooks.sh                   # liga as travas de git
 O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 `C:\Users\biel-\pgdata\nutriplan`) e **não sobe sozinho depois de reiniciar** —
 `pg_ctl start` antes de qualquer coisa.
+
+**CADA SESSÃO ENCERRA O `runserver` DELA AO FECHAR (28/09/2026).** O cluster
+local é um só para todas as sessões: em 28/09 ele chegou a 98 de 100
+conexões, quase todas de servidores de dev esquecidos, e o pre-push caiu em
+`AguaConcorrenteTests` com "too many clients". `max_connections` subiu para
+200 (`postgresql.conf`, backup `.bak-20260928`), mas a folga não substitui a
+disciplina: servidor que a sessão subiu (`fundo.py rodar … runserver`), a
+sessão derruba pelo PID dela antes do relatório final. Processo de outra
+sessão ninguém derruba — avisa no ledger.
 
 **PODA SEMANAL DE WORKTREES E BANCOS DE TESTE (toda segunda, 21/09/2026).**
 Cada sessão nasce num worktree e cada suíte interrompida deixa um

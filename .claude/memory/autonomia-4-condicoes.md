@@ -1,15 +1,15 @@
 ---
 name: autonomia-4-condicoes
-description: a sessão só para e pergunta em quatro condições; o resto decide, registra em "Decisões que tomei sozinha" e segue
+description: a sessão só para e pergunta em cinco paradas (jurídico, dinheiro, dado real, conta de terceiro, doutrina sem princípio); o resto decide pelo princípio escrito, registra e segue
 metadata:
   type: feedback
 ---
-Regra permanente de 17/09/2026: parar só quando (1) gasta dinheiro novo,
-(2) apaga ou altera dado de usuário real em produção, (3) muda direção
-visual ou de produto que não está escrita no DESIGN.md/TREINO.md, (4)
-precisa de credencial que não existe. Todo o resto — escolha técnica,
-rótulo, parâmetro, tolerância — decide-se com o melhor padrão e uma linha
-de razão em "Decisões que tomei sozinha". Vetos vêm depois, no relatório;
-perguntar antes é o erro que o dono corrigiu.
+Regra permanente de 28/09/2026 (substitui a de 17/09): parar só em (1) texto
+jurídico ou de consentimento, (2) dinheiro, (3) apagar ou reescrever dado de
+gente real, (4) ação em conta de terceiro (loja, Sentry, Render), (5) regra
+de doutrina nova sem princípio escrito. Todo o resto se decide pelo
+princípio existente (CLAUDE.md, DESIGN.md, TREINO.md) e entra no relatório
+como "decidi sozinho + por quê + como reverter". Nunca esperar resposta por
+item fora da lista.
 
-Fonte: CLAUDE.md:71-84
+Fonte: CLAUDE.md, seção "Autonomia".
