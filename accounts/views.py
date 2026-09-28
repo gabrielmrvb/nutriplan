@@ -21,6 +21,7 @@ from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from . import entrada
 from analytics import servidor as analytics
+from analytics.privacidade import CHAVE_SEM_RASTREIO, marcar_sessao
 from .forms import (
     DIA_CURTO,
     BodyDataForm,
@@ -1235,6 +1236,12 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
                 profile = None
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
+            # O opt-out mora na SESSÃO de quem o mudou; a do OUTRO aparelho
+            # seguia gravando eventos identificados, renovada para sempre
+            # (I-A da revisão final, 28/09/2026). O perfil já está aqui, então
+            # conferir custa zero consultas — e só escreve quando diverge.
+            if bool(request.session.get(CHAVE_SEM_RASTREIO)) == profile.rastrear_uso:
+                marcar_sessao(request, profile.rastrear_uso)
             # Conta de antes dos consentimentos (ou de uma versão anterior dos
             # legais) passa UMA vez por `/conta/consentimento/` antes de
             # qualquer tela. Custa zero consultas: a versão está no perfil.

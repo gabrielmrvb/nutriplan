@@ -33,6 +33,10 @@ class OOptOutBloqueiaTudoTests(TestCase):
         self.client.force_login(self.user)
 
     def _desligar(self):
+        # Perfil E sessão: desde I-A (28/09/2026) o `OnboardingRequiredMixin`
+        # ressincroniza a sessão com o perfil, que é a fonte da verdade.
+        self.user.profile.rastrear_uso = False
+        self.user.profile.save(update_fields=["rastrear_uso"])
         s = self.client.session
         s[CHAVE_SEM_RASTREIO] = True
         s.save()

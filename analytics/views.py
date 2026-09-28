@@ -67,13 +67,17 @@ class IngestView(View):
         user = None
         if request.user.is_authenticated and pode_identificar(request):
             user = request.user
+        # Logado e não atribuído (DNT): sem `anon_id`, senão o alias do
+        # próximo login no mesmo navegador daria a linha a outra pessoa
+        # (`servidor._anon_gravavel`, I-1 da revisão final de 28/09/2026).
+        anon_da_linha = "" if request.user.is_authenticated and user is None else anon
 
         objetos = [
             Event(
                 name=e["name"],
                 props=e["props"],
                 user=user,
-                anon_id=anon,
+                anon_id=anon_da_linha,
                 session_id=e["session_id"],
                 route=e["route"],
                 referrer=e["referrer"],
