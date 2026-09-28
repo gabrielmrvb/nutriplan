@@ -239,9 +239,9 @@ def mapa_de_treino(user, janela: Janela, dias_combinados=None) -> list:
             estado, titulo = FEITO, "%d série%s" % (series, "s" if series > 1 else "")
             intensidade = _degrau(series / maior) if maior else 4
         elif dia.weekday() in dias_combinados:
-            estado, intensidade, titulo = FALTOU, 0, "dia combinado, sem série"
+            estado, intensidade, titulo = FALTOU, 0, "dia de treino, sem série"
         else:
-            estado, intensidade, titulo = DESCANSO, 0, "descanso combinado"
+            estado, intensidade, titulo = DESCANSO, 0, "dia de descanso"
         mapa.append(DiaDoMapa(data=dia, estado=estado, intensidade=intensidade,
                               titulo=titulo))
     return mapa
@@ -536,11 +536,20 @@ def recordes(user, quantos=5) -> list:
 
 
 def tile_de_treino(mapa, dias_combinados) -> Tile:
+    # HOJE SÓ COBRA QUANDO JÁ ACONTECEU (28/09/2026): no dia 1, às 14h, o
+    # tile dizia "0 de 1 ↓" para um treino que ainda pode ser feito hoje —
+    # a mesma régua da aderência e da seta da água.
+    hoje = timezone.localdate()
+    hoje_a_fazer = any(dia.data == hoje and dia.estado == FALTOU for dia in mapa)
     feitos = sum(1 for dia in mapa if dia.estado == FEITO)
-    previstos = sum(1 for dia in mapa if dia.estado in (FEITO, FALTOU))
+    previstos = sum(
+        1 for dia in mapa
+        if dia.estado == FEITO or (dia.estado == FALTOU and dia.data != hoje)
+    )
     if not previstos:
-        return Tile(chave="treino", titulo="Treinos", valor=str(feitos),
-                    frase="Sem dia de treino previsto no período.")
+        frase = ("Hoje é dia de treino." if hoje_a_fazer
+                 else "Sem dia de treino previsto no período.")
+        return Tile(chave="treino", titulo="Treinos", valor=str(feitos), frase=frase)
     direcao = SUBINDO if feitos >= previstos else (PARADO if feitos else CAINDO)
     return Tile(
         chave="treino", titulo="Treinos", valor=str(feitos),
@@ -581,6 +590,17 @@ def tile_de_dieta(mapa_dieta, linhas) -> Tile:
         direcao=direcao,
         frase="%d de %d refeições nos dias fechados" % (feitas, previstas),
     )
+
+
+def tile_de_corrida(corridas_por_dia) -> Tile:
+    """O tile de quem não faz musculação (#138): a distância do período."""
+    if not corridas_por_dia:
+        return Tile(chave="corrida", titulo="Corrida", valor="—",
+                    frase="Nenhuma corrida no período.")
+    km = sum(v["m"] for v in corridas_por_dia.values()) / 1000
+    dias = len(corridas_por_dia)
+    return Tile(chave="corrida", titulo="Corrida", valor=_numero(km, 1), unidade="km",
+                frase="em %d dia%s com corrida" % (dias, "s" if dias > 1 else ""))
 
 
 def tile_de_agua(mapa_agua, por_dia_ml, meta_ml) -> Tile:
@@ -637,8 +657,8 @@ AJUDA = {
              "com registro — dia sem registro não é dia sem comer, é dia sem "
              "registro.",
     "treino": "Cada quadrado é um dia. Aceso, você anotou pelo menos uma série; "
-              "vazado, era dia combinado e não houve série; apagado, era dia de "
-              "descanso — e descansar no dia de descanso é cumprir o combinado. "
+              "vazado, era dia de treino e não houve série; apagado, era dia de "
+              "descanso — e descansar no dia de descanso também conta. "
               "A barra da semana é o total de séries.",
     "agua": "Cada quadrado é um dia, e a cor é quanto da meta você registrou. A "
             "barra da semana é a média dos dias com registro, e não dos sete: "
@@ -658,8 +678,9 @@ VAZIO = {
     "agua": ("Nenhum registro de água ainda. Cada copo marcado no dia vira a "
              "média da semana aqui.",
              "plans:hydration", "Registrar o primeiro copo"),
-    "corrida": ("Nenhuma corrida registrada ainda.",
-                "workouts:corridas", "Abrir as corridas"),
+    "corrida": ("Nenhuma corrida registrada ainda. Cada corrida vira um dia "
+                "aceso aqui, com a distância.",
+                "workouts:corridas", "Registrar a primeira corrida"),
 }
 
 
@@ -742,6 +763,27 @@ def reunir(user, periodo, hoje=None, perfil=None, plano=None) -> dict:
         _vestir(area, recorte)
 
     peso = tile_de_peso(user, recorte)
+    # QUEM NÃO FAZ MUSCULAÇÃO (#138, 28/09/2026) não vê a área nem o tile de
+    # treino — vê a corrida no lugar, mesmo antes da primeira. O perfil vem
+    # do cache do `dispatch`.
+    perfil = perfil or getattr(user, "profile", None)
+    if getattr(perfil, "musculacao", "") == "nao":
+        return {
+            "janela": recorte,
+            "periodos": [
+                {"chave": chave, "rotulo": ROTULOS[chave], "atual": chave == recorte.periodo}
+                for chave in PERIODOS
+            ],
+            "tiles": [
+                peso,
+                tile_de_corrida(corridas_por_dia),
+                tile_de_dieta(mapa_dieta, linhas),
+                tile_de_agua(mapa_agua, ml_por_dia, meta_ml),
+            ],
+            "peso": peso,
+            "areas": [dieta, corrida, agua],
+            "tem_corrida": True,
+        }
     return {
         "janela": recorte,
         "periodos": [

@@ -47,14 +47,29 @@
           <span class="conquistas__numero num">{{ total }}</span>
           <span class="conquistas__rotulo">conquista{{ total|pluralize }}</span>
         </div>
-        <div>
-          <span class="conquistas__numero num">{{ dias_treinados }}</span>
-          <span class="conquistas__rotulo">dia{{ dias_treinados|pluralize }} de treino</span>
-        </div>
-        <div>
-          <span class="conquistas__numero num">{{ recordes }}</span>
-          <span class="conquistas__rotulo">recorde{{ recordes|pluralize }}</span>
-        </div>
+        {% comment %}
+          Quem não faz musculação (#138, 28/09/2026) não lê "0 dias de
+          treino · 0 recordes": os números dela são os que ela produz.
+        {% endcomment %}
+        {% if faz_musculacao %}
+          <div>
+            <span class="conquistas__numero num">{{ dias_treinados }}</span>
+            <span class="conquistas__rotulo">dia{{ dias_treinados|pluralize }} de treino</span>
+          </div>
+          <div>
+            <span class="conquistas__numero num">{{ recordes }}</span>
+            <span class="conquistas__rotulo">recorde{{ recordes|pluralize }}</span>
+          </div>
+        {% else %}
+          <div>
+            <span class="conquistas__numero num">{{ corridas }}</span>
+            <span class="conquistas__rotulo">corrida{{ corridas|pluralize }}</span>
+          </div>
+          <div>
+            <span class="conquistas__numero num">{{ dias_com_refeicao }}</span>
+            <span class="conquistas__rotulo">dia{{ dias_com_refeicao|pluralize }} registrando</span>
+          </div>
+        {% endif %}
       </div>
 
       {% comment %}
@@ -107,10 +122,20 @@
     {% else %}
       <section class="card center">
         <p class="lead">Nenhuma ainda.</p>
-        <p class="muted">
-          A primeira chega quando você registrar a primeira série de um treino.
-        </p>
-        <a class="btn btn--primary" href="{% url 'workouts:routine' %}">Ver o treino</a>
+        {% if faz_musculacao %}
+          <p class="muted">
+            A primeira chega quando você registrar a primeira série de um treino
+            ou a primeira refeição.
+          </p>
+          <a class="btn btn--primary" href="{% url 'workouts:routine' %}">Ver o treino</a>
+        {% else %}
+          <p class="muted">
+            A primeira chega quando você registrar a primeira refeição ou a
+            primeira corrida.
+          </p>
+          <a class="btn btn--primary" href="{% url 'plans:alimentacao' %}">Ver o cardápio de hoje</a>
+          <a class="btn-link" href="{% url 'workouts:corridas' %}">Registrar uma corrida</a>
+        {% endif %}
       </section>
     {% endif %}
 

@@ -72,11 +72,11 @@ msgid "treinou"
 msgstr ""
 
 #: templates/plans/_progresso_area.html
-msgid "descanso combinado"
+msgid "dia de descanso"
 msgstr ""
 
 #: templates/plans/_progresso_area.html
-msgid "combinado, sem série"
+msgid "dia de treino, sem série"
 msgstr ""
 
 #: templates/plans/_progresso_area.html

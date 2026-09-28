@@ -170,10 +170,15 @@
           </div>
         {% endfor %}
       </dl>
+      {% comment %}
+        "NAS CORRIDAS COM GPS" (28/09/2026, caça-bugs BA17): com três
+        corridas à mão, o rodapé dizia que a distância vinha do GPS — a
+        pessoa tinha digitado as três.
+      {% endcomment %}
       {% if corridas.count %}
         <p class="hint">
-          A distância vem das leituras de GPS do seu aparelho, e o traçado não é
-          guardado em lugar nenhum.
+          Nas corridas com GPS, a distância vem das leituras do seu aparelho, e
+          o traçado não é guardado em lugar nenhum.
         </p>
       {% endif %}
     {% else %}

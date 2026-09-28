@@ -239,6 +239,36 @@ class InatividadeTests(TestCase):
 
         self.assertEqual(resumo["enviados"], 0)
 
+    def test_quem_deve_o_consentimento_da_versao_atual_nao_recebe(self):
+        """E-mail só sai para quem consentiu a versão VIGENTE dos legais
+        (decisão do dono, 28/09/2026): quem ainda está na anterior passa
+        primeiro por `/conta/consentimento/`, e até lá o app não escreve."""
+        _serie(self.user, date(2026, 9, 10), self.exercicio)
+        perfil = self.user.profile
+        perfil.consentimento_versao = "2020-01-01"
+        perfil.save(update_fields=["consentimento_versao"])
+
+        resumo = jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))
+
+        self.assertEqual(resumo["enviados"], 0)
+
+    def test_quem_esta_marcado_para_consentir_nao_recebe(self):
+        _serie(self.user, date(2026, 9, 10), self.exercicio)
+        perfil = self.user.profile
+        perfil.precisa_consentir = True
+        perfil.save(update_fields=["precisa_consentir"])
+
+        self.assertEqual(jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))["enviados"], 0)
+
+    def test_controle_positivo_na_versao_vigente_recebe(self):
+        from accounts.consentimento import VERSAO_DOS_LEGAIS
+        _serie(self.user, date(2026, 9, 10), self.exercicio)
+        perfil = self.user.profile
+        perfil.consentimento_versao = VERSAO_DOS_LEGAIS
+        perfil.save(update_fields=["consentimento_versao"])
+
+        self.assertEqual(jobs.rodar_inatividade(_agora(2026, 9, 21, 8, 5))["enviados"], 1)
+
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
                    NUTRIPLAN_URL_BASE="https://app.exemplo")

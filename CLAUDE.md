@@ -70,19 +70,23 @@ que os ativa aqui.
 
 ## Autonomia
 
-**DECIDA E REGISTRE (regra permanente, 17/09/2026).** Uma sessão só para e
-pergunta quando UMA das quatro condições vale:
+**QUANDO PARAR (regra permanente, 28/09/2026; substitui a de 17/09).** Uma
+sessão só para e pergunta quando UMA das cinco vale:
 
-1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
-2. **apaga ou altera dado de usuário real em produção**;
-3. **muda direção visual ou de produto que ainda não está escrita** em
-   `DESIGN.md` / `TREINO.md`;
-4. **precisa de credencial que não existe no ambiente**.
+1. **texto jurídico ou de consentimento** — Termos, Política, caixa de
+   consentimento, aviso regulatório (CRN/CREF): entra marcado `[REVISAR]`,
+   o PR espera o ok do dono;
+2. **dinheiro** — plano do Render, serviço pago, API cobrada;
+3. **apagar ou reescrever dado de gente real**;
+4. **ação em conta de terceiro** — loja, Sentry, Render, GitHub fora do fluxo
+   de PR e fila;
+5. **regra de doutrina nova sem princípio escrito** em `CLAUDE.md`,
+   `DESIGN.md` ou `TREINO.md`.
 
-Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
-tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
-decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
-uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
+Tudo o mais se decide pelo princípio que já existe nesses três documentos e
+se registra no relatório como **"decidi sozinho + por quê + como reverter"**,
+e a sessão segue. **Nunca esperar resposta por item que não está na lista.**
+Vetos vêm depois, no relatório; nunca antes.
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda missão
 · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o gate é o
@@ -104,8 +108,8 @@ teste dourado da ficha nunca afrouxa · spec (`DESIGN.md` / `TREINO.md`) vence
 proposta externa, e a divergência vai para "recomendo rever" · segredo nunca
 no repositório nem no relatório.
 
-**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
-condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo item
+**Relatório:** "O que preciso de você" só lista itens que caem nas cinco
+paradas. Lista vazia se escreve "nada" — e a sessão vai para o próximo item
 do plano mestre sem esperar.
 
 **Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
@@ -176,6 +180,15 @@ bash scripts/instalar_hooks.sh                   # liga as travas de git
 O PostgreSQL é portátil (`C:\Users\biel-\pgsql`, cluster em
 `C:\Users\biel-\pgdata\nutriplan`) e **não sobe sozinho depois de reiniciar** —
 `pg_ctl start` antes de qualquer coisa.
+
+**CADA SESSÃO ENCERRA O `runserver` DELA AO FECHAR (28/09/2026).** O cluster
+local é um só para todas as sessões: em 28/09 ele chegou a 98 de 100
+conexões, quase todas de servidores de dev esquecidos, e o pre-push caiu em
+`AguaConcorrenteTests` com "too many clients". `max_connections` subiu para
+200 (`postgresql.conf`, backup `.bak-20260928`), mas a folga não substitui a
+disciplina: servidor que a sessão subiu (`fundo.py rodar … runserver`), a
+sessão derruba pelo PID dela antes do relatório final. Processo de outra
+sessão ninguém derruba — avisa no ledger.
 
 **PODA SEMANAL DE WORKTREES E BANCOS DE TESTE (toda segunda, 21/09/2026).**
 Cada sessão nasce num worktree e cada suíte interrompida deixa um
@@ -456,6 +469,28 @@ compras é feita deles).
   visíveis com desenho, macros e ingredientes (802 px), o anel (268) e o
   cartão AGORA com a receita (271) — somam ~1.400 px sozinhos. Chegar a 1.500
   exige desfazer um deles, e isso é decisão de produto.
+
+**QUEM NÃO FAZ MUSCULAÇÃO VÊ O DIA DELA, E NÃO A FICHA QUE NÃO TEM
+(decisão do dono, #138, 28/09/2026).** `Profile.musculacao == "nao"` muda
+três telas, e só essas: a **Home** monta o painel com
+`CARTOES_SEM_MUSCULACAO` — Alimentação e Corrida primeiro, SEM cartão de
+treino e sem "Montar treino"; a corrida entra mesmo sem ter sido declarada,
+porque sem ficha ela é o movimento que o app tem a oferecer (a área
+principal continua primeiro). As **Conquistas** só oferecem "a caminho" de
+corrida e alimentação (`regras.FAMILIAS_DE_MUSCULACAO` sai: treino,
+ofensiva — que exige um dia treinado e nunca fecharia —, semana e
+recorde); conquista já GANHA continua na tela, porque registra o que
+aconteceu. E o **Progresso** troca a área e o tile de treino pela corrida,
+com o estado vazio levando a registrar a primeira. `/treino/` já é a porta
+para ativar a musculação ("Mudei de ideia"). Em branco ("não perguntado")
+continua sendo quem treina. As conquistas de corrida (`Corrida`) e de
+refeição registrada (`MealLog` feita ou "comi outra coisa", por DIA
+distinto) valem para todo mundo — a de corrida só para quem corre ou
+declarou corrida, senão "Primeira corrida 0/1" seria medalha cinzenta na
+tela de quem só treina. `reunir` lê "tem ficha?", corridas e dias com
+refeição numa consulta só: o custo das Conquistas e do Progresso não mudou.
+`plans/test_sem_musculacao.py`, `achievements/test_sem_musculacao.py`,
+`plans/test_progresso_dia_1.py`.
 
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,

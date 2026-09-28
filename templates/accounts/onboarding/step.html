@@ -180,19 +180,26 @@
 
       {% if is_last_step and not is_editing %}
         {% comment %}
-          O AVISO ANTES DO BOTÃO (decisão do dono, 21/09/2026). O que nasce
-          do toque seguinte é uma ESTIMATIVA — fórmulas públicas sobre o que a
-          pessoa digitou —, e a palavra tem de estar aqui, e não só nos
-          Termos: prescrição dietética é atividade privativa do nutricionista
-          (Lei 8.234/1991), e o app diz que não é isso ANTES de entregar o
-          número. A frase é a mesma do cadastro e do cardápio
-          (`config/test_linguagem.py`).
+          O AVISO ANTES DO BOTÃO (decisão do dono, 21/09/2026, texto revisto
+          pelo §4 do Gate 1 em 28/09/2026). O que nasce do toque seguinte é
+          uma ESTIMATIVA — fórmulas públicas sobre o que a pessoa digitou —,
+          e a palavra tem de estar aqui, e não só nos Termos: prescrição
+          dietética é atividade privativa do nutricionista (Lei 8.234/1991),
+          e o app diz que não é isso ANTES de entregar o número. A frase de
+          fechamento é a mesma do cadastro e do cardápio
+          (`config/test_linguagem.py`); a de abertura, sobre a estimativa,
+          fica só aqui.
         {% endcomment %}
         <p class="form__nota">
           O que vem a seguir é uma <strong>estimativa</strong>: fórmulas
           públicas aplicadas ao que você informou, e um cardápio de exemplo.
-          O NutriPlan não substitui nutricionista nem médico — se você tem
-          alguma condição de saúde, converse com um antes de seguir.
+          {# [REVISAR] frase do §4 do Gate 1 #}
+          O NutriPlan calcula e organiza — não prescreve. Ele não substitui a
+          orientação de um nutricionista (registrado no CRN) nem de um
+          profissional de Educação Física (registrado no CREF), e não serve
+          para tratar doença. Gestante, lactante, menor de idade ou quem tem
+          condição de saúde: procure um profissional antes de seguir o que o
+          app sugere.
         </p>
       {% endif %}
 

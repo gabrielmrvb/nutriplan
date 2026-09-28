@@ -1,7 +1,8 @@
 """O catálogo de conquistas — em código, porque conquista é regra.
 
-CADA REGRA AQUI PRECISA SER PROVÁVEL COM O QUE O BANCO JÁ TEM. Não existe
-conquista de corrida, de passos, de medida corporal, de sono nem de desafio,
+CADA REGRA AQUI PRECISA SER PROVÁVEL COM O QUE O BANCO JÁ TEM. Corrida e
+refeição registrada ganharam regra em 28/09/2026 (`Corrida`, `MealLog`); não
+existe conquista de passos, de medida corporal, de sono nem de desafio,
 porque nenhum desses dados existe no NutriPlan hoje — e uma conquista que o app
 não consegue verificar é uma promessa que ele vai quebrar.
 
@@ -38,10 +39,12 @@ class Familia:
     META = "meta"
     RECORDE = "recorde"
 
-    # Reservadas. Sem regra e sem dado — ver o cabeçalho deste arquivo.
+    # Com regra desde 28/09/2026 (#138): `Corrida` e `MealLog` são dado.
     DIETA = "dieta"
-    PESO = "peso"
     CORRIDA = "corrida"
+
+    # Reservadas. Sem regra e sem dado — ver o cabeçalho deste arquivo.
+    PESO = "peso"
     DESAFIO = "desafio"
 
 
@@ -73,6 +76,16 @@ class Dados:
     #: Exercícios cuja MELHOR SÉRIE (reps×carga) foi superada HOJE: (id, nome).
     #: Mesmo contrato de `recordes_hoje`: o número não entra.
     melhores_series_hoje: tuple = ()
+    #: A pessoa disse que NÃO faz musculação (#138, 28/09/2026): as metas de
+    #: treino, ofensiva, semana e recorde somem de "a caminho" — a ofensiva
+    #: também, porque `_ofensiva` exige um dia treinado e nunca fecharia.
+    faz_musculacao: bool = True
+    #: Corridas registradas, e se a pessoa DECLAROU que corre.
+    corridas: int = 0
+    corre: bool = False
+    #: Dias distintos com refeição registrada como feita ou "comi outra
+    #: coisa" — registrar honesto não pode custar a conquista.
+    dias_com_refeicao: int = 0
 
 
 @dataclass(frozen=True)
@@ -268,5 +281,60 @@ CATALOGO += [
         repetivel=True,
     ),
 ]
+
+_CORRIDAS = ((5, "5 corridas"), (10, "10 corridas"), (25, "25 corridas"))
+
+CATALOGO += [
+    Regra(
+        slug="primeira-corrida",
+        titulo="Primeira corrida",
+        frase="Você registrou sua primeira corrida.",
+        emoji="🏃",
+        familia=Familia.CORRIDA,
+        detectar=_acumulado("corridas", 1, "corridas"),
+        alvo=1,
+        progresso=lambda d: d.corridas,
+    ),
+] + [
+    Regra(
+        slug="corridas-%d" % n,
+        titulo=rotulo.capitalize(),
+        frase="Você registrou %d corridas." % n,
+        emoji="🏃",
+        familia=Familia.CORRIDA,
+        detectar=_acumulado("corridas", n, "corridas"),
+        alvo=n,
+        progresso=lambda d: d.corridas,
+    )
+    for n, rotulo in _CORRIDAS
+]
+
+CATALOGO += [
+    Regra(
+        slug="primeira-refeicao",
+        titulo="Primeira refeição registrada",
+        frase="Você registrou sua primeira refeição.",
+        emoji="🍽",
+        familia=Familia.DIETA,
+        detectar=_acumulado("dias_com_refeicao", 1, "dias"),
+        alvo=1,
+        progresso=lambda d: d.dias_com_refeicao,
+    ),
+] + [
+    Regra(
+        slug="refeicoes-%d-dias" % n,
+        titulo="%d dias registrando" % n,
+        frase="Você registrou refeições em %d dias diferentes." % n,
+        emoji="🥗",
+        familia=Familia.DIETA,
+        detectar=_acumulado("dias_com_refeicao", n, "dias"),
+        alvo=n,
+        progresso=lambda d: d.dias_com_refeicao,
+    )
+    for n in (7, 30)
+]
+
+#: As famílias que só existem para quem faz musculação.
+FAMILIAS_DE_MUSCULACAO = frozenset({Familia.TREINO, Familia.OFENSIVA, Familia.META, Familia.RECORDE})
 
 POR_SLUG = {regra.slug: regra for regra in CATALOGO}

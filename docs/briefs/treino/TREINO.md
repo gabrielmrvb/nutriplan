@@ -159,10 +159,14 @@ uma conta, escrita para poder ser desfeita:
   Mais catálogo de peito e de costas é o que devolve as linhas do brief.
 - **`dois_grupos` avançado 22–28, não 26–32, e o avançado igual ao
   intermediário em Completo**: sete exercícios a quatro séries são 28, o
-  máximo físico da linha; e "Braços" fecha em 23–24. O que separa os dois
-  níveis hoje é a Tabela B — o teto semanal deixa o avançado com 28 em
-  "Costas e bíceps" onde o intermediário para em 26 — e não a sessão. Cinco
-  de peito para o avançado é dívida de catálogo, dita abaixo.
+  máximo físico da linha; e "Braços", a letra E do ABCDE, fecha em 27
+  séries e **52 minutos** no intermediário e no avançado (32 no iniciante),
+  abaixo do piso da coluna `duracao_min` (55; 40 no iniciante) — medido em
+  28/09/2026 com Completo, na ficha única; a ficha manda, o texto segue
+  (decisão do dono). O que separa os dois níveis hoje é a Tabela B — o
+  teto semanal deixa o avançado com 28 em "Costas e bíceps" onde o
+  intermediário para em 26 — e não a sessão. Cinco de peito para o
+  avançado é dívida de catálogo, dita abaixo.
 - **`inferior` com 3 do grande, e o avançado com 4|3, 3|3, 3|3 e 2|1 em vez
   de 5|3, 4|3, 5|3 e 3|1 — DÍVIDA DE CATÁLOGO, não decisão de treino**: cada
   opção recebe metade do modelo, e o modelo não passa do catálogo ativo: seis
