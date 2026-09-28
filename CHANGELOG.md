@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **O aviso sobre nutricionista e Educação Física ficou mais claro.** No cadastro, na última etapa e junto do cardápio, o app agora diz que a orientação de quem tem registro profissional (CRN ou CREF) não é substituída, e que gestante, lactante, menor de idade ou quem tem alguma condição de saúde deve procurar um profissional antes de seguir o que o app sugere.
 - **Desligar a análise de uso agora para tudo.** Antes, desligar "Análise de uso" no Perfil deixava de identificar você, mas o app ainda contava a ação sem o seu nome. Agora, desligado, nenhum registro sai — nem anônimo.
 - **Quem só corre vê a própria rotina.** Se você disse no cadastro que não faz musculação, a Home abre com Alimentação e Corrida e não mostra mais "Montar treino"; o Progresso mostra a corrida no lugar do treino, e as Conquistas passaram a ter metas de corrida e de refeições registradas.
 - **O primeiro dia não cobra o que ainda não aconteceu.** A Hidratação não lista mais os dias de antes da sua conta, e o Progresso não mostra seta de queda para o treino de hoje enquanto o dia não acabou.
