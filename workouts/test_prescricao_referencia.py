@@ -103,7 +103,7 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
                     "supino reto com %s séries em vez de 4" % linha.sets,
                 )
 
-    def test_as_duas_opcoes_de_peito_trazem_exercicios_DIFERENTES(self):
+    def test_as_duas_ocorrencias_de_peito_sao_o_mesmo_treino_com_quatro_peitos(self):
         """Segunda e quinta: a divisão em cinco dias dá A duas vezes.
 
         REMIRADO EM 10/09/2026, e o contrato virou o contrário. Este teste
@@ -113,33 +113,28 @@ class OPerfilDeReferenciaRecebeUmaFichaDeVerdadeTests(TestCase):
         cortava variedade e a semana fechava com DOIS exercícios distintos de
         peito, dos quatro que o modelo lista.
 
-        A regra agora é "não repetir enquanto houver opção não usada". O ganho
-        da repetição continua existindo — peito é treinado duas vezes na
-        semana —, e o que mudou é que a segunda sessão traz OUTROS exercícios.
-
-        E EM 15/09/2026 "a segunda sessão" virou "a outra OPÇÃO": as duas
-        ocorrências de A carregam as mesmas duas versões, e quem alterna faz
-        supino e flexão na segunda, inclinado e crucifixo na quinta. O que
-        este teste guarda é o par: peito nas duas ocorrências, e as duas
-        opções sem repetir nenhum peito.
+        De 15 a 27/09/2026 as duas ocorrências carregavam duas OPÇÕES sem
+        peito em comum. DESDE 27/09/2026 (dono: "letra repetida faz sempre o
+        mesmo treino — variação é troca por exercício na linha, escolha da
+        pessoa"), as duas ocorrências são o MESMO treino, e a variedade de
+        peito mora na própria lista: os QUATRO peitos da cota do TREINO.md,
+        todos distintos, em toda ocorrência.
         """
         ocorrencias = [
             sessao for sessao in self.plano.sessions.prefetch_related("exercises__exercise")
             if any(item.exercise.muscle_group == "chest" for item in sessao.exercises.all())
         ]
         self.assertEqual(len(ocorrencias), 2, "peito deixou de ter duas sessões")
+        assinaturas = [
+            sorted((i.opcao, i.exercise_id, i.sets) for i in s.exercises.all()) for s in ocorrencias
+        ]
+        self.assertEqual(assinaturas[0], assinaturas[1], "A de segunda ≠ A de quinta")
 
         sessao = ocorrencias[0]
-        self.assertEqual(len(sessao.opcoes), 2, "a letra A saiu com uma opção só")
-        primeira, segunda = (
-            {item.exercise.name for item in sessao.da_opcao(k) if item.exercise.muscle_group == "chest"}
-            for k in sessao.opcoes
-        )
-        self.assertTrue(primeira and segunda, "uma opção ficou sem peito")
-        self.assertEqual(
-            primeira & segunda, set(),
-            "as duas opções de peito repetiram exercício",
-        )
+        self.assertEqual(sessao.opcoes, [1], "ficha nova: uma variante só")
+        peitos = [item.exercise.name for item in sessao.da_opcao(1) if item.exercise.muscle_group == "chest"]
+        self.assertEqual(len(peitos), 4)
+        self.assertEqual(len(set(peitos)), 4, "peito repetido na mesma lista")
 
     def test_a_faixa_do_supino_fica_dentro_de_6_a_12(self):
         """Faixa de hipertrofia. O teste é sobre a FAIXA, não sobre um valor

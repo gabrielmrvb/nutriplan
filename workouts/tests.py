@@ -257,71 +257,40 @@ def excesso_e_irredutivel(plan, grupo) -> tuple:
 
     A régua é a de `opcoes._ceder`, que é quem apara: cede série acrescentada
     pelo preenchimento (acima da dose do catálogo), série de isolador acima de
-    duas, e só então um isolador/acessório inteiro — nunca o último exercício
-    direto do grupo na opção, nunca o composto principal. Se alguma opção
-    ainda tem uma dessas concessões, o excesso NÃO é irredutível e o aparo
-    parou cedo. `workouts/test_opcoes.py::test_repetir_a_mesma_opcao_cabe_no_
-    teto_semanal` afirma a mesma coisa para os cinco perfis do brief.
+    duas, série de composto ACESSÓRIO acima de três (27/09/2026, com a
+    variante única), e só então um isolador/acessório inteiro — nunca o
+    último exercício direto do grupo na lista, nunca o composto principal.
+    Se alguma lista ainda tem uma dessas concessões, o excesso NÃO é
+    irredutível e o aparo parou cedo. `workouts/test_opcoes.py::test_repetir_
+    a_mesma_opcao_cabe_no_teto_semanal` afirma a mesma coisa para os perfis
+    do brief.
     """
     dose_do_catalogo = {
         (template.label, item.exercise_id): item.sets
         for template in services.templates_for(plan.split)
         for item in template.items.all()
     }
-    # A régua do PENÚLTIMO direto (16/09/2026), a mesma de `opcoes._ceder`:
-    # com duas opções, ele só sai quando o excesso EFETIVO da semana, por
-    # ocorrência da letra, passa de um quinto do teto
-    # (`FRACAO_DE_EXCESSO_QUE_DESTRAVA`) e a própria letra repetida já passa
-    # do teto no grupo. Pagar quatro
-    # séries para cobrir uma não é aparo — e a irmã acompanharia.
-    from workouts.opcoes import FRACAO_DE_EXCESSO_QUE_DESTRAVA
-
-    # O teto é o do GRUPO neste plano — pela frequência com que ele é
-    # treinado na semana (TREINO.md, tabela B; `services.tetos_da_semana`).
-    teto = services.tetos_da_semana(plan).get(grupo, services.TETO_SEMANAL_POR_GRUPO)
-    efetivo = services.volume_da_semana(plan).get(grupo, 0)
-    ocorrencias = {}
-    for sessao in plan.sessions.all():
-        ocorrencias[sessao.label] = ocorrencias.get(sessao.label, 0) + 1
     vistas = set()
     evidencia = []
     for sessao in plan.sessions.all():
         if sessao.label in vistas:
             continue
         vistas.add(sessao.label)
-        # ...e só quando a PRÓPRIA letra, repetida, passa do teto no grupo.
-        proprio = max(
-            sum(
-                Decimal(i.sets) * (Decimal(1) if i.exercise.muscle_group == grupo
-                                   else Decimal("0.5") if grupo in (i.exercise.secondary_muscles or [])
-                                   else Decimal(0))
-                for i in linhas_da_opcao(sessao, k)
-            )
-            for k in sessao.opcoes
-        ) * ocorrencias[sessao.label]
-        excesso_grande = (
-            (efetivo - teto) / ocorrencias[sessao.label] > teto * FRACAO_DE_EXCESSO_QUE_DESTRAVA
-            and proprio > teto
-        )
+        # A régua do PENÚLTIMO direto das duas opções (16/09 a 27/09/2026,
+        # `FRACAO_DE_EXCESSO_QUE_DESTRAVA`) saiu com a variante única: com uma
+        # lista por letra a trava é a de sempre — o último direto fica.
         for k in sessao.opcoes:
             itens = linhas_da_opcao(sessao, k)
             graus = services.prioridades_da_sessao(itens)
             diretos = [(i, g) for i, g in zip(itens, graus) if i.exercise.muscle_group == grupo]
             podem = [(i, g) for i, g in diretos if g < services.PRINCIPAL]
-
-            def pode_sair(item):
-                if len(diretos) <= 1:
-                    return False
-                if len(sessao.opcoes) == 1 or len(diretos) > 2:
-                    return True
-                return excesso_grande
-
             cedem = [
                 i.exercise.name
                 for i, g in podem
                 if i.sets > dose_do_catalogo.get((sessao.label, i.exercise_id), i.sets)
                 or (g == services.ISOLADOR and i.sets > 2)
-                or pode_sair(i)
+                or (g == services.ACESSORIO and i.sets > services.PISO_COMPOSTO)
+                or len(diretos) > 1
             ]
             if cedem:
                 evidencia.append((sessao.label, k, cedem))
@@ -427,21 +396,25 @@ class SeededWorkoutTests(TestCase):
         descanso nos compostos pesados cabem, e é o que permite três
         exercícios de tríceps e de bíceps sem espremer o descanso.
         """
-        # DESDE 16/09/2026 O MODELO É A UNIÃO DE DUAS OPÇÕES: ele lista o
-        # dobro de exercícios por grupo anunciado (`CatalogoDimensionadoTests`)
-        # e ninguém faz o modelo inteiro numa sessão — cada opção é uma
-        # sessão. A régua vale por opção, sobre os itens ATIVOS (os 28
-        # inativos esperam mídia e não entram em ficha nenhuma).
+        # DESDE 16/09/2026 O MODELO LISTA O DOBRO de exercícios por grupo
+        # anunciado (`CatalogoDimensionadoTests`) e ninguém faz o modelo
+        # inteiro numa sessão. Era a união de duas opções; desde 27/09/2026
+        # a sessão é a VARIANTE ÚNICA da letra, pela cota do TREINO.md
+        # (`opcoes.variante_unica`), com a dose do catálogo, sobre os itens
+        # ATIVOS (os inativos esperam mídia e não entram em ficha nenhuma).
+        from workouts import doutrina
         from workouts import opcoes as motor_de_opcoes
         from workouts.models import minutos_de
 
         for template in WorkoutTemplate.objects.filter(is_active=True):
             ativos = [i for i in template.items.select_related("exercise") if i.exercise.is_active]
-            partes, _ = motor_de_opcoes.montar_opcoes(ativos, n=2, principais=template.main_groups)
+            variante = motor_de_opcoes.variante_unica(
+                ativos, template.main_groups, doutrina.tipo_de_dia(template.split, template.label),
+                doutrina.NIVEL_PADRAO,
+            )
             with self.subTest(treino=str(template)):
                 self.assertGreaterEqual(len(ativos), 4)
-                for parte in partes:
-                    self.assertLessEqual(minutos_de(parte), 90)
+                self.assertLessEqual(minutos_de(variante), 90)
                 # Menos de meia hora não é treino, é aquecimento.
                 self.assertGreaterEqual(minutos_de(ativos), 30)
 
@@ -4789,7 +4762,7 @@ class DoseMinimaTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def _fichas(self):
+    def _fichas(self, minutos=90):
         for dias in range(1, 8):
             for preferencia in self.PREFERENCIAS:
                 # ORÇAMENTO CONFORTÁVEL, e o número tem motivo medido.
@@ -4805,16 +4778,24 @@ class DoseMinimaTests(TestCase):
                 # Abaixo do piso, quem guarda o comportamento é
                 # `test_no_tempo_curto_demais_o_app_diz_o_que_fez`.
                 user = create_user(
-                    email="dose-%s-%s@exemplo.com" % (dias, preferencia),
+                    email="dose-%s-%s-%s@exemplo.com" % (dias, preferencia, minutos),
                     weekdays=tuple(range(dias)),
-                    duration=90,
+                    duration=minutos,
                 )
+                # O ORÇAMENTO CHEGA AO MOTOR (27/09/2026, decisão do dono).
+                # `duration=90` grava só `TrainingDay.duration_min`, que o
+                # motor deixou de ler em 10/09; ele lê `Profile.duracao_treino`,
+                # e a fixture rodava em "Padrão — até 60" com o docstring
+                # dizendo 90. Achado na T3b quando o corpo inteiro de um dia
+                # passou a exigir 75 minutos.
+                campos = {"duracao_treino": duracao_de_minutos(minutos)}
                 if preferencia:
-                    Profile.objects.filter(user=user).update(
+                    campos.update(
                         split_preference=preferencia,
                         split_preference_confirmada=True,
                     )
-                    user.refresh_from_db()
+                Profile.objects.filter(user=user).update(**campos)
+                user.refresh_from_db()
                 yield dias, preferencia, services.create_routine(user)
 
     def test_nenhum_exercicio_e_prescrito_com_menos_de_duas_series(self):
@@ -4828,16 +4809,32 @@ class DoseMinimaTests(TestCase):
         Dois é o piso porque o catálogo nunca prescreve menos de três séries
         em nenhum item: uma série é quantidade que ninguém autorizou, e ela só
         apareceria como subproduto de dividir volume.
+
+        A ÚNICA EXCEÇÃO, desde 27/09/2026, foi autorizada pelo dono: "o
+        complementar FORA DO TÍTULO da letra desce a 1 série antes de
+        qualquer principal perder série". Então o complementar de fora do
+        título pode ter UMA série; todo o resto — o título inteiro —
+        continua em duas ou mais. E a régua roda também no "Padrão" (60
+        minutos), que é onde o corte por tempo aperta e a exceção aparece —
+        em 90 nada é cortado e ela ficaria escondida.
         """
-        for dias, preferencia, plan in self._fichas():
-            magros = [
-                (s.label, i.exercise.name, i.sets)
-                for s in plan.sessions.all()
-                for i in s.exercises.select_related("exercise")
-                if i.sets < 2
-            ]
-            with self.subTest(dias=dias, pref=preferencia, split=plan.split):
+        fichas = [(dias, preferencia, "completo", plan) for dias, preferencia, plan in self._fichas()]
+        fichas += [(dias, preferencia, "padrao", plan) for dias, preferencia, plan in self._fichas(minutos=60)]
+        uma_serie_de_complementar = 0
+        for dias, preferencia, faixa, plan in fichas:
+            magros = []
+            for s in plan.sessions.all():
+                titulo = set(s.main_groups or ())
+                for i in s.exercises.select_related("exercise"):
+                    fora_do_titulo = bool(titulo) and i.exercise.muscle_group not in titulo
+                    if i.sets < (1 if fora_do_titulo else 2):
+                        magros.append((s.label, i.exercise.name, i.sets))
+                    uma_serie_de_complementar += fora_do_titulo and i.sets == 1
+            with self.subTest(dias=dias, pref=preferencia, faixa=faixa, split=plan.split):
                 self.assertEqual(magros, [], "exercício abaixo da dose mínima")
+        # Controle: no Padrão a exceção existe de fato — senão a régua nova
+        # não mediria nada.
+        self.assertGreater(uma_serie_de_complementar, 0)
 
     def test_o_catalogo_nunca_pede_menos_do_que_a_dose_minima(self):
         """O outro lado da trava: a constante não pode subir acima do que os
@@ -5186,10 +5183,19 @@ class OrcamentoDeTempoTests(TestCase):
         # até 60, e continua sendo verdade o que a tela promete.
         TETOS = {30: 30, 45: 60, 60: 60, 90: 90}
         for minutos in self.ORCAMENTOS:
-            teto = TETOS[minutos]
             for dias in range(1, 8):
                 for preferencia in self.PREFERENCIAS:
                     plan = self._ficha(dias, minutos, preferencia)
+                    # O TEMPO INFORMADO EFETIVO do corpo inteiro de uma vez
+                    # por semana é max(escolha, 75) (28/09/2026, decisão do
+                    # dono). O princípio: essa sessão é a semana inteira da
+                    # pessoa, e os dez grupos não cabem em menos de 75 — a
+                    # tela não oferece menos, e a ficha de quem já tinha menos
+                    # nasce com 75 e diz por quê. Só esse caso muda; todo o
+                    # resto continua preso ao número escrito acima.
+                    teto = TETOS[minutos]
+                    if plan.split == Split.FULL and plan.days_per_week == 1:
+                        teto = max(teto, 75)
                     estouros = [
                         (s.label, s.estimated_minutes)
                         for s in plan.sessions.all()
@@ -5560,7 +5566,15 @@ class OrcamentoDeTempoTests(TestCase):
         # modelo lista dois de cada padrão composto) e as duas cabem em 59
         # minutos sem ceder nada. Quem ainda cede série para caber é "Corpo
         # inteiro", de um dia: nove exercícios por opção, em 60 exatos.
-        plan = self._ficha(1, 55)
+        #
+        # DOIS DIAS de novo, desde 27/09/2026 — consequência DIRETA da
+        # decisão do dono sobre o corpo inteiro: "EXIGIR 75 min". O corpo
+        # inteiro de um dia é montado com pelo menos 75 minutos, qualquer que
+        # seja a faixa (`services.teto_da_ficha`), então com um dia não existe
+        # mais corte por tempo para avisar. O corte leve mora no "Superior"
+        # da divisão AB, que com a variante única cede série para caber em 60
+        # sem perder exercício.
+        plan = self._ficha(2, 55)
 
         # E "ajuste" passou a incluir SÉRIE REDUZIDA. Com a ordem de concessão
         # final, cinquenta e cinco minutos cabem sem remover exercício nenhum —

@@ -120,7 +120,14 @@ def tipo_de_dia(split, label):
 
 
 def exercicios_por_grupo(nivel, tipo) -> tuple:
-    """`(grande, pequeno)`: exercícios do grupo maior e de cada um dos demais."""
+    """`(grande, pequeno)`: exercícios do grupo maior e de cada um dos demais.
+
+    É o teto POR SESSÃO. Letra repetida segue a tabela A; o contrato semanal
+    de variedade 4/4/3/3 vale só para a letra treinada uma vez por semana,
+    e ali vence este número na cota de exercícios da variante
+    (`workouts.opcoes.CONTRATO_DE_VARIEDADE`; 27/09 e 28/09/2026, decisões
+    do dono): o teto por sessão existe para a letra que repete; a letra que
+    cai uma vez carrega a dose da semana."""
     return carregar()["sessao"][(nivel_ou_padrao(nivel), tipo)]["exercicios"]
 
 
