@@ -488,7 +488,14 @@ class AEscolhaDoExercicioEEstritaTests(BaseDoFluxo):
         Um exercício que só existe na outra versão da letra não é "do treino
         de hoje": abri-lo pela URL cairia no mesmo silêncio que este arquivo
         proíbe — a execução de um movimento que a pessoa não escolheu.
+
+        Sobre uma ficha LEGADA desde 27/09/2026: a nova tem uma variante só,
+        e a legada com opção 2 continua lida (`test_opcoes.ficha_legada`).
         """
+        from workouts.test_opcoes import ficha_legada
+
+        ficha_legada(self.sessao.plan, self.sessao.label)
+        self.sessao = sessao_de_hoje(self.user)
         so_da_outra = [
             i.exercise_id
             for opcao in self.sessao.opcoes[1:]

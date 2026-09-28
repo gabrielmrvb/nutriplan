@@ -266,14 +266,17 @@ class AMigrationDoPadraoTests(TransactionTestCase):
 
 
 class GateDeOpcoesPorLetraTests(TestCase):
-    """Nenhum deploy reduz o número de letras com duas opções (16/09/2026).
+    """O gate de 16/09/2026, INVERTIDO em 27/09/2026 (decisão do dono).
 
-    O número é o que o MOTOR entrega com o catálogo ATIVO, passando pela
-    mesma `create_routine` de produção — não uma conta sobre o JSON. Fica
-    VERMELHO enquanto o código local entregar menos do que produção tem, e
-    é para ficar: a régua de padrões compostos derruba a segunda opção das
-    letras que só a tinham por acidente, e o que a devolve é ativar, com
-    mídia conferida, o exercício que cada uma pede.
+    Era: nenhum deploy reduz o número de letras com duas opções — as 18
+    letras de `LETRAS_COM_OPCOES_EM_PRODUCAO` tinham de sair com duas em
+    toda ficha nova. É agora: "Fichas novas com uma variante só" e "letra
+    repetida faz sempre o mesmo treino". O conjunto ficou VAZIO e o gate
+    reprova quem devolver uma segunda opção a qualquer letra de ficha nova.
+    O número continua sendo o que o MOTOR entrega com o catálogo ATIVO,
+    pela mesma `create_routine` de produção — não uma conta sobre o JSON.
+    As fichas ANTIGAS com opção 2 continuam sendo lidas
+    (`test_opcoes.FichaLegadaComDuasOpcoesTests`); o gate é da ficha nova.
     """
 
     @classmethod
@@ -281,26 +284,23 @@ class GateDeOpcoesPorLetraTests(TestCase):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
-    def test_nenhuma_letra_que_producao_tem_com_duas_opcoes_perde_a_segunda(self):
-        """POR LETRA, não por contagem (17/09/2026): dezesseis letras com
-        duas opções em que `abcd C` perdeu a segunda e `full A` ganhou uma
-        é uma regressão para quem treina quatro dias, e a contagem total
-        diria "16 = 16, pode subir"."""
+    def test_nenhuma_letra_de_ficha_nova_sai_com_duas_opcoes(self):
+        """POR LETRA, nas seis divisões: uma letra que ganhasse a segunda
+        opção voltaria à alternância automática que o dono tirou."""
         from workouts import opcoes_em_producao as gate
 
         por_letra = gate.opcoes_por_letra()
-        perdidas = gate.letras_perdidas(por_letra)
+        a_mais = gate.letras_a_mais(por_letra)
         tabela = "\n".join("  %s %s: %d" % (s, l, n) for (s, l), n in sorted(por_letra.items()))
         self.assertEqual(
-            perdidas, [],
-            "\nletras que produção tem com duas opções e aqui saem com uma: %s\n%s"
-            % (", ".join("%s %s" % p for p in perdidas), tabela),
+            a_mais, [],
+            "\nletras de ficha nova com duas opções: %s\n%s"
+            % (", ".join("%s %s" % p for p in a_mais), tabela),
         )
-        # Dezoito: TODAS as letras do catálogo, desde o deploy de 17/09/2026.
-        # Um `ab A` ou `full A` fora do conjunto seria voltar à medição de
-        # 16/09 (35 ativos).
-        self.assertEqual(len(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), 18)
-        self.assertEqual(set(por_letra), set(gate.LETRAS_COM_OPCOES_EM_PRODUCAO), "letra sem par no gate")
+        self.assertEqual(gate.LETRAS_COM_OPCOES_EM_PRODUCAO, frozenset())
+        # As dezoito letras do catálogo estão na conta, cada uma com UMA.
+        self.assertEqual(len(por_letra), 18)
+        self.assertEqual(set(por_letra.values()), {1})
 
     def test_a_conta_do_gate_nao_deixa_rastro(self):
         from accounts.models import User

@@ -22,6 +22,7 @@ from functools import lru_cache
 import hashlib
 from pathlib import Path
 
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import (
     Count,
@@ -131,12 +132,18 @@ SPLIT_NOTE = {
         "descanso até voltar — é a divisão de quem quer volume alto num dia "
         "só e tem cinco dias para isso."
     ),
+    # SEM REVEZAMENTO (28/09/2026, revisão A2): a nota dizia que os
+    # complementares "se revezam entre as passagens da semana" — era a ficha
+    # de duas opções. Com a ficha única cada letra é a MESMA lista em toda
+    # ocorrência (decisão do dono: sem alternância automática), e a nota diz
+    # o que a ficha faz.
     Split.ABC2: (
         "Dois grupos principais por dia: peito e tríceps, costas e bíceps, "
-        "pernas e ombros. Trapézio e antebraço treinam junto das costas, e "
-        "panturrilha, glúteo e abdômen junto das pernas — eles se revezam "
-        "entre as passagens da semana em vez de aparecer todo dia, que é como "
-        "cabem sem esticar a sessão."
+        "pernas e ombros. O glúteo tem lugar próprio no dia das pernas; "
+        "trapézio e antebraço entram no dia das costas, e panturrilha e "
+        "abdômen no das pernas, com um exercício cada e poucas séries — o "
+        "bastante para o grupo estar na semana sem esticar a sessão. Cada "
+        "dia é a mesma ficha toda vez que volta."
     ),
     Split.ABCD: (
         "Quatro treinos, um foco por dia: peito e tríceps, costas e bíceps, ombro e "
@@ -687,6 +694,15 @@ def dose_da_sessao(item) -> int:
     return item.sets
 
 
+#: O topo de séries do complementar NÃO anunciado (27/09/2026, aprovado pelo
+#: dono; TREINO.md, tabela A, l.69: "o complementar não anunciado (zero a dois
+#: por opção, de duas a três séries)"). O princípio: o título é a promessa do
+#: dia, e o complementar é o que ele NÃO promete — a dose dele é a de manter
+#: o grupo presente na semana, não a de quem o treina como foco. A dose de
+#: quatro da panturrilha em pé no catálogo é a de "Pernas completo", que a
+#: anuncia; em "Pernas e ombros", onde ela nem está no nome, são três.
+SERIES_DO_COMPLEMENTAR = 3
+
 #: Os três degraus de prioridade, do que cede primeiro ao que cede por último.
 ISOLADOR, ACESSORIO, PRINCIPAL = 0, 1, 2
 
@@ -884,9 +900,20 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
     lista é COMPLEMENTAR, e a concessão acontece em CINCO CAMADAS, nesta ordem:
 
       1. excedente do complementar — a segunda panturrilha, o segundo abdominal;
-      2. redução de série, do degrau mais BAIXO para o mais alto, até o piso;
+      2. redução de série, do degrau mais BAIXO para o mais alto, até o piso —
+         e desde 27/09/2026 (decisões do dono, lidas literalmente) em quatro
+         passos: (a) isolador e acessório (do título e complementar), até o
+         piso de sempre; e SÓ quando a próxima concessão seria um principal
+         do título perder série: (b) o complementar de fora do título desce
+         a UMA série (o composto complementar, a três); (c) na sessão de
+         academia (45 min ou mais), sai o exercício de grupo do título acima
+         do que o contrato semanal protege (aprovada também no abc2 C do
+         peso do corpo, 28/09/2026); (d) o composto principal, até o piso;
       3. o ÚLTIMO exercício de um grupo complementar;
-      4. excedente do anunciado — do degrau mais baixo, do grupo mais cheio;
+      4. excedente do anunciado — do degrau mais baixo, do grupo mais cheio,
+         contado por GRUPO do título (27/09/2026); 4b, só quando nenhum grupo
+         tem dois, pela família (o glúteo antes de um grupo anunciado sumir;
+         aprovada em 28/09/2026 — um grupo do título nunca desaparece);
       5. o último exercício de um grupo anunciado, e aí o título é reescrito.
 
     E no fim, a DEVOLUÇÃO: série volta enquanto couber, na ordem inversa.
@@ -917,10 +944,13 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         complementar às custas da variedade contratada troca um defeito por
         outro, e foi o que esta ordem corrigiu por último.
 
-    Medido em três preferências × sete frequências, a 45-60 minutos: quatro
-    peitos, quatro costas, três tríceps e três bíceps distintos por semana em
-    TODAS elas, com o supino reto em quatro séries, e nenhuma sessão passando
-    do teto.
+    Medido (até 27/09/2026) em três preferências × sete frequências, a 45-60
+    minutos: quatro peitos, quatro costas, três tríceps e três bíceps
+    distintos por semana em todas elas, com o supino reto em quatro séries, e
+    nenhuma sessão passando do teto. Desde 28/09/2026 (dono): letra repetida
+    segue a tabela A; o contrato semanal só vale para a letra treinada uma
+    vez por semana — no ABC de 4 a 7 dias a semana tem dois tríceps e dois
+    bíceps (`opcoes.cotas`).
 
     `principais` vazio ou ausente devolve o comportamento anterior — é o
     caminho de quem chama de fora (teste, shell) e de modelo sem a lista.
@@ -979,11 +1009,21 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
 
     # A FAMÍLIA (`models.FAMILIA_DE_OPCOES`): glúteo conta como posterior
     # aqui — no "grupo mais cheio" e no anunciado — e só aqui e nas opções.
+    # O grupo DE VERDADE fica guardado para as camadas 2c e 4: ali o glúteo é
+    # grupo do título, e o único exercício dele não é excedente do posterior.
+    grupos_reais = [grupo for grupo, *_ in itens]
+    itens_reais = list(itens)
     itens = [(familia_de_opcoes(grupo), *resto) for grupo, *resto in itens]
     anunciados = {familia_de_opcoes(g) for g in (principais or ())}
 
     def _e_complementar(grupo):
         return bool(anunciados) and grupo not in anunciados
+
+    from .opcoes import CONTRATO_DE_VARIEDADE, MINUTOS_PARA_PREENCHER
+
+    # A SESSÃO DE ACADEMIA (45 minutos ou mais: Padrão e Completo) — a mesma
+    # fronteira de `opcoes.MINUTOS_PARA_PREENCHER`. Abaixo dela é o Rápido.
+    sessao_de_academia = minutos_disponiveis >= MINUTOS_PARA_PREENCHER
 
     def _do_degrau_mais_baixo(candidatos):
         """Só os do menor grau presente entre os candidatos.
@@ -1023,8 +1063,10 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         # Com a trava, o tempo continua sendo teto e continua cortando; o que
         # ele não faz mais é apagar um músculo que o título promete.
         vivos_por_grupo = {}
+        vivos_reais = {}
         for i in ficam:
             vivos_por_grupo[itens[i][0]] = vivos_por_grupo.get(itens[i][0], 0) + 1
+            vivos_reais[grupos_reais[i]] = vivos_reais.get(grupos_reais[i], 0) + 1
 
         # CAMADA 1 — O EXCEDENTE DO COMPLEMENTAR.
         #
@@ -1061,12 +1103,70 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         # Medido no dia de puxar a 60 minutos com três dias: quatro costas,
         # três bíceps, trapézio e antebraço cabem em 60 exatos, com as roscas
         # em duas séries e as costas intactas.
-        reduziveis = [
-            i for i in ficam
-            if series[i] > (PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 2)
-        ]
-        if reduziveis:
-            alvo = min(reduziveis, key=lambda i: (itens[i][3], -series[i], i))
+        #
+        def _piso(i):
+            return PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 2
+
+        # 2a — isolador e acessório (do título e complementar), até o piso de
+        # sempre: a ordem de 10/09/2026, intocada.
+        nao_principais = [i for i in ficam if itens[i][3] < PRINCIPAL and series[i] > _piso(i)]
+        if nao_principais:
+            alvo = min(nao_principais, key=lambda i: (itens[i][3], -series[i], i))
+            series[alvo] -= 1
+            continue
+        # A próxima concessão seria um PRINCIPAL do título perder série? As
+        # duas regras do dono de 27/09/2026 valem SÓ nesse ponto, e é assim
+        # que ele as escreveu.
+        principal_em_jogo = any(
+            itens[i][3] == PRINCIPAL and not _e_complementar(itens[i][0]) and series[i] > PISO_COMPOSTO
+            for i in ficam
+        )
+        # 2b — O COMPLEMENTAR DESCE A UMA SÉRIE ANTES DE QUALQUER PRINCIPAL
+        # PERDER SÉRIE (27/09/2026, decisão do dono). O princípio: o título é
+        # a promessa do dia, e o principal é o treino do grupo; o
+        # complementar de fora do título (panturrilha, antebraço, core) é
+        # presença, e uma série o mantém na semana. O composto complementar
+        # (a remada alta do trapézio) também cede antes do principal, mas só
+        # até o piso de todo composto, três (`PISO_COMPOSTO`: abaixo disso
+        # ele vira aquecimento). Uma série por vez, só até caber.
+        if principal_em_jogo:
+            complementares = [
+                i for i in ficam
+                if _e_complementar(itens[i][0])
+                and series[i] > (PISO_COMPOSTO if itens[i][3] >= ACESSORIO else 1)
+            ]
+            if complementares:
+                alvo = min(complementares, key=lambda i: (-series[i], i))
+                series[alvo] -= 1
+                continue
+        # 2c — O SUPINO FICA EM QUATRO E A LETRA PERDE O OMBRO (27/09/2026,
+        # decisão do dono para "Peito, tríceps e ombro" em Padrão). Na sessão
+        # de academia (45 minutos ou mais), e SÓ quando a alternativa é um
+        # principal perder série: sai antes um exercício de grupo do título
+        # que tem MAIS do que o contrato semanal protege (`opcoes.
+        # CONTRATO_DE_VARIEDADE`; sem contrato, o piso é um), contado por
+        # GRUPO do título — todo grupo do título tem pelo menos um exercício.
+        # O princípio: reduzir o principal é a redução de emergência que o
+        # perfil normal não sofre (`test_tempo_curto.
+        # OPerfilNormalNaoSofreReducaoDeEmergenciaTests`). APROVADA também no
+        # abc2 C do peso do corpo (28/09/2026, dono): o terceiro ombro (anjo
+        # invertido) sai para afundo e stiff unilateral ficarem em quatro —
+        # o mesmo princípio, fora do caso que ele tinha visto.
+        if sessao_de_academia and principal_em_jogo:
+            sem_contrato = [
+                i for i in ficam
+                if not _e_complementar(itens[i][0])
+                and vivos_reais[grupos_reais[i]] > max(1, CONTRATO_DE_VARIEDADE.get(grupos_reais[i], 1))
+            ]
+            if sem_contrato:
+                ficam.remove(
+                    _quem_cede(_do_degrau_mais_baixo(sem_contrato), itens_reais, vivos_reais)
+                )
+                continue
+        # 2d — o composto principal, até o piso.
+        principais_acima = [i for i in ficam if itens[i][3] == PRINCIPAL and series[i] > PISO_COMPOSTO]
+        if principais_acima:
+            alvo = min(principais_acima, key=lambda i: (-series[i], i))
             series[alvo] -= 1
             continue
 
@@ -1088,6 +1188,24 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
         # Do degrau mais baixo e do grupo mais CHEIO da sessão. Chegando aqui,
         # já não há complementar nenhum na ficha e toda série está no piso: o
         # que sobra é escolher qual músculo anunciado perde variedade.
+        # Por GRUPO do título, e não por família (27/09/2026, revisão B): o
+        # glúteo é família do posterior, mas é grupo do título, e a elevação
+        # pélvica não é "excedente" do stiff — no Rápido, o "Inferior" saía
+        # com dois quadríceps e o glúteo fora da semana.
+        excedente = [i for i in ficam if vivos_reais[grupos_reais[i]] > 1]
+        if excedente:
+            ficam.remove(
+                _quem_cede(_do_degrau_mais_baixo(excedente), itens_reais, vivos_reais)
+            )
+            continue
+        # 4b — só quando nenhum grupo do título tem mais de um exercício e
+        # ainda não cabe: aí um exercício do título VAI sair, e a família
+        # decide qual (APROVADA pelo dono em 28/09/2026). O princípio: um
+        # grupo do título da letra nunca desaparece. Glúteo e posterior são
+        # uma cadeia (TREINO.md; `models.FAMILIA_DE_OPCOES`): a elevação
+        # pélvica sai e o glúteo continua trabalhado pelo stiff que fica; a
+        # panturrilha de "Pernas completo" não teria ninguém. O grupo que
+        # sai da SEMANA fica nomeado na nota (`aviso_de_tempo`).
         excedente = [i for i in ficam if vivos_por_grupo[itens[i][0]] > 1]
         if excedente:
             ficam.remove(
@@ -1113,13 +1231,14 @@ def escolher_para_o_tempo(itens, minutos_disponiveis, principais=None) -> list:
     # de puxar a 30 minutos terminava com 24 minutos e todas as séries no piso,
     # desperdiçando seis minutos do que a pessoa tinha.
     #
-    # Devolve na ordem INVERSA da que tirou — principal, acessório, isolador —,
-    # e confere a cada devolução, porque o teto continua duro. Nunca passa do
+    # Devolve na ordem INVERSA da que tirou — principal, acessório, isolador,
+    # e o complementar por último (27/09/2026: foi o primeiro a ceder) —, e
+    # confere a cada devolução, porque o teto continua duro. Nunca passa do
     # que o catálogo pede: `series[i] >= itens[i][1]` é o limite de cima.
     houve_devolucao = True
     while houve_devolucao:
         houve_devolucao = False
-        for i in sorted(ficam, key=lambda i: (-itens[i][3], i)):
+        for i in sorted(ficam, key=lambda i: (_e_complementar(itens[i][0]), -itens[i][3], i)):
             if series[i] >= itens[i][1]:
                 continue
             series[i] += 1
@@ -1922,32 +2041,71 @@ def _nivel_do_teto(teto_semanal, sessoes):
     return Experiencia.INTERMEDIARIO
 
 
+def corpo_inteiro_uma_vez(modelos, ocorrencias) -> bool:
+    """A semana é o corpo inteiro numa sessão só, uma vez por semana?"""
+    from . import doutrina
+
+    return any(
+        doutrina.tipo_de_dia(getattr(modelos.get(label), "split", ""), label) == doutrina.FULL
+        and vezes == 1
+        for label, vezes in ocorrencias.items()
+    )
+
+
+#: A regra, onde a duração se escolhe (28/09/2026, decisão do dono: dizer por
+#: quê, com a palavra "tempo").
+REGRA_DO_CORPO_INTEIRO = (
+    "Corpo inteiro uma vez por semana precisa de pelo menos 75 minutos de "
+    "tempo de treino para caber todos os grupos."
+)
+
+
+def minimo_da_ficha(plan) -> int:
+    """O menor teto que esta ficha aceita: 75 no corpo inteiro de uma vez por
+    semana (27/09/2026, decisão do dono), 0 no resto. É o mesmo número que o
+    gerador usa (`corpo_inteiro_uma_vez`) e que a área de Treino obedece ao
+    oferecer as faixas (28/09/2026). Lê `plan.split`: zero consulta."""
+    from . import opcoes as motor_de_opcoes
+
+    if plan is not None and plan.split == Split.FULL and plan.days_per_week == 1:
+        return motor_de_opcoes.MINUTOS_DO_CORPO_INTEIRO
+    return 0
+
+
+def teto_da_ficha(user, plan=None):
+    """O teto de minutos com que a ficha desta pessoa é montada: o da faixa
+    (`teto_completo_de`) — e, no corpo inteiro de uma vez por semana, pelo
+    menos 75 (27/09/2026, decisão do dono)."""
+    return max(teto_completo_de(user), minimo_da_ficha(plan))
+
+
 def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                       teto_semanal=None, nivel=_NAO_INFORMADO, permitidos=None) -> dict:
-    """O que cada OPÇÃO de cada sessão manda fazer:
-    `{(sessão.pk, opção, exercício): (séries, item)}`.
+    """O que cada sessão manda fazer: `{(sessão.pk, opção, exercício): (séries, item)}`.
 
-    UMA LETRA, ATÉ DUAS OPÇÕES (15/09/2026, `workouts/opcoes.py`). A
-    repartição por ocorrência (`repartir_ocorrencia`) dava a cada passagem da
-    letra METADE do modelo com a dose cheia: sessões curtas, "A1" e "A2" como
-    dias obrigatórios. Aqui a repartição vira duas VERSÕES da mesma letra,
-    cada uma completa (piso de 15 séries, teto de 18), equivalentes (mesmos
-    grupos, ≤ 1 série por grupo e ≤ 5 minutos de diferença, metade dos
-    exercícios próprios), e a pessoa faz UMA por ocorrência. Sem catálogo
-    para duas assim, a letra sai com uma opção só.
+    UMA LETRA, UMA LISTA (27/09/2026, decisão do dono: "Fichas novas com uma
+    variante só"; "letra repetida faz sempre o mesmo treino"). A opção da
+    chave é sempre 1 — a chave continua com ela porque a ficha gravada é
+    `SessionExercise.opcao`, e as fichas de 15 a 27/09/2026 têm opção 2 e
+    continuam sendo lidas. De 15 a 27/09 esta função repartia a letra em até
+    duas opções de meio modelo (`montar_opcoes`, `equivalentes`,
+    `equilibrar`), com um laço que devolvia a UMA opção a letra que não
+    fechasse a equivalência; nada disso existe mais.
 
     A ordem das decisões:
 
-    1. cada letra é repartida em opções (`montar_opcoes`), com os graus da
-       SESSÃO (`prioridades_da_sessao` sobre a opção, não sobre o modelo);
-    2. cada opção sobe até o piso de séries pelo isolador e acessório dos
+    1. cada letra vira UMA lista pela cota do TREINO.md (`opcoes.
+       variante_unica`): o principal de cada grupo, todo anunciado coberto,
+       o resto da cota na ordem do modelo, um de cada complementar; os graus
+       são os da SESSÃO (`prioridades_da_sessao` sobre a lista);
+    2. a lista sobe até a faixa de séries pelo isolador e acessório dos
        grupos anunciados (`preencher_ate_a_faixa`), dentro do tempo;
-    3. o pior caso da semana — cada ocorrência fazendo a opção mais pesada no
-       grupo — cabe no teto semanal (`aparar_opcoes`), com as três travas;
-       as opções NUNCA são somadas;
-    4. cada opção cabe no tempo (`escolher_para_o_tempo`, cinco camadas);
-    5. as opções são equilibradas e conferidas (`equivalentes`); se ainda
-       assim não forem, a letra fica com a opção 1.
+    3. a semana — cada ocorrência da letra com a mesma lista — cabe no teto
+       semanal (`aparar_opcoes`), com as três travas;
+    4. a lista cabe no tempo (`escolher_para_o_tempo`, cinco camadas) — a
+       rede de segurança: a cota é do tamanho de uma sessão;
+    5. o complementar que o relógio tirou procura outra letra
+       (`realocar_orfaos_nas_opcoes`), e o teto semanal é conferido de novo.
 
     `permitidos` (17/09/2026) é o que o perfil de equipamento pode usar
     (`permitidos_de`): o item do modelo fora dele é trocado pelo mesmo
@@ -1980,30 +2138,11 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
         nivel = _nivel_do_teto(teto_semanal, sessoes)
     sem_teto = nivel is None
     letras = list(ocorrencias)
-    itens_de = {}
-    principais_de = {}
-    faixa_de = {}
-    for label in letras:
-        modelo = modelos.get(label)
-        if modelo is None:
-            return None
-        itens_de[label] = ajustar_degrau_do_iniciante(
-            substituir_por_equipamento(
-                [item for item in modelo.items.all() if item.exercise.is_active],
-                permitidos, catalogo,
-            ),
-            nivel, permitidos, catalogo,
-        )
-        principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
-        # A FAIXA É DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela A): "Peito e
-        # tríceps" do intermediário quer 21–28 séries diretas; "Peito" de
-        # cinco dias, 14–20; o corpo inteiro de um dia, 20–26.
-        tipo = doutrina.tipo_de_dia(getattr(modelo, "split", ""), label)
-        # Fora do contrato (`abcd D`, só complementares): dose do catálogo,
-        # sem preenchimento e sem teto de sessão.
-        faixa_de[label] = (
-            doutrina.faixa_de_series(nivel or doutrina.NIVEL_PADRAO, tipo) if tipo else (0, 10_000)
-        )
+    # CORPO INTEIRO UMA VEZ POR SEMANA: no mínimo 75 minutos, qualquer que
+    # seja a faixa (27/09/2026, decisão do dono; `opcoes.
+    # MINUTOS_DO_CORPO_INTEIRO`).
+    if teto_completo is not None and corpo_inteiro_uma_vez(modelos, ocorrencias):
+        teto_completo = max(teto_completo, motor_de_opcoes.MINUTOS_DO_CORPO_INTEIRO)
 
     def limites_de(por_letra):
         """O teto de cada grupo pela FREQUÊNCIA com que ele é treinado na
@@ -2018,114 +2157,81 @@ def prescrever_opcoes(sessoes, modelos, teto=_NAO_INFORMADO,
                 frequencia[grupo] = frequencia.get(grupo, 0) + ocorrencias.get(label, 1)
         return {grupo: doutrina.teto_semanal(nivel, vezes) for grupo, vezes in frequencia.items()}
 
-    def montar(letras_com_duas):
-        """Passa a semana inteira pela cadeia, com duas opções nas letras
-        pedidas e uma (o modelo inteiro) nas demais. Devolve `{letra: opções}`
-        já no tempo — a conferência de equivalência é do chamador."""
-        por_letra = {}
-        for label in letras:
-            itens = itens_de[label]
-            opcoes = [list(itens)]
-            if label in letras_com_duas:
-                # TANTAS OPÇÕES QUANTAS OCORRÊNCIAS (mínimo duas): com a letra
-                # três vezes na semana, duas opções de meio modelo cada
-                # dariam, no pior caso, 1,5 modelo por semana — e o teto
-                # esvaziava as duas até a letra ficar com um exercício de
-                # peito. Com três opções de um terço, repetir a preferida
-                # três vezes é exatamente a dose do modelo.
-                # Tenta com o número de ocorrências; sem catálogo para
-                # tantas opções distintas, tenta duas; só então uma.
-                for n in sorted({max(2, ocorrencias[label]), 2}, reverse=True):
-                    candidatas, compartilhados = motor_de_opcoes.montar_opcoes(
-                        itens, n=n, principais=principais_de[label],
-                    )
-                    if motor_de_opcoes.distintas_o_bastante(candidatas, compartilhados):
-                        opcoes = candidatas
-                        break
-            linhas_por_opcao = []
-            for op in opcoes:
-                graus = prioridades_da_sessao(op)
-                linhas = [
-                    (item, dose_da_sessao(item), grau)
-                    for item, grau in zip(op, graus)
-                    if dose_da_sessao(item) > 0
-                ]
-                # O preenchimento até a faixa é da sessão de ~60 minutos. Com
-                # "até 30" ele enchia os anunciados e o relógio tirava os
-                # complementares em seguida: a 30 minutos, abc2 de cinco dias
-                # ficava sem panturrilha, abdômen, antebraço e trapézio na
-                # semana inteira. Abaixo de 45 minutos a dose é a do catálogo.
-                if teto_completo is None or teto_completo >= motor_de_opcoes.MINUTOS_PARA_PREENCHER:
-                    linhas = motor_de_opcoes.preencher_ate_a_faixa(
-                        linhas, teto_completo, principais_de[label], faixa=faixa_de[label],
-                        por_exercicio=doutrina.series_por_exercicio(nivel or doutrina.NIVEL_PADRAO),
-                    )
-                linhas_por_opcao.append(linhas)
-            por_letra[label] = linhas_por_opcao
-        por_letra = motor_de_opcoes.aparar_opcoes(
-            por_letra, ocorrencias, limites_de(por_letra), dose_da_sessao
+    por_letra = {}
+    principais_de = {}
+    for label in letras:
+        modelo = modelos.get(label)
+        if modelo is None:
+            return None
+        itens = ajustar_degrau_do_iniciante(
+            substituir_por_equipamento(
+                [item for item in modelo.items.all() if item.exercise.is_active],
+                permitidos, catalogo,
+            ),
+            nivel, permitidos, catalogo,
         )
-        no_tempo = {}
-        descartados = {}
-        for label, opcoes in por_letra.items():
-            principais = principais_de[label]
-            prontas = []
-            descartados[label] = []
-            for linhas in opcoes:
-                ficam = escolher_para_o_tempo(
-                    [(item.exercise.muscle_group, series, item.rest_seconds, grau)
-                     for item, series, grau in linhas],
-                    teto_completo,
-                    principais=principais,
-                )
-                ficaram = {i for i, _ in ficam}
-                prontas.append([(linhas[i][0], series, linhas[i][2]) for i, series in ficam])
-                # O que o relógio dispensou, guardado: um complementar que não
-                # coube aqui pode caber noutra letra (`realocar_orfaos_nas_opcoes`).
-                descartados[label].append([l for i, l in enumerate(linhas) if i not in ficaram])
-            if len(prontas) > 1:
-                prontas = motor_de_opcoes.equilibrar(
-                    prontas, principais, teto_completo, teto_series=faixa_de[label][1]
-                )
-            no_tempo[label] = prontas
-        motor_de_opcoes.realocar_orfaos_nas_opcoes(no_tempo, descartados, principais_de, teto_completo)
-        # Equilibrar pode ter DADO série: o teto semanal é conferido de novo,
-        # e o que ele tirar de uma opção é acompanhado pela outra (só tirando).
-        no_tempo = motor_de_opcoes.aparar_opcoes(
-            no_tempo, ocorrencias, limites_de(no_tempo), dose_da_sessao
+        principais_de[label] = list(getattr(modelo, "main_groups", None) or ())
+        # A FAIXA E A COTA SÃO DO TIPO DE DIA E DO NÍVEL (TREINO.md, tabela
+        # A): "Peito e tríceps" do intermediário quer 4 + 3 exercícios e
+        # 21–28 séries diretas; "Peito" de cinco dias, 4 e 12–20; o corpo
+        # inteiro de um dia, um por grupo e 20–26. Fora do contrato (`abcd
+        # D`, só complementares): dose do catálogo, sem preenchimento e sem
+        # teto de sessão.
+        tipo = doutrina.tipo_de_dia(getattr(modelo, "split", ""), label)
+        faixa = doutrina.faixa_de_series(nivel or doutrina.NIVEL_PADRAO, tipo) if tipo else (0, 10_000)
+        variante = motor_de_opcoes.variante_unica(
+            itens, principais_de[label], tipo, nivel or doutrina.NIVEL_PADRAO, vezes=ocorrencias[label],
         )
-        return {
-            label: (
-                motor_de_opcoes.equilibrar(
-                    opcoes, principais_de[label], teto_completo, dar=False, teto_series=faixa_de[label][1]
-                )
-                if len(opcoes) > 1 else opcoes
+        # O complementar NÃO ANUNCIADO entra com duas a três séries (TREINO.md,
+        # tabela A); a dose de quatro do catálogo é de quem o anuncia
+        # ("Pernas completo" e a panturrilha).
+        linhas = [
+            (item, dose_da_sessao(item)
+             if not principais_de[label] or item.exercise.muscle_group in principais_de[label]
+             else min(dose_da_sessao(item), SERIES_DO_COMPLEMENTAR), grau)
+            for item, grau in zip(variante, prioridades_da_sessao(variante))
+            if dose_da_sessao(item) > 0
+        ]
+        # O preenchimento até a faixa é da sessão de ~60 minutos. Com "até
+        # 30" ele enchia os anunciados e o relógio tirava os complementares
+        # em seguida: a 30 minutos, abc2 de cinco dias ficava sem
+        # panturrilha, abdômen, antebraço e trapézio na semana inteira.
+        # Abaixo de 45 minutos a dose é a do catálogo.
+        if teto_completo is None or teto_completo >= motor_de_opcoes.MINUTOS_PARA_PREENCHER:
+            linhas = motor_de_opcoes.preencher_ate_a_faixa(
+                linhas, teto_completo, principais_de[label], faixa=faixa,
+                por_exercicio=doutrina.series_por_exercicio(nivel or doutrina.NIVEL_PADRAO),
             )
-            for label, opcoes in no_tempo.items()
-        }
-
-    # Primeiro com duas opções em toda letra; a letra que não fechar as
-    # réguas de equivalência volta a UMA opção — o modelo inteiro, e não a
-    # metade que sobrou —, e a semana é montada de novo, porque o teto é
-    # partilhado entre as letras.
-    com_duas = set(letras)
-    for _ in range(len(letras) + 1):
-        semana = montar(com_duas)
-        reprovadas = {
-            label for label, opcoes in semana.items()
-            if len(opcoes) > 1 and not motor_de_opcoes.equivalentes(opcoes, principais_de[label])
-        }
-        if not reprovadas:
-            break
-        com_duas -= reprovadas
+        por_letra[label] = [linhas]
+    por_letra = motor_de_opcoes.aparar_opcoes(
+        por_letra, ocorrencias, limites_de(por_letra), dose_da_sessao
+    )
+    no_tempo = {}
+    descartados = {}
+    for label, (linhas,) in por_letra.items():
+        ficam = escolher_para_o_tempo(
+            [(item.exercise.muscle_group, series, item.rest_seconds, grau)
+             for item, series, grau in linhas],
+            teto_completo,
+            principais=principais_de[label],
+        )
+        ficaram = {i for i, _ in ficam}
+        no_tempo[label] = [[(linhas[i][0], series, linhas[i][2]) for i, series in ficam]]
+        # O que o relógio dispensou, guardado: um complementar que não coube
+        # aqui pode caber noutra letra (`realocar_orfaos_nas_opcoes`).
+        descartados[label] = [[l for i, l in enumerate(linhas) if i not in ficaram]]
+    motor_de_opcoes.realocar_orfaos_nas_opcoes(no_tempo, descartados, principais_de, teto_completo)
+    # O realocado soma à letra que o recebeu: o teto semanal é conferido de novo.
+    semana = motor_de_opcoes.aparar_opcoes(
+        no_tempo, ocorrencias, limites_de(no_tempo), dose_da_sessao
+    )
     prescricao = {}
-    for label, opcoes in semana.items():
+    for label, (linhas,) in semana.items():
         for sessao in sessoes:
             if sessao.label != label:
                 continue
-            for k, linhas in enumerate(opcoes, start=1):
-                for item, series, _grau in linhas:
-                    prescricao[(sessao.pk, k, item.exercise_id)] = (series, item)
+            for item, series, _grau in linhas:
+                prescricao[(sessao.pk, 1, item.exercise_id)] = (series, item)
     return prescricao
 
 
@@ -2134,9 +2240,9 @@ def prescrever_semana(sessoes, modelos, teto=_NAO_INFORMADO,
     """A OPÇÃO 1 de cada sessão: `{(sessão.pk, exercício): (séries, item)}`.
 
     Desde 15/09/2026 quem prescreve é `prescrever_opcoes`; esta é a projeção
-    da primeira opção, que os títulos (`ajustar_titulos`), a nota da divisão
-    e o aviso de tempo leem — as opções são equivalentes por construção, então
-    o que vale para a 1 vale para a 2. Tudo abaixo desta docstring é a
+    da opção 1 — desde 27/09/2026 a única, a variante da letra —, que os
+    títulos (`ajustar_titulos`), a nota da divisão e o aviso de tempo leem.
+    Tudo abaixo desta docstring é a
     história da prescrição por ocorrência, mantida porque cada decisão dela
     continua valendo dentro de cada opção.
 
@@ -2188,8 +2294,8 @@ def _prescrever_por_ocorrencia(sessoes, modelos, teto=_NAO_INFORMADO,
     Fica como referência medida de `repartir_ocorrencia`,
     `aparar_volume_semanal` e `realocar_complementares_orfaos` — as três
     continuam existindo e testadas, mas quem prescreve em produção é
-    `prescrever_opcoes`, cujas peças homônimas estão em `workouts/opcoes.py`
-    (`montar_opcoes`, `aparar_opcoes`, `realocar_orfaos_nas_opcoes`). Nenhum
+    `prescrever_opcoes`, cujas peças estão em `workouts/opcoes.py`
+    (`variante_unica`, `aparar_opcoes`, `realocar_orfaos_nas_opcoes`). Nenhum
     caminho de produção chama isto.
     """
     vistas = {}
@@ -2640,24 +2746,60 @@ def aviso_de_tempo(sessoes, prescricao, sem_relogio) -> str:
     # NÃO pode fazer é omitir a escolha.
     orfaos = perdidos - grupos(prescricao)
 
+    # O GRUPO DO TÍTULO QUE SAIU DE UMA LETRA, com o exercício e a letra
+    # (28/09/2026, decisão do dono — "a nota diz o que saiu aos 30 min" —;
+    # revisão A2, N3). O ramo do órfão devolvia só o órfão: no ABCD de 4 dias
+    # em Rápido o treino C perdia o glúteo e o D o posterior, os dois
+    # continuavam em outro treino, e a nota dizia só "abdômen". A letra
+    # promete o grupo no título; se ele sai dela, a nota diz qual exercício
+    # saiu e de qual treino, e que o grupo segue na semana. O exercício a mais
+    # de um grupo que CONTINUA na letra não entra: é a ficha encurtada, que a
+    # frase geral já diz.
+    saidas, grupos_saidos, vistas = [], [], set()
+    for sessao in sessoes:
+        titulo = set(getattr(sessao, "main_groups", None) or ())
+        letra = getattr(sessao, "label", "")
+        if not titulo or letra in vistas:
+            continue
+        vistas.add(letra)
+        ficaram = grupos(prescricao, sessao.pk)
+        for (sessao_id, _), (_, item) in sem_relogio.items():
+            grupo = item.exercise.muscle_group
+            if sessao_id == sessao.pk and grupo in titulo and grupo not in ficaram and grupo not in orfaos:
+                nome = item.exercise.name
+                saidas.append("%s (treino %s)" % (nome[:1].lower() + nome[1:], letra))
+                if grupo not in grupos_saidos:
+                    grupos_saidos.append(grupo)
+
+    partes = []
     if orfaos:
         verbo = "coube" if len(orfaos) == 1 else "couberam"
-        return (
+        partes.append(
             "No tempo que você informou, %s não %s em nenhuma sessão desta "
             "semana. Aumentar o tempo disponível — ou treinar mais um dia — "
             "traz de volta."
             % (_lista_em_portugues(_nomes_dos_grupos(sorted(orfaos))), verbo)
         )
-    if perdidos:
-        verbo = "ficou" if len(perdidos) == 1 else "ficaram"
-        return (
+    elif perdidos - set(grupos_saidos):
+        resto = perdidos - set(grupos_saidos)
+        verbo = "ficou" if len(resto) == 1 else "ficaram"
+        partes.append(
             "No tempo que você informou não cabem todos os grupos em todo dia: "
             "%s %s para outra sessão da semana."
-            % (_lista_em_portugues(_nomes_dos_grupos(sorted(perdidos))), verbo)
+            % (_lista_em_portugues(_nomes_dos_grupos(sorted(resto))), verbo)
         )
-    if cortados or reduzidos:
-        return "A ficha foi ajustada para caber no tempo que você informou."
-    return ""
+    if saidas:
+        nomes = _nomes_dos_grupos(grupos_saidos)
+        partes.append(
+            "Para caber no tempo, %s %s — %s %s em outro treino da semana."
+            % (
+                "saiu" if len(saidas) == 1 else "saíram", _lista_em_portugues(saidas),
+                _lista_em_portugues(nomes), "continua" if len(nomes) == 1 else "continuam",
+            )
+        )
+    if not partes and (cortados or reduzidos):
+        partes.append("A ficha foi ajustada para caber no tempo que você informou.")
+    return " ".join(partes)
 
 
 @transaction.atomic
@@ -2731,11 +2873,24 @@ def create_routine(user) -> TrainingPlan:
         )
         if teto_de_minutos(user) is not None else prescricao
     )
+    # O CORPO INTEIRO DE UMA VEZ POR SEMANA NASCE COM 75 MINUTOS (27/09/2026,
+    # decisão do dono): quando a faixa da pessoa é menor — conta que já tinha
+    # essa faixa antes de a tela deixar de oferecê-la (28/09/2026, caminho
+    # (i)) —, a nota diz o tempo da ficha e o motivo, e a frase sobre "o
+    # tempo que você informou" não vale, porque não foi esse tempo que
+    # montou a ficha.
+    if teto_da_ficha(user, plan) > teto_completo_de(user):
+        sobre_o_tempo = (
+            "Sua ficha tem %d minutos: corpo inteiro uma vez por semana precisa "
+            "desse tempo para caber todos os grupos." % minimo_da_ficha(plan)
+        )
+    else:
+        sobre_o_tempo = aviso_de_tempo(sessions, prescricao, sem_relogio)
     plan.notes = " ".join(
         parte
         for parte in (
             nota_da_divisao(split, sessions, teto_semanal=teto_semanal),
-            aviso_de_tempo(sessions, prescricao, sem_relogio),
+            sobre_o_tempo,
         )
         if parte
     )
@@ -2829,6 +2984,9 @@ def rotina_ativa_com_linhas(user) -> tuple:
         item.session = sessao
         sessao._prefetched_objects_cache["exercises"]._result_cache.append(item)
     linhas.sort(key=lambda s: (s.weekday, s.pk))
+    # As opções gravadas já estão nas linhas: `rotina_desatualizada` as lê
+    # daqui e responde à ficha legada sem consulta (28/09/2026).
+    plan.opcoes_gravadas = frozenset(item.opcao for item in itens)
     return plan, linhas, trocas
 
 
@@ -2913,10 +3071,45 @@ def rotina_invalida(plan, user) -> bool:
     return atual != na_ficha
 
 
+def _chave_do_nao_bate(plan, user) -> str:
+    """Onde `rotina_desatualizada` lembra um "não bate" (28/09/2026, revisão
+    B2, I1).
+
+    Só o NÃO é lembrado; o SIM já tem o carimbo no plano (`catalogo`). A
+    chave é tudo de que a resposta depende e que pode mudar sem nascer
+    plano novo: o plano (as linhas de um plano não mudam — ficha ajustada
+    responde antes, e regenerar cria outro `pk`), a impressão digital do
+    catálogo de hoje (o deploy seguinte pergunta de novo) e as entradas que
+    o motor lê da pessoa — nível, faixa e equipamento; os dias e a divisão
+    estão no plano. Zero consultas: o perfil já está em cache.
+
+    CACHE DO PROCESSO, e não campo novo: `CACHES` não é configurado, então é
+    o `LocMemCache` padrão, um por worker do gunicorn — a primeira visita de
+    cada worker depois do deploy paga a conferência, as outras não. Sem
+    migração, e nada é gravado no plano ativo (o "não" nunca vira dado: se o
+    processo reinicia, a resposta é refeita, não perdida)."""
+    return "treino:nao-bate:%s:%s:%s:%s:%s" % (
+        plan.pk, versao_do_catalogo(), nivel_de(user), duracao_de(user), equipamento_de(user),
+    )
+
+
+def _e_ficha_legada(plan) -> bool:
+    """A ficha tem linha em `opcao` acima de 1 — a forma de antes de 27/09?
+
+    Zero consultas quando o plano veio de `rotina_ativa_com_linhas` (a Home e
+    a Alimentação), que já leu todas as linhas; uma, nos outros caminhos."""
+    opcoes = getattr(plan, "opcoes_gravadas", None)
+    if opcoes is not None:
+        return any(opcao > 1 for opcao in opcoes)
+    return SessionExercise.objects.filter(session__plan=plan, opcao__gt=1).exists()
+
+
 def rotina_desatualizada(plan, user) -> bool:
     """A prescrição do catálogo mudou embaixo de uma ficha VÁLIDA?
 
-    É a pergunta do aviso "Seu treino pode ficar mais completo — regenerar?".
+    É a pergunta do aviso "Seu programa de treino foi atualizado. Quer montar
+    a ficha nova?" (até 27/09/2026: "Seu treino pode ficar mais completo —
+    regenerar?").
     Até 17/09/2026 isso remontava a ficha na entrada do painel, sem ninguém
     pedir — o deploy que ativou 28 exercícios trocaria a ficha de todo mundo
     no meio da semana. Agora a ficha fica (plano é retrato) e a pessoa
@@ -2935,9 +3128,29 @@ def rotina_desatualizada(plan, user) -> bool:
         # `rotina_invalida` de propósito: com o plano em mãos, a resposta
         # de todo dia custa ZERO consultas.
         return False
+    chave = _chave_do_nao_bate(plan, user)
+    if cache.get(chave):
+        # O "NÃO BATE" JÁ FOI CONFERIDO com este catálogo, este plano e estas
+        # entradas (28/09/2026, revisão B2, I1): a ficha antiga que o motor
+        # novo não reproduz — de uma opção ou de duas — nunca recebe o
+        # carimbo, e pagava a conferência exata em toda visita (Home 27
+        # contra 19). Antes de `rotina_invalida`, pelo mesmo motivo do atalho
+        # de baixo.
+        return True
+    if _e_ficha_legada(plan):
+        # FICHA LEGADA DE DUAS OPÇÕES (28/09/2026, decisão do dono sobre o M1
+        # da revisão B). O motor de hoje só grava `opcao=1`, então a
+        # conferência exata NUNCA bate com uma ficha que tem opção 2 — e a
+        # Home pagava as 8 consultas dela em toda visita (19 → 27), sem
+        # carimbo possível, até a pessoa regenerar ou dispensar. A resposta
+        # já é conhecida: oferecer. Antes de `rotina_invalida`, como a
+        # rotação contínua acima: se a ficha também for inválida, a aba de
+        # Treino a remonta de qualquer jeito, e "regenerar" faz o mesmo.
+        return True
     if rotina_invalida(plan, user):
         return False
     if not _prescricao_bate(plan, user):
+        cache.set(chave, True, timeout=None)
         return True
     # A conferência exata disse "igual": o plano recebe a impressão digital
     # de HOJE, para a próxima visita responder com zero consultas. Sem isso,
