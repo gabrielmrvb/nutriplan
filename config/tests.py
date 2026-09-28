@@ -2003,6 +2003,20 @@ class ObservabilidadeTests(TestCase):
         # E o começo do caminho fica, senão o log perde o que serve.
         self.assertIn("/senha/nova/", limpo)
 
+    def test_a_chave_de_descadastro_nunca_sobrevive_no_log(self):
+        """M1 da revisão final LGPD (28/09/2026): um 500 em
+        `/avisos/sair/<chave>/` (Neon dormindo basta) levava a chave de 128
+        bits ao log, ao e-mail de 5xx e ao Sentry — ela desliga os e-mails
+        de alguém sem login. A exportação já a redigia com uma regra só dela."""
+        from avisos.models import _nova_chave
+        from config.observabilidade import redigir
+
+        chave = _nova_chave()  # a mesma que `Preferencia.chave` sorteia
+        limpo = redigir(f"Internal Server Error: /avisos/sair/{chave}/")
+
+        self.assertNotIn(chave, limpo)
+        self.assertIn("/avisos/sair/[REDIGIDO]/", limpo)
+
     def test_segredos_de_infraestrutura_tambem_somem(self):
         from config.observabilidade import redigir
 

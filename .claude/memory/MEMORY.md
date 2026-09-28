@@ -6,7 +6,7 @@ Regras em [INSTRUCTIONS.md](INSTRUCTIONS.md). Teto: 130 linhas não em branco.
 - [Ficha única, troca por exercício](ficha-unica-troca.md) — a tela mostra uma; o motor gera duas e o gate proíbe perder a segunda
 - [Equipamento substitui, não filtra](equipamento-substitui.md) — mesmo padrão e grupo, mesma dose; filtrar abre buraco no modelo
 - [Veracidade](veracidade.md) — nada inventado; texto só afirma o que aconteceu; sem dado, pergunte ou diga
-- [Autonomia: as quatro condições](autonomia-4-condicoes.md) — fora delas, decida e registre
+- [Autonomia: as cinco paradas](autonomia-4-condicoes.md) — fora delas, decida pelo princípio escrito e registre
 - [Relógio congelado nos testes](relogio-congelado.md) — quarta 16/09/2026 12:00; date.today/now proibidos
 - [JavaScript mora em pwa.js](js-em-pwa-js.md) — app.js não é servido
 - [:has() proibido](sem-has.md) — classe escrita pelo servidor

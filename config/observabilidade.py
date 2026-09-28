@@ -74,6 +74,10 @@ PADROES = (
     # /tarefas/lembretes/externo/<token>/ — o disparo pontual leva o token na
     # URL (o UptimeRobot free não manda cabeçalho); redige do log do Django.
     (re.compile(r"(/tarefas/lembretes/externo/)[^/\s]+"), r"\1[REDIGIDO]"),
+    # /avisos/sair/<chave>/ — a chave de descadastro do e-mail anda no
+    # caminho; sem isto um 500 ali a levava ao log, ao e-mail de 5xx e ao
+    # Sentry (M1 da revisão final LGPD, 28/09/2026).
+    (re.compile(r"(/avisos/sair/)[^/?#\s]+", re.I), r"\1[REDIGIDO]"),
     # ?code=... &state=... &token=...
     (re.compile(r"([?&](?:code|state|token|key|password)=)[^&\s]+", re.I), r"\1[REDIGIDO]"),
     # chaves de SMTP e URLs de banco, caso alguma exceção as carregue
