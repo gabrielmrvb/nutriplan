@@ -383,24 +383,24 @@ Achou defeito no escopo? O laço é:
 REPRODUZA → CLASSIFIQUE → CORRIJA → TESTE → BROWSER QA → SABOTE → REVALIDE
 ```
 
-### DECIDA E REGISTRE — as quatro únicas paradas (regra permanente, 17/09/2026)
+### QUANDO PARAR — as cinco únicas paradas (regra permanente, 28/09/2026)
 
-Uma sessão só para e pergunta quando UMA destas vale:
+Uma sessão só para e pergunta quando UMA das cinco vale:
 
-1. **gasta dinheiro novo** — plano do Render, serviço pago, API cobrada;
-2. **apaga ou altera dado de usuário real em produção**;
-3. **muda direção visual ou de produto que ainda não está escrita** em
-   `DESIGN.md` / `TREINO.md`;
-4. **precisa de credencial que não existe no ambiente**.
+1. **texto jurídico ou de consentimento** — Termos, Política, caixa de
+   consentimento, aviso regulatório (CRN/CREF): entra marcado `[REVISAR]`,
+   o PR espera o ok do dono;
+2. **dinheiro** — plano do Render, serviço pago, API cobrada;
+3. **apagar ou reescrever dado de gente real**;
+4. **ação em conta de terceiro** — loja, Sentry, Render, GitHub fora do fluxo
+   de PR e fila;
+5. **regra de doutrina nova sem princípio escrito** em `CLAUDE.md`,
+   `DESIGN.md` ou `TREINO.md`.
 
-Tudo o mais — escolha técnica, ordem de execução, defaults de infra,
-tolerância de teste, rótulo de texto, nome de campo, parâmetro de motor —
-decide com o melhor padrão, registra em **"Decisões que tomei sozinha"** com
-uma linha de razão, e segue. Vetos vêm depois, no relatório; nunca antes.
-A lista antiga desta seção (2FA, CAPTCHA, pagamento, aceite legal, dado
-real, decisão de produto fora da spec, credencial inexistente) cabe inteira
-nas quatro condições; o que ficava de fora dela — "decisão arquitetural",
-"alternativas materialmente diferentes" — agora se decide e se registra.
+Tudo o mais se decide pelo princípio que já existe nesses três documentos e
+se registra no relatório como **"decidi sozinho + por quê + como reverter"**,
+e a sessão segue. **Nunca esperar resposta por item que não está na lista.**
+Vetos vêm depois, no relatório; nunca antes.
 
 **Padrões já decididos — não perguntar de novo:** superpowers em toda
 missão · TDD + sabotagem 100 % vermelha + revisão adversarial + suíte · o
@@ -414,8 +414,8 @@ antigo nunca remonta sozinho · o teste dourado da ficha nunca afrouxa · spec
 (`DESIGN.md` / `TREINO.md`) vence proposta externa, e a divergência vai para
 "recomendo rever" · segredo nunca no repositório nem no relatório.
 
-**Relatório:** "O que preciso de você" só lista itens que caem nas quatro
-condições. Lista vazia se escreve "nada" — e a sessão vai para o próximo
+**Relatório:** "O que preciso de você" só lista itens que caem nas cinco
+paradas. Lista vazia se escreve "nada" — e a sessão vai para o próximo
 item do plano mestre sem esperar.
 
 **Coordenação entre sessões:** antes de tocar arquivo em comum, a sessão
@@ -425,7 +425,7 @@ por aviso (`data hora · sessão · arquivo · o que vai fazer`), lido antes de
 editar e escrito antes de commitar. Conflito de merge é resolvido por quem
 faz o rebase.
 
-Encontrou algo inesperado que não cai nas quatro? **Investigue, decida,
+Encontrou algo inesperado que não cai nas cinco? **Investigue, decida,
 registre.**
 
 ---

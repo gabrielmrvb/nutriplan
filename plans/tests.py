@@ -3393,8 +3393,8 @@ class HojeV2ViewTests(CatalogFixture):
         html = self.client.get(self.url).content.decode()
 
         self.assertIn("Entender minhas metas", html)
-        self.assertNotIn("<h2>Seu balanço de energia</h2>", html)
-        self.assertNotIn("<h2>Macros de hoje</h2>", html)
+        self.assertNotIn('<h2 class="sobretitulo">Seu balanço de energia</h2>', html)
+        self.assertNotIn('<h2 class="sobretitulo">Macros de hoje</h2>', html)
         # E o conteúdo NÃO some: ele continua lá, recolhido.
         self.assertIn("Macros de hoje", html)
 

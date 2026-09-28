@@ -573,6 +573,23 @@
             <summary>Duração: até <span class="num">{{ duracao.teto }}</span> min por sessão · trocar</summary>
             <form method="post" action="{% url 'workouts:duracao' %}" class="programa__duracao-form">
               {% csrf_token %}
+              {% comment %}
+                O MÍNIMO DO CORPO INTEIRO (27/09/2026, decisão do dono: EXIGIR
+                75 minutos). Com um treino por semana os dez grupos não cabem
+                em 60 — nem com panturrilha e abdômen em uma série (62,7 min
+                medidos) —, e o gerador monta essa ficha com pelo menos 75
+                (`services.teto_da_ficha`). A tela diz a regra onde a duração
+                se escolhe; o resumo acima já mostra o teto que vale.
+
+                28/09/2026 (decisão do dono): a lista abaixo não OFERECE faixa
+                de teto menor que 75 a essa pessoa (`opcoes_de_duracao`), e a
+                regra diz por quê com a palavra "tempo". Quem já tinha uma
+                faixa menor fica com ela gravada e a ficha de 75 — a nota da
+                ficha avisa.
+              {% endcomment %}
+              {% if duracao.regra %}
+                <p class="hint programa__duracao-minimo">{{ duracao.regra }}</p>
+              {% endif %}
               <ul class="choice-list" role="radiogroup" aria-label="Duração de cada sessão">
                 {% for opcao in duracao.opcoes %}
                   <li>

@@ -54,6 +54,14 @@ class OPainelEAFichaContamOMesmoTreinoTests(TestCase):
     def setUp(self):
         self.user = _pessoa("minutos@exemplo.com")
         self.plano = services.create_routine(self.user)
+        # Ficha LEGADA (27/09/2026): a nova tem uma variante só e o painel e a
+        # ficha concordam por construção; a divergência entre opções só
+        # existe na ficha legada com opção 2, que continua lida até a última
+        # sumir — é ela que esta classe prende (`test_opcoes.ficha_legada`).
+        from workouts.test_opcoes import ficha_legada
+
+        for letra in sorted({s.label for s in self.plano.sessions.all()}):
+            ficha_legada(self.plano, letra)
         self.linhas = list(self.plano.sessions.prefetch_related("exercises__exercise"))
         self.client.force_login(self.user)
 

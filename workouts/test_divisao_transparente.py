@@ -254,15 +254,16 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
             sessao.refresh_from_db()
             self.assertIn(sessao.label, ("A", "B", "C"))
 
-    def test_as_duas_ocorrencias_sao_iguais_e_as_opcoes_diferem(self):
+    def test_as_duas_ocorrencias_sao_o_mesmo_treino(self):
         """O fato que a numeração existia para explicar — e deixou de existir.
 
         Até 15/09/2026 as duas passagens de A eram diferentes, e A1/A2 dizia
-        isso. Hoje as duas ocorrências carregam as MESMAS linhas, e quem
-        difere são as OPÇÕES dentro da letra: é por isso que o rótulo voltou a
-        ser a letra e a variedade mora na escolha do dia. Se as ocorrências
-        voltassem a divergir em silêncio, a queixa da auditoria ("o segundo A
-        parece incompleto") voltaria junto.
+        isso. De 15 a 27/09 as duas ocorrências carregavam as MESMAS linhas e
+        quem diferia eram as OPÇÕES dentro da letra. Desde 27/09/2026 (dono:
+        "letra repetida faz sempre o mesmo treino") a letra tem UMA variante:
+        a variedade mora na troca por exercício, escolha da pessoa. Se as
+        ocorrências voltassem a divergir em silêncio, a queixa da auditoria
+        ("o segundo A parece incompleto") voltaria junto.
         """
         user = com_preferencia("difere@exemplo.com", 5, SplitPreference.TRES)
         sessoes = [s for s in self._sessoes(user) if s.label == "A"]
@@ -274,12 +275,7 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
 
         self.assertEqual(len(assinaturas), 2)
         self.assertEqual(assinaturas[0], assinaturas[1], "A de segunda ≠ A de quinta")
-        primeira = sessoes[0]
-        self.assertEqual(primeira.opcoes, [1, 2], "a letra A saiu com uma opção só")
-        self.assertNotEqual(
-            {i.exercise_id for i in primeira.da_opcao(1)},
-            {i.exercise_id for i in primeira.da_opcao(2)},
-        )
+        self.assertEqual(sessoes[0].opcoes, [1], "ficha nova: a letra tem uma variante só")
 
     def test_a_tela_e_a_ficha_concordam_no_rotulo(self):
         """O cartão leva a pessoa a uma ficha, e as duas dizem a mesma coisa.

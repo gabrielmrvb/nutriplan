@@ -35,7 +35,7 @@ TELAS = {
 
 #: Classes que carregam altura própria, com a regra que as sustenta. Cada uma
 #: está travada em `TouchTargetTests`, e é de lá que vem o número.
-CLASSES_COM_ALTURA = ("btn", "btn-link", "choice-list")
+CLASSES_COM_ALTURA = ("btn", "btn-link", "choice-cards")
 
 
 def sem_comentarios(texto):
@@ -77,12 +77,13 @@ class TodoControleDasTelasNovasTemAlturaTests(SimpleTestCase):
         self.assertEqual(nus, [])
 
     def test_a_lista_de_contas_usa_o_componente_que_tem_altura(self):
-        """O rádio tem 19x19. Quem recebe o dedo é o RÓTULO, que o
-        `.choice-list` faz medir 294x50 — provado no navegador clicando a 8px
-        da borda direita, longe do rádio.
+        """O rádio tem 19x19. Quem recebe o dedo é o RÓTULO, que o cartão
+        faz medir 294x50 — provado no navegador clicando a 8px da borda
+        direita, longe do rádio (com a `.choice-list`, que o `choice-card`
+        em lista substituiu em 28/09/2026 com a mesma altura).
 
-        Sem `.choice-list`, o rótulo encolhe para a altura do texto e o alvo
-        real vira o rádio de 19px."""
+        Sem o cartão, o rótulo encolhe para a altura do texto e o alvo real
+        vira o rádio de 19px."""
         corpo = sem_comentarios(
             (BASE_DIR / "templates" / "socialaccount" / "connections.html").read_text(
                 encoding="utf-8"
@@ -98,7 +99,7 @@ class TodoControleDasTelasNovasTemAlturaTests(SimpleTestCase):
         ]
 
         self.assertEqual(len(listas), 1, "sumiu a lista de contas conectadas")
-        self.assertIn("choice-list", listas[0])
+        self.assertIn("choice-cards--lista", listas[0])
 
     def test_a_varredura_olha_para_alguma_coisa(self):
         """Controle positivo. Um regex que não casasse com nada passaria verde

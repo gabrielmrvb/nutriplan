@@ -223,3 +223,45 @@ class ARegraDaNotaEUmaFuncaoPuraTests(TestCase):
         self.assertIn("para outra sessão da semana", nota)
         self.assertIn("tríceps", nota)
         self.assertNotIn("em nenhuma sessão desta semana", nota)
+
+
+class ANotaDizOQueSaiuDaLetraTests(TestCase):
+    """A nota dos 30 minutos diz o que SAIU (decisão do dono, rodada 4 item 4;
+    revisão A2, N3, 28/09/2026). Até aqui ela só nomeava o grupo que saía da
+    SEMANA: no ABCD de 4 dias em Rápido, o treino C perde o glúteo (a
+    elevação pélvica, camada 4b) e o D perde o posterior (o stiff), e a nota
+    dizia só "abdômen" — os dois continuam em outro treino da semana, então
+    não eram "órfãos", e sumiam da letra calados. Agora o grupo do título que
+    sai de uma letra é nomeado com o exercício e a letra."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_workouts", verbosity=0)
+
+    def test_abcd_de_quatro_dias_no_rapido_nomeia_o_gluteo_de_c_e_o_stiff_de_d(self):
+        from accounts.models import SplitPreference
+
+        from .test_reparticao_semanal import perfil
+
+        _, plano = perfil(4, preferencia=SplitPreference.UM, duracao=DuracaoTreino.RAPIDO, sufixo="-nota-letra")
+        self.assertEqual(plano.split, "abcd")
+        letras = {s.label: s for s in plano.sessions.prefetch_related("exercises__exercise")}
+        # Controle: a letra perdeu mesmo o grupo, e a semana não.
+        self.assertNotIn("glutes", {i.exercise.muscle_group for i in letras["C"].exercises.all()})
+        self.assertNotIn("hamstrings", {i.exercise.muscle_group for i in letras["D"].exercises.all()})
+        self.assertIn("abdômen", plano.notes)
+        self.assertIn("elevação pélvica (treino C)", plano.notes)
+        self.assertIn("stiff com halteres (treino D)", plano.notes)
+        self.assertIn("tempo", plano.notes)
+        # Sem culpa: a frase não fala do que a pessoa fez.
+        self.assertNotIn("você escolheu", plano.notes)
+
+    def test_sem_corte_por_tempo_a_nota_nao_fala_de_saida(self):
+        """Controle: com Completo nada sai pelo relógio, e a frase nova não
+        aparece."""
+        from accounts.models import SplitPreference
+
+        from .test_reparticao_semanal import perfil
+
+        _, plano = perfil(4, preferencia=SplitPreference.UM, duracao=DuracaoTreino.COMPLETO, sufixo="-nota-completo")
+        self.assertNotIn("Para caber no tempo", plano.notes)

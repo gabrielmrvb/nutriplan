@@ -514,7 +514,11 @@ class TouchTargetTests(TestCase):
         # A pesagem rápida. O campo e o botão nascem já dentro da régua, e a
         # faixa do painel é tocada com a mesma mão que marca a refeição.
         (".pesagem__valor {", "min-height: 2.75rem"),
-        (".pesagem__salvar {", "min-height: 2.75rem"),
+        # "Buscar no YouTube", na execução do exercício sem vídeo: 21 px de
+        # altura na auditoria de 27/09/2026. O salvar da pesagem virou
+        # `btn btn--primary btn--sm` (dívida visual, lote 2) e mora na régua
+        # do `.btn--sm`.
+        (".agora__sem-media a {", "min-height: 2.75rem"),
         (".pesar__topo {", "min-height: 2.75rem"),
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Não comi".
@@ -1556,10 +1560,11 @@ class HasSelectorTests(TestCase):
             f"layout, use classe escrita pelo servidor: {novos}",
         )
 
-    def test_the_segmented_control_draws_its_state_on_a_sibling(self):
+    def test_the_choice_card_draws_its_state_on_a_sibling(self):
         """O padrão que substitui o `:has()`: o input é filho do label, então
-        só um irmão é alcançável — e `~` funciona em qualquer navegador."""
-        self.assertIn(".segmented input:checked ~ .segmented__fundo", self.css)
+        só um irmão é alcançável — e `~` funciona em qualquer navegador.
+        Era o segmented; desde 28/09/2026 é o `choice-card` (lote 5)."""
+        self.assertIn(".choice-card > input:checked ~ .choice-card__frame", self.css)
 
 
 class TouchFeedbackTests(TestCase):
@@ -1715,19 +1720,23 @@ class GymReadyTests(TestCase):
         """`rgba(16, 185, 129, .2)` e o esmeralda do tema ESCURO. No claro a
         marca e #0c6b40, e o hex fixo apareceria la como uma cor que nao
         pertence a paleta de lugar nenhum."""
-        regra = self.css.split(chr(10) + ".today-hero,", 1)[1].split("}", 1)[0]
-        self.assertIn("var(--brand)", regra)
+        regra = self.css.split(chr(10) + ".ofensiva,", 1)[1].split("}", 1)[0]
+        # Desde 28/09/2026 a borda é a tinta com nome (`--brand-linha`), que
+        # é receita de `var(--brand)` no :root.
+        self.assertRegex(regra, r"var\(--brand(-[\w-]+)?\)")
         self.assertNotIn("16, 185, 129", regra)
 
     def test_only_the_three_summary_cards_carry_the_accent_edge(self):
         """Nove cartoes com fio verde nao destacam nada, pintam listras. Os
         tres sao os que a pessoa le ANTES de decidir: ofensiva, resumo do dia
         e agua."""
-        regra = self.css.split(chr(10) + ".today-hero,", 1)[1]
+        # Desde 28/09/2026 o resumo do dia (o topo da Alimentação) é o
+        # PRATO da tela, e o contorno de marca dele vem do `.card--prato`.
+        regra = self.css.split(chr(10) + ".ofensiva,", 1)[1]
         seletores = regra.split("{", 1)[0]
         self.assertEqual(
-            sorted(s.strip() for s in (".today-hero," + seletores).split(",") if s.strip()),
-            [".agua", ".ofensiva", ".today-hero"],
+            sorted(s.strip() for s in (".ofensiva," + seletores).split(",") if s.strip()),
+            [".agua", ".ofensiva"],
         )
 
     def test_a_pressed_submit_says_so_before_the_server_answers(self):
@@ -1993,6 +2002,20 @@ class ObservabilidadeTests(TestCase):
         self.assertNotIn("MjM", limpo)
         # E o começo do caminho fica, senão o log perde o que serve.
         self.assertIn("/senha/nova/", limpo)
+
+    def test_a_chave_de_descadastro_nunca_sobrevive_no_log(self):
+        """M1 da revisão final LGPD (28/09/2026): um 500 em
+        `/avisos/sair/<chave>/` (Neon dormindo basta) levava a chave de 128
+        bits ao log, ao e-mail de 5xx e ao Sentry — ela desliga os e-mails
+        de alguém sem login. A exportação já a redigia com uma regra só dela."""
+        from avisos.models import _nova_chave
+        from config.observabilidade import redigir
+
+        chave = _nova_chave()  # a mesma que `Preferencia.chave` sorteia
+        limpo = redigir(f"Internal Server Error: /avisos/sair/{chave}/")
+
+        self.assertNotIn(chave, limpo)
+        self.assertIn("/avisos/sair/[REDIGIDO]/", limpo)
 
     def test_segredos_de_infraestrutura_tambem_somem(self):
         from config.observabilidade import redigir

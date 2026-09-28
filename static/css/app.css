@@ -227,6 +227,48 @@
   --fat: var(--ferro-fat);
   --danger: var(--ferro-danger);
   --danger-soft: var(--ferro-danger-soft);
+
+  /* AS TINTAS TÊM NOME (dívida de sistema visual, 28/09/2026). Havia 58
+     `color-mix()` escritos à mão — `--brand` em 15 porcentagens —, e medidas
+     por ΔE2000 contra a vizinha, nos dois temas, eram cinco tintas de
+     verdade. A mesma escada vale para os pilares; o que ficava a mais de
+     2,6 ΔE de todo degrau virou token com o valor EXATO e nome de uso.
+     São receitas de `var()` declaradas no :root e resolvem onde são
+     declaradas — como `--halo` —, então acompanham o Papel e o modo-foco,
+     que redefinem `--brand` e os pilares no próprio :root. */
+  --brand-tinta-fraca: color-mix(in srgb, var(--brand) 9%, transparent);
+  --brand-tinta: color-mix(in srgb, var(--brand) 12%, transparent);
+  --brand-linha: color-mix(in srgb, var(--brand) 24%, transparent);
+  --brand-linha-forte: color-mix(in srgb, var(--brand) 32%, transparent);
+  --brand-tinta-forte: color-mix(in srgb, var(--brand) 45%, transparent);
+  --terra-tinta-fraca: color-mix(in srgb, var(--terra) 9%, transparent);
+  --terra-tinta: color-mix(in srgb, var(--terra) 12%, transparent);
+  --terra-linha: color-mix(in srgb, var(--terra) 24%, transparent);
+  --terra-linha-forte: color-mix(in srgb, var(--terra) 32%, transparent);
+  --terra-aviso: color-mix(in srgb, var(--terra) 55%, transparent);
+  --terra-alerta-fundo: color-mix(in srgb, var(--terra) 22%, var(--surface));
+  --terra-alerta-linha: color-mix(in srgb, var(--terra) 70%, transparent);
+  --agua-tinta-fraca: color-mix(in srgb, var(--agua) 9%, transparent);
+  --agua-contorno: color-mix(in srgb, var(--agua) 45%, var(--fio));
+  --danger-tinta: color-mix(in srgb, var(--danger) 12%, transparent);
+  --danger-tinta-hover: color-mix(in srgb, var(--danger) 18%, transparent);
+  --danger-linha-forte: color-mix(in srgb, var(--danger) 32%, transparent);
+  --chama-tinta-fraca: color-mix(in srgb, var(--chama) 9%, transparent);
+  --chama-fundo: color-mix(in srgb, var(--chama) 16%, transparent);
+  --chama-linha: color-mix(in srgb, var(--chama) 24%, transparent);
+  --text-mute-tinta: color-mix(in srgb, var(--text-mute) 12%, transparent);
+  --surface-translucida: color-mix(in srgb, var(--surface) 82%, transparent);
+  /* Receitas de palco e de sombra: o valor de antes, só com nome. */
+  --palco-brilho-alto: color-mix(in srgb, var(--brand) 6%, transparent);
+  --palco-entrada: color-mix(in srgb, var(--brand) 20%, transparent);
+  --marca-brilho: color-mix(in srgb, var(--brand) 60%, transparent);
+  --sombra-trilha: inset 0 1px 2px rgba(0, 0, 0, .28);
+  --sombra-aviso: 0 12px 32px rgba(0, 0, 0, .45);
+  --veu-folha: rgb(0 0 0 / .55);
+  /* O player de vídeo é sempre escuro, nos dois temas: o filme é preto. */
+  --video-fundo: #000;
+  --video-veu: rgba(0, 0, 0, .62);
+  --video-texto: #fff;
   /* A QUINA RETA (NERVURA, 17/09/2026): a direção não tem raio — zero
      `border-radius` em 390 declarações do mockup; a régua é de 2 px e o que
      é curvo é só o círculo do anel. Os três degraus ficam como SLOTS com o
@@ -316,6 +358,33 @@
      e têm significado próprio (o vão padrão de uma pilha, o respiro interno
      de um cartão); trocá-los por número quebraria 18 lugares para ganhar
      nada. */
+  /* A ESCALA DA DIREÇÃO (dívida de sistema visual, gate 1 do dono,
+     28/09/2026). A grade do DESIGN.md — 4·8·12·16·24·32·48 — mais o 20 do
+     `--pad`, que o cartão já usava. Medido antes de trocar: o degrau mais
+     perto de cada valor do app move em média 1,4 px, e só 1 % dos usos mais
+     de 2 px. Onde o valor ficava a mais de 3 px de todo degrau (40, 36 e
+     52 px), a troca é a SOMA exata de dois degraus, e não um arredondamento. */
+  --e1: .25rem;   /* 4px  */
+  --e2: .5rem;    /* 8px  */
+  --e3: .75rem;   /* 12px */
+  --e4: 1rem;     /* 16px */
+  --e5: 1.25rem;  /* 20px — o respiro do cartão (`--pad`) */
+  --e6: 1.5rem;   /* 24px */
+  --e7: 2rem;     /* 32px */
+  --e8: 3rem;     /* 48px */
+
+  /* A ENTRELINHA: 17 valores escritos à mão viraram quatro degraus, e nenhum
+     andou mais que 0,1. `1` continua livre — é o reset, não degrau. */
+  --entrelinha-numero: .95;   /* o número grande em display */
+  --entrelinha-display: 1.1;  /* nome e título em display */
+  --entrelinha-titulo: 1.3;   /* título em Archivo */
+  --entrelinha: 1.5;          /* corpo */
+
+  /* LEGADO (28/09/2026): os `--espaco-*` abaixo ficam SÓ nas regras de
+     treino, que a Fase A (ficha única) está reescrevendo em
+     `templates/workouts/`; o resto do app usa `--e1`…`--e8`.
+     `config/test_design_system.py` recusa `--espaco-*` em regra que não é de
+     treino. Quando o treino migrar, este bloco sai. */
   --espaco-1: .25rem;     /* 4px  */
   --espaco-2: .35rem;     /* 5,6px */
   --espaco-3: .5rem;      /* 8px  */
@@ -462,8 +531,8 @@
   /* `--dur` é o nome antigo do tempo de estado; fica como apelido. */
   --dur: var(--mov-estado);
 
-  --gap: var(--espaco-6);
-  --pad: 1.25rem;
+  --gap: var(--e4);
+  --pad: var(--e5);
   /* 30rem = 480px. Era 34rem, e o desktop ainda subia para 68rem com duas
      colunas — daí "Seu cardápio de hoje" e "Volume semanal" irem parar na
      lateral direita no monitor. O app é um aplicativo de celular; a mesma
@@ -754,7 +823,7 @@ html {
 body {
   background-image:
     radial-gradient(120% 62% at 50% -14%,
-                    color-mix(in srgb, var(--brand) 9%, transparent) 0%,
+                    var(--brand-tinta-fraca) 0%,
                     transparent 62%),
     linear-gradient(180deg, var(--canvas-topo) 0%, var(--bg) 46%);
   background-attachment: fixed;
@@ -773,8 +842,8 @@ body {
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: var(--texto-base);
+  line-height: var(--entrelinha);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -819,7 +888,7 @@ button { font-family: inherit; color: inherit; }
    teste com a de verdade. Em produção o elemento não existe. */
 .faixa-ambiente {
   margin: 0;
-  padding: var(--espaco-1) var(--espaco-4);
+  padding: var(--e1) var(--e3);
   background: var(--terra);
   color: var(--bg);
   font-size: var(--texto-sm);
@@ -836,10 +905,10 @@ button { font-family: inherit; color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--espaco-6);
+  gap: var(--e4);
   min-height: 3.6rem;
-  padding: .5rem var(--pad);
-  padding-top: max(var(--espaco-3), env(safe-area-inset-top));
+  padding: var(--e2) var(--pad);
+  padding-top: max(var(--e2), env(safe-area-inset-top));
   /* Translúcida de verdade: o conteúdo passa por baixo desfocado em vez de
      sumir atrás de uma faixa opaca. O prefixo `-webkit-` continua aí porque o
      Safari do iPhone ainda pede — e o iPhone é metade dos aparelhos aqui. */
@@ -868,10 +937,10 @@ button { font-family: inherit; color: inherit; }
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
-  gap: .55rem;
+  gap: var(--e2);
   min-width: 0;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--texto-base);
   letter-spacing: -.03em;
   color: var(--text);
   text-decoration: none;
@@ -914,7 +983,7 @@ button { font-family: inherit; color: inherit; }
 }
 .auth__logo .marca { border-radius: var(--quina); }
 
-.app-bar__nav { display: flex; align-items: center; gap: .3rem; }
+.app-bar__nav { display: flex; align-items: center; gap: var(--e1); }
 .app-bar__nav .app-bar__link { display: none; }
 
 /* O que só existe na largura em que a barra de cima é a navegação. No celular
@@ -926,15 +995,44 @@ button { font-family: inherit; color: inherit; }
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
-  padding: .45rem .75rem;
+  padding: var(--e2) var(--e3);
   border: 0;
   border-radius: var(--quina-p);
   background: none;
   color: var(--text-dim);
-  font-size: .875rem;
+  font-size: var(--texto-md);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* A barra não parte palavra. O `overflow-wrap: anywhere` do corpo (que
+   existe para nome longo de exercício e de alimento) alcançava a marca e
+   os links: abaixo de 390 px a barra anônima dizia "NutriPla / n" e
+   "Entra / r" (auditoria visual de 27/09/2026). */
+.app-bar__brand,
+.app-bar__link,
+.app-bar__quiet,
+.app-bar .btn {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Sem partir palavra, a barra com AÇÕES (anônima: "Entrar" e "Criar
+   conta"; demo: o selo e "Sobre o demo") não cabe na tela estreita: a
+   320 px a marca inteira e as duas ações somam 374 px para 305, e a página
+   rolaria na horizontal. Abaixo de 24rem essa barra mostra só o símbolo; o
+   nome continua no documento, para leitor de tela. A barra de quem está
+   logado não tem ação no celular, e fica com o nome. */
+@media (max-width: 23.99rem) {
+  .app-bar--acoes .app-bar__word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .app-bar__link,
@@ -953,7 +1051,7 @@ button { font-family: inherit; color: inherit; }
 .container {
   max-width: var(--max);
   margin: 0 auto;
-  padding: 1.1rem var(--pad) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 1.5rem);
+  padding: var(--e4) var(--pad) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--e6));
 }
 
 /* Sem barra de abas, sem o espaço reservado para ela.
@@ -961,7 +1059,7 @@ button { font-family: inherit; color: inherit; }
    onboarding não há navegação, e os 96px viravam vazio que empurrava o
    "Continuar" para fora da primeira tela. */
 body:not(.tem-tabbar) .container {
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--espaco-7));
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--e6));
 }
 
 /* A BARRA DESCOLA DA BORDA E VIRA UMA PEÇA.
@@ -986,15 +1084,15 @@ body:not(.tem-tabbar) .container {
      por linha; aqui o rótulo quebra em duas linhas quando precisa, e é isso
      que faz "Alimentação" caber a 320px sem descer de 11px. */
   grid-template-columns: repeat(5, 1fr);
-  gap: var(--espaco-1);
+  gap: var(--e1);
   margin: 0 auto;
   max-width: calc(var(--max) - 1.4rem);
-  padding: var(--espaco-2);
+  padding: var(--e1);
   /* A margem de baixo respeita o gesto do iPhone e some quando nao ha area
      segura -- sem isso a barra encosta no indicador de home em um aparelho e
      flutua alto demais em outro. */
-  inset-inline: var(--espaco-5);
-  bottom: calc(var(--espaco-4) + env(safe-area-inset-bottom));
+  inset-inline: var(--e4);
+  bottom: calc(var(--e3) + env(safe-area-inset-bottom));
   background: var(--glass);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -1009,7 +1107,7 @@ body:not(.tem-tabbar) .container {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .18rem;
+  gap: var(--traco);
   min-height: 3.4rem;
   /* "Alimentação" tem 11 caracteres e a aba tem 66px a 390px: com o
      espaçamento normal ela sobra por ~2px e quebra. `-.02em` fecha a conta
@@ -1018,10 +1116,10 @@ body:not(.tem-tabbar) .container {
      duas linhas curtas continuam legíveis, e a barra cresce junto em vez de
      o texto transbordar. */
   text-align: center;
-  line-height: 1.05;
+  line-height: var(--entrelinha-display);
   letter-spacing: -.02em;
   hyphens: auto;
-  padding: var(--espaco-2) .1rem;
+  padding: var(--e1) var(--traco);
   /* A aba ativa é uma FOLHA cheia de `--brand` (CORTE): o recorte médio, não
      o pequeno, para a folha ser legível a 44 px de altura. */
   border-radius: var(--quina);
@@ -1075,7 +1173,7 @@ body:not(.tem-tabbar) .container {
    4. Tipografia
    ========================================================================== */
 
-h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: 1.18; }
+h1, h2, h3 { margin: 0; letter-spacing: -.03em; line-height: var(--entrelinha-display); }
 /* A ESCALA DE TÍTULO SUBIU, e é ela que separava "página web bem feita" de
    "aplicativo". `h1` media 26px e brigava de igual com o corpo: a tela abria
    sem protagonista, e o olho precisava LER para descobrir onde estava, em vez
@@ -1099,9 +1197,13 @@ h1 {
   font-size: var(--texto-2xl);
   font-weight: 800;
   letter-spacing: .01em;
-  line-height: .95;
+  line-height: var(--entrelinha-numero);
   text-transform: uppercase;
 }
+/* LEGADO (28/09/2026): o `h2` de 20,8 px só vale para o treino (a Fase A
+   mora em templates/workouts/). Fora dele o título de seção é o RÓTULO
+   (`.sobretitulo`), a prosa usa `--texto-lg` e o que tem papel próprio
+   declara o tamanho (`UmH2SoTests`). */
 h2 {
   font-size: 1.3rem;
   font-weight: 700;
@@ -1109,16 +1211,16 @@ h2 {
   line-height: 1.25;
 }
 h3 {
-  font-size: 1.08rem;
+  font-size: var(--texto-lg);
   font-weight: 700;
   letter-spacing: -.008em;
 }
 
-.page-head { margin-bottom: 1.2rem; }
-.page-head h1 { margin-bottom: var(--espaco-1); }
+.page-head { margin-bottom: var(--e5); }
+.page-head h1 { margin-bottom: var(--e1); }
 
-.lead { margin: 0 0 1.25rem; color: var(--text-dim); font-size: .93rem; }
-.muted { color: var(--text-dim); font-size: .875rem; }
+.lead { margin: 0 0 var(--e5); color: var(--text-dim); font-size: var(--texto-md); }
+.muted { color: var(--text-dim); font-size: var(--texto-md); }
 .center { text-align: center; }
 /* `.num` marca TODO número da interface, e agora ele também muda de família.
    `tabular-nums` continua: numa monoespaçada é redundante, mas a regra vale
@@ -1162,13 +1264,13 @@ h3 {
 
 .hint {
   display: block;
-  margin: var(--espaco-4) 0 0;
+  margin: var(--e3) 0 0;
   color: var(--text-mute);
   font-size: var(--texto-sm);
-  line-height: 1.55;
+  line-height: var(--entrelinha);
 }
 
-.hint ul { margin: var(--espaco-1) 0 0; padding-left: 1.1rem; }
+.hint ul { margin: var(--e1) 0 0; padding-left: var(--e4); }
 
 /* ==========================================================================
    5. Cartões
@@ -1205,9 +1307,18 @@ h3 {
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-/* O PRATO: a peça que a pessoa lê de relance — o AGORA da Home — leva o
-   recorte grande. É uma por tela. */
-.card.agora-card { border-radius: var(--quina-g); border-top-color: var(--brand); }
+/* O PRATO: o bloco que manda na tela — o AGORA da Home, o topo da
+   Alimentação. Um por tela (`UmCartaoSoTests`). É a SUPERFÍCIE DE FOCO,
+   contornada pela marca (o contorno faz o trabalho quando o fundo tingido
+   não aparece: monitor ruim, sol, `prefers-contrast`), e a nervura faz o
+   papel da régua de cima (DESIGN.md). O servidor escreve a classe só no
+   que tem hora que passa: o AGORA de água, pesagem ou "nada pendente" é
+   uma seção como as outras. */
+.card--prato {
+  background: var(--surface-focus);
+  border: 1px solid var(--brand-linha-forte);
+  border-radius: var(--quina-g);
+}
 
 /* A NERVURA no prato e no título de tela: a régua diagonal em `--brand`,
    nascendo no canto inferior esquerdo e subindo a −14° — ATRÁS do texto
@@ -1224,9 +1335,9 @@ h3 {
    72 px é assinatura, passar atrás de um rótulo de 13 px é ruído. Com no
    máximo 120 px (× sen 14° ≈ 29 px) ela cabe nos 32 px de respiro. */
 .page-head h1,
-.today-hero { position: relative; isolation: isolate; }
+.card--prato { position: relative; isolation: isolate; }
 .page-head h1::after,
-.today-hero::after {
+.card--prato::after {
   content: "";
   position: absolute;
   z-index: var(--camada-fundo);
@@ -1245,8 +1356,8 @@ h3 {
    abre o respiro que a nervura sobe: 100 px × sen 14° = 24 px, e o link
    fica acima da régua em vez de riscado por ela (captura de 17/09). Sem o
    teto de 100 px, a 1280 os 32 % subiam 34 px — e o link, a 390, 27. */
-.page-head > .btn-link + h1 { margin-top: var(--espaco-7); }
-.today-hero::after { width: min(30%, 120px); bottom: 0; }
+.page-head > .btn-link + h1 { margin-top: var(--e6); }
+.card--prato::after { width: min(30%, 120px); bottom: 0; }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
@@ -1262,8 +1373,8 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--espaco-6);
-  margin-bottom: var(--espaco-5);
+  gap: var(--e4);
+  margin-bottom: var(--e4);
 }
 
 .card__head h2 { min-width: 0; }
@@ -1275,11 +1386,11 @@ h3 {
   /* O `gap` só existe quando o link tem DOIS filhos. Os cabeçalhos que levam
      apenas texto continuam idênticos: uma caixa de texto sozinha é um item
      flex só, e gap não separa nada de nada. */
-  gap: .4rem;
+  gap: var(--e2);
   flex: none;
   min-height: 2.75rem;
-  padding: 0 .3rem;
-  margin: -.5rem -.3rem;
+  padding: 0 var(--e1);
+  margin: calc(-1 * var(--e2)) calc(-1 * var(--e1));
   font-size: var(--texto-sm);
   font-weight: 600;
   text-decoration: none;
@@ -1310,28 +1421,10 @@ h3 {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 1.15rem;
+  gap: var(--e5);
   overflow: hidden;
-  border-radius: var(--quina-g);
-  box-shadow: var(--edge), var(--shadow-deep);
 }
 
-.today-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(115% 80% at 12% -12%,
-                    color-mix(in srgb, var(--brand) 13%, transparent), transparent 58%),
-    radial-gradient(85% 65% at 104% 108%,
-                    color-mix(in srgb, var(--agua) 8%, transparent), transparent 60%);
-  pointer-events: none;
-}
-
-/* O conteúdo sobe acima da luz. Sem isto o `::before` posicionado pinta por
-   cima do texto em fluxo, que é a pegadinha clássica do pseudo-elemento de
-   fundo: ele não vai para trás sozinho. */
-.today-hero > * { position: relative; }
 
 /* `--pct` é o valor do anel, e é uma propriedade personalizada TIPADA.
  *
@@ -1382,8 +1475,12 @@ h3 {
      parecer desenhado NO painel em vez de um buraco através dele. */
   background: var(--surface);
 }
+/* No prato o cartão é a superfície de foco, e o miolo acompanha — senão o
+   anel do topo da Alimentação ganha um disco de outra cor no meio (achado da
+   revisão do lote 3, 28/09/2026). */
+.card--prato .ring::after { background: var(--surface-focus); }
 
-.ring__inner { position: relative; z-index: var(--camada-conteudo); line-height: 1.1; text-align: center; }
+.ring__inner { position: relative; z-index: var(--camada-conteudo); line-height: var(--entrelinha-display); text-align: center; }
 
 .ring__value {
   font-family: var(--font-display);
@@ -1394,7 +1491,7 @@ h3 {
   letter-spacing: -.045em;
 }
 
-.ring__unit { display: block; margin-top: .05rem; color: var(--text-dim); font-size: .72rem; }
+.ring__unit { display: block; margin-top: var(--traco); color: var(--text-dim); font-size: var(--texto-xs); }
 .ring__of { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
 
 /* O ANEL DA ÁGUA — mesmo componente, outro assunto.
@@ -1520,8 +1617,8 @@ h3 {
      stretch`, que é o inicial). Onde eu quero linhas iguais entre si — o
      painel do dia, que é uma grade 2×2 de cartões irmãos — o `1fr` fica, e
      está na seção 51. */
-  gap: var(--espaco-4);
-  margin-bottom: var(--espaco-7);
+  gap: var(--e3);
+  margin-bottom: var(--e6);
 }
 
 /* SEM `min-height` (22/09/2026). Ela reservava 134px para um conteúdo de
@@ -1535,7 +1632,7 @@ h3 {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: var(--espaco-5);
+  padding: var(--e4);
   border: 1px solid transparent;
   border-radius: var(--quina);
   background: var(--surface);
@@ -1559,7 +1656,7 @@ h3 {
   font-size: var(--texto-2xl);
   font-weight: 900;
   letter-spacing: -.03em;
-  line-height: 1.05;
+  line-height: var(--entrelinha-display);
 }
 
 .modulo__rotulo { color: var(--text-dim); font-size: var(--texto-xs); }
@@ -1570,17 +1667,17 @@ h3 {
   margin-top: auto;
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  line-height: 1.4;
+  line-height: var(--entrelinha);
 }
 
 /* A área principal da pessoa é a única marcada, e o selo fica no alto à
    direita para não disputar a linha do nome. */
-.modulo--principal { border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+.modulo--principal { border-color: var(--brand-linha-forte); }
 
 .modulo__selo {
   position: absolute;
-  top: var(--espaco-4);
-  right: var(--espaco-4);
+  top: var(--e3);
+  right: var(--e3);
   color: var(--brand);
   font-size: var(--texto-xs);
   font-weight: 700;
@@ -1599,14 +1696,14 @@ h3 {
 .modulo__progresso {
   display: block;
   height: .35rem;
-  margin-top: var(--espaco-3);
+  margin-top: var(--e2);
 }
 .modulo__apoio--convite { color: var(--brand-strong); font-weight: 600; }
-.modulo--raso { padding: var(--espaco-4); }
+.modulo--raso { padding: var(--e3); }
 .modulo--raso .modulo__apoio { font-size: var(--texto-xs); }
 
 /* O rótulo de seção acima de cada grade. */
-.secao-rotulo { margin: 0 0 var(--espaco-4); }
+.secao-rotulo { margin: 0 0 var(--e3); }
 
  /* A CURVA DE PESO — o gráfico que faltava em Progresso.
 
@@ -1618,7 +1715,7 @@ h3 {
    Sem preenchimento sob a linha: área cheia sugere volume acumulado, e peso
    não acumula — é uma posição a cada semana. */
 .curva {
-  margin-bottom: var(--espaco-6);
+  margin-bottom: var(--e4);
   /* A FAIXA DO EIXO, medida e não escolhida: "78,0" a 11,2px pede 32px, mais
      o respiro da escala. Ela não é um degrau de espaçamento — é a LARGURA de
      uma coluna de texto —, e por isso mora aqui, no bloco que a usa, e não no
@@ -1631,8 +1728,8 @@ h3 {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--espaco-4);
-  margin-bottom: var(--espaco-4);
+  gap: var(--e3);
+  margin-bottom: var(--e3);
   flex-wrap: wrap;
 }
 
@@ -1645,7 +1742,7 @@ h3 {
 }
 
 .curva__unidade {
-  margin-left: var(--espaco-2);
+  margin-left: var(--e1);
   /* A unidade colada ao herói é Karla (o contrato: "unidade colada em Karla");
      dentro do `<strong>` em Bodoni ela herdaria a display abaixo dos 20 px. */
   font-family: var(--font);
@@ -1705,7 +1802,7 @@ h3 {
    80px de largura, e o SVG (`width: 100%`) desenhava 230px num card de
    390px, achatando a curva de carga. Zera os quatro lados e reaplica só o
    espaçamento de baixo. */
-.curva--carga { margin: 0 0 var(--espaco-6); }
+.curva--carga { margin: 0 0 var(--e4); }
 
 .curva__ponto {
   fill: currentColor;
@@ -1732,8 +1829,8 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--espaco-5);
-  margin-bottom: var(--espaco-6);
+  gap: var(--e4);
+  margin-bottom: var(--e4);
   text-align: center;
 }
 
@@ -1742,7 +1839,7 @@ h3 {
   max-width: 22rem;
   color: var(--text-dim);
   font-size: var(--texto-md);
-  line-height: 1.5;
+  line-height: var(--entrelinha);
   text-wrap: balance;
 }
 
@@ -1755,8 +1852,8 @@ h3 {
 .hero-macros {
   grid-column: 1 / -1;
   display: grid;
-  gap: var(--espaco-3);
-  padding-top: .95rem;
+  gap: var(--e2);
+  padding-top: var(--e4);
   border-top: 1px solid var(--fio);
 }
 
@@ -1767,7 +1864,7 @@ h3 {
 .hero-macros__legenda {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .45rem;
+  gap: var(--e2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1777,9 +1874,9 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: .3rem;
+  gap: var(--e1);
   min-width: 0;
-  font-size: .76rem;
+  font-size: var(--texto-sm);
 }
 .hero-macros__valor { flex: none; }
 
@@ -1806,9 +1903,9 @@ h3 {
  * O destaque é de PESO e TAMANHO, e não de cor: a cor dos três já é o código
  * do gráfico empilhado logo acima, e repintar a proteína quebraria a
  * correspondência entre a faixa e a legenda. */
-.hero-macros__item--chave { font-size: .84rem; }
+.hero-macros__item--chave { font-size: var(--texto-sm); }
 .hero-macros__item--chave .hero-macros__nome { color: var(--text); }
-.hero-macros__item--chave .hero-macros__valor { font-size: 1.12rem; font-weight: 700; }
+.hero-macros__item--chave .hero-macros__valor { font-size: var(--texto-lg); font-weight: 700; }
 
 /* Sem `overflow: hidden` nem reticências: o `letter-spacing` negativo de `.num`
    encurta o avanço da última cifra e a tinta dela passa da caixa — "/140"
@@ -1822,9 +1919,9 @@ h3 {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.today-hero__left { margin: 0; font-size: 1.05rem; line-height: 1.3; }
+.today-hero__left { margin: 0; font-size: var(--texto-base); line-height: var(--entrelinha-titulo); }
 .today-hero__left b { font-weight: 700; }
-.today-hero__meta { margin: .2rem 0 0; color: var(--text-mute); font-size: var(--texto-sm); }
+.today-hero__meta { margin: var(--e1) 0 0; color: var(--text-mute); font-size: var(--texto-sm); }
 
  /* O SALDO DEIXA DE SER PÍLULA.
 
@@ -1839,12 +1936,12 @@ h3 {
    forma em volta de si. */
 .today-hero__balance {
   display: block;
-  margin: var(--espaco-4) 0 0;
-  padding: 0 0 0 var(--espaco-4);
+  margin: var(--e3) 0 0;
+  padding: 0 0 0 var(--e3);
   border-left: 2px solid var(--fio-forte);
   font-size: var(--texto-sm);
   font-weight: 600;
-  line-height: 1.45;
+  line-height: var(--entrelinha);
 }
 
  /* O FUNDO SAI NAS VARIANTES, e não na regra base — e a diferença é de
@@ -1890,7 +1987,7 @@ h3 {
   font-weight: 500;
 }
 
-.chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--e2); }
 
 /* A RECEITA COMPARTILHADA das duas pílulas do app.
    `.chip` e `.pill` NÃO são a mesma coisa e não foram fundidas: `.chip` é
@@ -1904,20 +2001,20 @@ h3 {
   /* `.3rem` e não `--espaco-1` (.25rem): a diferença é 0,8px, e migrar por
      conveniência é exatamente o que esta campanha se proibiu. Casamento
      exato ou nada; o resto é outra unidade, com prova visual. */
-  gap: .3rem;
+  gap: var(--e1);
 }
 /* O selo é pílula; o chip, que se toca, é folha pequena (CORTE). */
 .pill { border-radius: var(--quina-p); }
 .chip { border-radius: var(--quina-p); }
 
 .chip {
-  padding: .34rem .72rem;
+  padding: var(--e1) var(--e3);
   /* NERVURA: o chip é uma caixa de contorno de 2 px, caixa alta espaçada,
      sem preenchimento; o escolhido é que enche de `--brand`. */
   border: var(--traco) solid var(--fio-forte);
   background: transparent;
   color: var(--text-dim);
-  font-size: .76rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -1926,14 +2023,14 @@ h3 {
 }
 
 .chip--brand {
-  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid var(--brand-linha);
+  background: var(--brand-tinta);
   color: var(--brand);
 }
 
 /* Só o chip que é link vira alvo de 44px. O chip que é `<span>` é etiqueta de
    contagem — inflar um rótulo que ninguém toca só desalinha a linha. */
-a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
+a.chip { min-height: 2.75rem; padding: var(--e1) var(--e4); }
 
 /* 4,5rem (72px) e não 6rem: com o piso em 96px a faixa de TRÊS números do
    Progresso quebrava em 2+1 a 390px — duas colunas de 142px e o terceiro
@@ -1942,7 +2039,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    estão na mesma linha. Com 72px cabem três em 293px de cartão a 390 e
    também a 320; o rótulo é que quebra em duas linhas, e isso é aceitável —
    ele é apoio, o número é a resposta. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: .55rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: var(--e2); }
 
 /* O TILE deixou de ser um cartão.
 
@@ -1955,7 +2052,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    O que separa agora é a régua de 1px entre as colunas, o mesmo gesto do
    resumo do dia. E o que sobra de peso visual vai para o valor. */
 .tile {
-  padding: .2rem var(--espaco-4);
+  padding: var(--e1) var(--e3);
   text-align: center;
 }
 
@@ -1977,7 +2074,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   overflow-wrap: normal;
 }
 
-.tile__label { display: block; color: var(--text-dim); font-size: .78rem; }
+.tile__label { display: block; color: var(--text-dim); font-size: var(--texto-sm); }
 .tile__meta { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
 
 /* ==========================================================================
@@ -1987,8 +2084,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .balance {
   display: flex;
   align-items: center;
-  gap: var(--espaco-5);
-  padding: var(--espaco-6);
+  gap: var(--e4);
+  padding: var(--e4);
   border-radius: var(--quina);
   border: 1px solid transparent;
   background: var(--surface-2);
@@ -2012,15 +2109,15 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .balance--surplus .balance__value { color: var(--terra); }
 
 .balance__body { flex: 1; min-width: 0; }
-.balance__label { display: block; font-size: .85rem; font-weight: 700; }
-.balance__meta { display: block; margin-top: .15rem; color: var(--text-dim); font-size: .78rem; }
+.balance__label { display: block; font-size: var(--texto-sm); font-weight: 700; }
+.balance__meta { display: block; margin-top: var(--traco); color: var(--text-dim); font-size: var(--texto-sm); }
 
-.equation { display: flex; align-items: stretch; gap: var(--espaco-2); margin-top: var(--espaco-5); }
+.equation { display: flex; align-items: stretch; gap: var(--e1); margin-top: var(--e4); }
 
 .equation__cell {
   flex: 1;
   min-width: 0;
-  padding: .65rem var(--espaco-2);
+  padding: var(--e3) var(--e1);
   border-radius: var(--quina-p);
   background: var(--surface-2);
   box-shadow: var(--inlay);
@@ -2047,11 +2144,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .macro-bar {
   display: flex;
   height: .5rem;
-  margin-bottom: var(--espaco-6);
+  margin-bottom: var(--e4);
   overflow: hidden;
   border-radius: var(--quina-p);
   background: var(--surface-2);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+  box-shadow: var(--sombra-trilha);
 }
 
 .macro-bar__part {
@@ -2102,14 +2199,14 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   box-shadow: inset 2px 0 0 var(--surface-2);
 }
 
-.macro-list { display: grid; gap: var(--espaco-5); }
+.macro-list { display: grid; gap: var(--e4); }
 
 .macro-line__head {
   display: flex;
   align-items: baseline;
-  gap: .45rem;
-  margin-bottom: var(--espaco-2);
-  font-size: .85rem;
+  gap: var(--e2);
+  margin-bottom: var(--e1);
+  font-size: var(--texto-sm);
 }
 
 .macro-line__name { flex: 1; min-width: 0; font-weight: 600; }
@@ -2118,7 +2215,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
-.macro-line__meta { color: var(--text-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.macro-line__meta { color: var(--text-mute); font-size: var(--texto-xs); font-variant-numeric: tabular-nums; }
 
 .macro-dot { width: .55rem; height: .55rem; flex: none; border-radius: 50%; }
 .macro-dot--protein { background: var(--brand); }
@@ -2233,7 +2330,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 }
 
 .meal--resolvida + .meal::before {
-  background: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: var(--brand-tinta-forte);
 }
 
 /* Refeição feita: a borda ganha a cor da marca e um halo curto. É o único
@@ -2242,11 +2339,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 /* O anel que era escrito a mao aqui virou `--halo`, o mesmo da aba atual e do
    botao sob o dedo: tres estados diferentes, um vocabulario so. */
 .meal--resolvida {
-  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
+  border-color: var(--brand-linha-forte);
   box-shadow: var(--edge), var(--shadow-rest), var(--halo);
 }
 
-.meal__head { display: flex; align-items: center; gap: .75rem; margin-bottom: var(--espaco-5); }
+.meal__head { display: flex; align-items: center; gap: var(--e3); margin-bottom: var(--e4); }
 
 /* A HORA É CONTEXTO, e passou a parecer contexto.
 
@@ -2264,11 +2361,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   place-items: center;
   min-width: 3.5rem;
   flex: none;
-  padding: .4rem .55rem;
+  padding: var(--e2) var(--e2);
   border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text-dim);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -2289,21 +2386,21 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .meal__target {
   display: block;
-  margin-top: .1rem;
+  margin-top: var(--traco);
   color: var(--text-mute);
-  font-size: .76rem;
+  font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .meal__result {
   display: flex;
   align-items: center;
-  gap: .6rem;
-  padding: .75rem .85rem;
+  gap: var(--e2);
+  padding: var(--e3) var(--e3);
   border-radius: var(--quina);
   background: var(--surface-2);
   box-shadow: var(--inlay);
-  font-size: .88rem;
+  font-size: var(--texto-md);
 }
 
 .meal__result-name { flex: 1; min-width: 0; font-weight: 600; }
@@ -2318,13 +2415,13 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: .4rem;
+  gap: var(--e2);
   /* 52px. Era 47, e a diferença aparece no polegar: o CTA principal é o
      elemento mais tocado de várias telas, e 44 é o PISO de alvo, não o alvo
      de uma ação primária. O raio acompanha o campo, para botão e input
      lerem como peças do mesmo formulário. */
   min-height: 3.25rem;
-  padding: var(--espaco-4) 1.15rem;
+  padding: var(--e3) var(--e5);
   /* O traço de 2 px em todos, transparente no primário: contorno e quieto
      pintam a mesma borda, e os três têm a mesma altura empilhados. */
   border: var(--traco) solid transparent;
@@ -2418,20 +2515,23 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .btn--quiet {
   min-height: 2.75rem;
-  padding: .45rem .85rem;
+  padding: var(--e2) var(--e3);
   /* Borda como o ghost: a cara de botão não pode depender do preenchimento,
      que o tema escuro apaga (1,05:1 medido — avaliação de 16/09/2026, U28). */
   border: var(--traco) solid var(--fio-forte);
   background: transparent;
   color: var(--text-dim);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
 }
 
 .btn--quiet:hover { background: var(--surface-3); color: var(--text); }
-.btn--sm { min-height: 2.75rem; padding: var(--espaco-3) var(--espaco-5); font-size: .84rem; }
+.btn--sm { min-height: 2.75rem; padding: var(--e2) var(--e4); font-size: var(--texto-sm); }
 /* O primário pequeno (44 px) fica no texto: a display nunca abaixo de 20 px. */
-.btn--primary.btn--sm { font-family: var(--font); font-size: var(--texto-md); letter-spacing: .04em; }
+/* E no peso da Archivo: o 800 do primário é peso da DISPLAY, e a lista da
+   Archivo é fechada em 400–700 (DESIGN.md; a auditoria de 27/09 mediu o
+   "Salvar" do peso em Archivo 800 quando ele virou `btn--sm`). */
+.btn--primary.btn--sm { font-family: var(--font); font-size: var(--texto-md); font-weight: 700; letter-spacing: .04em; }
 .btn--block { width: 100%; }
 
 /* Resposta ao toque.
@@ -2462,7 +2562,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .install__close:active,
 .install__go:active,
 .install__later:active,
-.pesagem__salvar:active,
 .pesar__topo:active,
 .registro__passo:active,
 .shopping__check:active,
@@ -2520,7 +2619,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .install__close,
 .install__go,
 .install__later,
-.pesagem__salvar,
 .pesar__topo,
 .registro__passo,
 .shopping__check,
@@ -2572,7 +2670,6 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .install__close:active,
 .install__go:active,
 .install__later:active,
-.pesagem__salvar:active,
 .acao-perigosa__confirma:active,
 .pesar__topo:active,
 .registro__passo:active,
@@ -2608,8 +2705,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   justify-content: center;
   min-height: 2.75rem;
   min-width: 2.75rem;
-  padding: 0 var(--espaco-2);
-  margin: -.75rem -.35rem;
+  padding: 0 var(--e1);
+  margin: calc(-1 * var(--e3)) calc(-1 * var(--e1));
   border: 0;
   background: none;
   color: var(--text-mute);
@@ -2621,32 +2718,32 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .btn-link:hover { color: var(--brand); }
 
-.form-actions { display: flex; gap: .6rem; margin-top: 1.6rem; }
+.form-actions { display: flex; gap: var(--e2); margin-top: var(--e6); }
 .form-actions .btn--primary { flex: 1; }
 
 /* ==========================================================================
    11. Formulários
    ========================================================================== */
 
-.field { margin-bottom: 1.15rem; }
-.field__label { display: block; margin-bottom: var(--espaco-2); font-size: var(--texto-md); font-weight: 700; }
+.field { margin-bottom: var(--e5); }
+.field__label { display: block; margin-bottom: var(--e1); font-size: var(--texto-md); font-weight: 700; }
 
 .field__help {
   display: block;
-  margin-bottom: .55rem;
+  margin-bottom: var(--e2);
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  line-height: 1.5;
+  line-height: var(--entrelinha);
 }
 
-.field__help ul { margin: var(--espaco-1) 0 0; padding-left: 1.1rem; }
+.field__help ul { margin: var(--e1) 0 0; padding-left: var(--e4); }
 
 .field-input {
   width: 100%;
   /* 52px, a mesma altura do botão. Campo e ação empilhados num formulário com
      alturas diferentes leem como peças de dois sistemas. */
   min-height: 3.25rem;
-  padding: var(--espaco-4) var(--espaco-4);
+  padding: var(--e3) var(--e3);
   color: var(--text);
   background: var(--surface-2);
   border: var(--traco) solid var(--fio-forte);
@@ -2670,7 +2767,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .field-input[inputmode="decimal"],
 .field-input[inputmode="numeric"] {
   font-variant-numeric: tabular-nums;
-  font-size: .96rem;
+  font-size: var(--texto-base);
   letter-spacing: -.01em;
 }
 
@@ -2687,27 +2784,30 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 .field-input[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 
 .field__errors {
-  margin: .45rem 0 0;
-  padding: .6rem .75rem;
+  margin: var(--e2) 0 0;
+  padding: var(--e2) var(--e3);
   list-style: none;
   border-radius: var(--quina-p);
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
 }
 
-.choice-list { display: grid; gap: var(--espaco-3); margin: 0; padding: 0; border: 0; list-style: none; }
+/* LEGADO (28/09/2026): a lista de escolha só vale para o treino (a duração
+   da sessão, em templates/workouts/routine.html). Fora dele a escolha é o
+   `choice-card` (`UmControleDeEscolhaSoTests`). */
+.choice-list { display: grid; gap: var(--e2); margin: 0; padding: 0; border: 0; list-style: none; }
 
 .choice-list label {
   display: flex;
   align-items: center;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-height: 3.1rem;
-  padding: .75rem .85rem;
+  padding: var(--e3) var(--e3);
   border: 1px solid var(--fio);
   border-radius: var(--quina-p);
   background: var(--surface-2);
-  font-size: .92rem;
+  font-size: var(--texto-md);
   cursor: pointer;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
@@ -2727,105 +2827,25 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 
 .choice-list--inline { grid-template-columns: 1fr 1fr; }
 
-/* Os sete dias da semana, em chips.
- *
- * Eram sete cartões de largura inteira: 404px medidos a 390px de viewport, com
- * o "Continuar" caindo abaixo da dobra. Nenhum daqueles cartões precisava de
- * uma linha inteira — "Seg" é três letras.
- *
- * O estado marcado é pintado por `input:checked ~ .segmented__fundo`, seletor
- * IRMÃO e não `:has()`. A diferença importa: `:has()` é permitido em cima do
- * `.choice-list` comum porque lá é só realce e o `accent-color` da caixa
- * nativa continua mostrando a escolha. Aqui a caixa está fora do fluxo, então
- * o preenchimento é a ÚNICA pista — e uma regra que o navegador descarta
- * inteira deixaria a pessoa sem saber quais dias marcou.
- *
- * O input não é escondido, é recortado: continua no fluxo de foco, recebe Tab,
- * alterna com espaço e é anunciado com o nome completo do dia pelo `aria-label`
- * que `DiasDaSemanaWidget` escreve.
- *
- * Chamava-se `.choice-list--dias` até a CORTE (T3.5, 16/09/2026): o nome
- * dizia de onde veio (a lista de caixas), não o que é — um segmented que
- * ENVOLVE, quebrando em linhas, em vez de dividir uma largura fixa. */
-.segmented--envolve {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .4rem;
-}
-
-/* `1 1 3.8rem`: os chips esticam para preencher a linha em vez de deixarem um
-   vão à direita, e a base é medida, não escolhida — a 360px a lista tem 274px
-   úteis, e quatro por linha com 6.4px de vão exigem no máximo 63px de base.
-   4.2rem (67px) cabia só três e virava uma terceira linha; 3.8rem (61px) fecha
-   4+3 tanto a 360 quanto a 390. */
-.segmented--envolve li { flex: 1 1 3.8rem; min-width: 0; }
-
-.segmented--envolve label {
-  position: relative;
-  justify-content: center;
-  gap: 0;
-  min-height: 2.75rem;
-  padding: var(--espaco-3) var(--espaco-2);
-  border-radius: var(--quina-p);
-  font-size: .82rem;
-  /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
-     crescer e a linha inteira reposicionar debaixo do dedo. */
-  font-weight: 600;
-}
-
-.segmented--envolve input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  clip-path: inset(50%);
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.segmented--envolve .segmented__fundo {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.segmented--envolve .segmented__texto { position: relative; }
-
-.segmented--envolve input:checked ~ .segmented__fundo { background: var(--brand); }
-.segmented--envolve input:checked ~ .segmented__texto { color: var(--on-brand); }
-.segmented--envolve label:hover .segmented__fundo { background: var(--surface-3); }
-.segmented--envolve label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-/* Foco é `--brand`; `--agua` é cor de pilar. E é ANEL COM VÃO (decisão do
-   dono, 16/09/2026): a opção MARCADA já tem o fundo em `--brand`, e um anel
-   colado só engordava a pílula — em rádio, a seta move foco e marcação
-   juntos, então esse era o caso mais comum de teclado. `outline-offset: 2px`
-   abre um vão que mostra a superfície, e o anel se vê nos dois estados;
-   `outline` acompanha o raio. */
-.segmented--envolve input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
-
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--espaco-4); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e3); }
 
 /* ==========================================================================
    12. Mensagens
    ========================================================================== */
 
-.flash { margin: 0 0 var(--espaco-6); padding: 0; list-style: none; }
+.flash { margin: 0 0 var(--e4); padding: 0; list-style: none; }
 .flash__item { margin: 0; }
 
 .flash li,
 .flash__item {
-  padding: .8rem var(--espaco-5);
+  padding: var(--e3) var(--e4);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
   color: var(--text);
-  font-size: .88rem;
+  font-size: var(--texto-md);
 }
 
-.flash li + li { margin-top: var(--espaco-3); }
+.flash li + li { margin-top: var(--e2); }
 .flash li.error { background: var(--danger-soft); color: var(--danger); }
 
 /* Sem filete lateral.
@@ -2836,12 +2856,12 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    mudança sugerida) — e trocá-los sem substituir o que eles dizem seria
    obedecer à regra perdendo o dado. */
 .callout {
-  margin: var(--espaco-5) 0 0;
-  padding: .85rem .95rem;
+  margin: var(--e4) 0 0;
+  padding: var(--e3) var(--e4);
   border-radius: var(--quina-p);
   background: var(--brand-soft);
-  font-size: .85rem;
-  line-height: 1.55;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 /* A variante de ATENÇÃO usa o fundo morno, e não o vermelho de erro: nada
@@ -2849,11 +2869,11 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
    atualiza. Vermelho aqui assustaria por uma conta desatualizada. */
 .callout--atencao { background: var(--terra-soft); }
 
-.empty-state { padding: 2.25rem var(--espaco-6); color: var(--text-dim); font-size: var(--texto-md); text-align: center; }
+.empty-state { padding: calc(var(--e5) + var(--e4)) var(--e4); color: var(--text-dim); font-size: var(--texto-md); text-align: center; }
 /* O estado vazio virou caixa quando ganhou botão. O `text-align` do bloco já
    centraliza o `.btn`, que é `inline-flex`; só faltava o respiro. */
 .empty-state p { margin: 0; }
-.empty-state .btn { margin-top: 1.1rem; }
+.empty-state .btn { margin-top: var(--e4); }
 
 /* ==========================================================================
    13. Listas de dados
@@ -2865,8 +2885,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--espaco-1) var(--espaco-6);
-  padding: .75rem 0;
+  gap: var(--e1) var(--e4);
+  padding: var(--e3) 0;
   border-bottom: 1px solid var(--fio);
   font-size: var(--texto-md);
 }
@@ -2916,8 +2936,8 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
  * confunde com as divisórias de linha, que são contínuas, e o recuo maior tira
  * o bloco da cadência da lista anterior. */
 .data-list--recorte {
-  margin-top: var(--espaco-5);
-  padding-top: var(--espaco-5);
+  margin-top: var(--e4);
+  padding-top: var(--e4);
   border-top: 1px dashed var(--fio);
 }
 
@@ -2926,7 +2946,7 @@ a.chip { min-height: 2.75rem; padding: .34rem var(--espaco-5); }
 /* O resumo da etapa 3 do cadastro termina e o próximo campo começa: sem
    margem, "Divisão · 2 grupos por dia" encostava em "Que tipo de cardápio
    você quer?" (QA de 27/09/2026, M7). */
-.resumo-etapas { margin-bottom: var(--espaco-7); }
+.resumo-etapas { margin-bottom: var(--e6); }
 /* A MESMA LINHA EM <ul>. O Progresso usa `.data-list` numa lista (melhores
    cargas, o que mais você registrou), e `__item`, `__nome` e `__valor` não
    existiam aqui: a lista saía com marcador e com o valor colado no nome
@@ -2938,8 +2958,8 @@ ul.data-list { padding: 0; list-style: none; }
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--espaco-1) var(--espaco-6);
-  padding: var(--espaco-3) 0;
+  gap: var(--e1) var(--e4);
+  padding: var(--e2) 0;
   border-bottom: 1px solid var(--fio);
   font-size: var(--texto-md);
 }
@@ -2956,10 +2976,10 @@ ul.data-list { padding: 0; list-style: none; }
   display: grid;
   grid-template-columns: 3.6rem 1fr auto;
   align-items: center;
-  gap: var(--espaco-4);
-  padding: .65rem 0;
+  gap: var(--e3);
+  padding: var(--e3) 0;
   border-bottom: 1px solid var(--fio);
-  font-size: .85rem;
+  font-size: var(--texto-sm);
 }
 
 .history-row:last-of-type { border-bottom: 0; }
@@ -2970,7 +2990,7 @@ ul.data-list { padding: 0; list-style: none; }
   color: var(--brand);
   font-size: var(--texto-xs);
   font-weight: 700;
-  line-height: 1.4;
+  line-height: var(--entrelinha);
   letter-spacing: .06em;
   text-transform: uppercase;
 }
@@ -2979,7 +2999,7 @@ ul.data-list { padding: 0; list-style: none; }
 .history-row__fill { display: block; height: 100%; background: var(--brand); }
 .history-row__facts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .history-row__kcal { font-weight: 700; }
-.history-row__meals { display: block; color: var(--text-mute); font-size: .72rem; }
+.history-row__meals { display: block; color: var(--text-mute); font-size: var(--texto-xs); }
 
 /* ==========================================================================
    15. Treino — semana e sessão
@@ -3732,7 +3752,7 @@ ul.data-list { padding: 0; list-style: none; }
 /* Séries completas: o mesmo halo de todo estado ativo do app. Escrever um anel
    à mão aqui daria a quinta opacidade diferente para a mesma pergunta. */
 .registro--completo {
-  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
+  border-color: var(--brand-linha-forte);
   box-shadow: var(--halo);
 }
 
@@ -3830,8 +3850,8 @@ ul.data-list { padding: 0; list-style: none; }
 .shopping__item {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: var(--espaco-4) 0;
+  gap: var(--e3);
+  padding: var(--e3) 0;
   border-bottom: 1px solid var(--fio);
 }
 
@@ -3860,7 +3880,7 @@ ul.data-list { padding: 0; list-style: none; }
 .shopping__check {
   display: flex;
   align-items: center;
-  gap: .65rem;
+  gap: var(--e3);
   flex: 1;
   min-width: 0;
   min-height: 2.75rem;
@@ -3876,15 +3896,15 @@ ul.data-list { padding: 0; list-style: none; }
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  column-gap: var(--espaco-3);
+  column-gap: var(--e2);
 }
-.shopping__name { flex: 1 1 auto; min-width: 0; font-size: .92rem; overflow-wrap: normal; }
+.shopping__name { flex: 1 1 auto; min-width: 0; font-size: var(--texto-md); overflow-wrap: normal; }
 .shopping__check input:checked + .shopping__texto .shopping__name { color: var(--text-mute); text-decoration: line-through; }
 
 .shopping__qty {
   flex: none;
   margin-left: auto;
-  font-size: .88rem;
+  font-size: var(--texto-md);
   font-weight: 700;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -3893,8 +3913,8 @@ ul.data-list { padding: 0; list-style: none; }
 /* O item que a pessoa acrescenta: campo e botão numa faixa só, o campo
    cresce e o botão não encolhe. Campo e botão são os de sempre (`.field-input`
    e `.btn`), com a mesma altura de 52px — só a faixa é daqui. */
-.compra-avulsa { margin-top: var(--espaco-4); }
-.compra-avulsa__linha { display: flex; gap: var(--espaco-3); }
+.compra-avulsa { margin-top: var(--e3); }
+.compra-avulsa__linha { display: flex; gap: var(--e2); }
 .compra-avulsa__campo { flex: 1; min-width: 0; }
 
 /* Este é o botão mais usado da tela de dieta — tocar no nome do alimento
@@ -3951,7 +3971,7 @@ ul.data-list { padding: 0; list-style: none; }
    19. Wizard e telas de entrada
    ========================================================================== */
 
-.wizard { margin-bottom: 1.3rem; }
+.wizard { margin-bottom: var(--e5); }
 /* A trilha do wizard.
  *
  * Eram cinco segmentos, ligados ou desligados. Segmento não tem meio-termo: a
@@ -3963,7 +3983,7 @@ ul.data-list { padding: 0; list-style: none; }
  * arredondada e a direita, reta. */
 .wizard__trilha {
   height: .3rem;
-  margin-bottom: var(--espaco-3);
+  margin-bottom: var(--e2);
   border-radius: var(--quina-p);
   background: var(--surface-3);
   overflow: hidden;
@@ -3997,27 +4017,21 @@ ul.data-list { padding: 0; list-style: none; }
 .wizard__label {
   margin: 0;
   color: var(--text-mute);
-  font-size: .78rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
 }
 
 /* O passo do wizard é a tela mais apertada do app: até sete cartões de
    escolha, dois rótulos e o botão precisam caber sem rolagem a 390×844. O que
    se aperta aqui é o RESPIRO, e nunca o alvo de toque nem o corpo do texto. */
-.auth { max-width: 25rem; margin-top: .75rem; }
+.auth { max-width: 25rem; margin-top: var(--e3); }
 
-body:not(.tem-tabbar) .container { padding-top: .75rem; }
+body:not(.tem-tabbar) .container { padding-top: var(--e3); }
 
-.auth .wizard { margin-bottom: .85rem; }
-.auth h1 { margin-bottom: .2rem; }
-.auth .lead { margin-bottom: var(--espaco-5); }
-/* Uma linha por título: "Os dois ao mesmo tempo" quebrava em duas na coluna
-   de 147px e a FAIXA inteira da grade crescia junto, porque a linha de uma
-   grade tem a altura do cartão mais alto dela. Dois cartões pagavam pela
-   quebra de um. */
-.auth .card { padding: var(--espaco-6); }
-.auth .field { margin-bottom: var(--espaco-5); }
-.auth .card { padding: 1.7rem 1.4rem; }
+.auth .wizard { margin-bottom: var(--e3); }
+.auth h1 { margin-bottom: var(--e1); }
+.auth .lead { margin-bottom: var(--e4); }
+.auth .field { margin-bottom: var(--e4); }
 
 /* A mesma marca, em 64px, na tela de entrada. Vetor: o desenho que cabe em
    30 pixels na barra é o mesmo aqui, sem segunda arte e sem borrar. */
@@ -4025,7 +4039,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
   display: block;
   width: 4rem;
   height: 4rem;
-  margin: 0 auto var(--espaco-6);
+  margin: 0 auto var(--e4);
 }
 
 /* O aviso da refeição pulada. Fica dentro do cartão de macros porque é dali
@@ -4037,15 +4051,15 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .pulou {
   display: flex;
   align-items: flex-start;
-  gap: .55rem;
-  margin: 0 0 var(--espaco-5);
-  padding: var(--espaco-4) var(--espaco-5);
-  border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
+  gap: var(--e2);
+  margin: 0 0 var(--e4);
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--terra-linha);
   border-radius: var(--quina);
-  background: color-mix(in srgb, var(--terra) 10%, transparent);
+  background: var(--terra-tinta-fraca);
   color: var(--terra);
-  font-size: .82rem;
-  line-height: 1.5;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 .pulou__icone { display: grid; place-items: center; flex: none; }
@@ -4058,29 +4072,29 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
    deixa a superfície de baixo aparecer, então a mesma regra serve sobre
    grafite e sobre papel. */
 .pill {
-  padding: .18rem .6rem;
-  font-size: .72rem;
+  padding: var(--traco) var(--e2);
+  font-size: var(--texto-xs);
   font-weight: 700;
-  line-height: 1.55;
+  line-height: var(--entrelinha);
   white-space: nowrap;
 }
 
 .pill svg { width: .85rem; height: .85rem; flex: none; }
 
 .pill--warm {
-  background: color-mix(in srgb, var(--terra) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--terra) 22%, transparent);
+  background: var(--terra-tinta);
+  border: 1px solid var(--terra-linha);
   color: var(--terra);
 }
 
 .pill--brand {
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  background: var(--brand-tinta);
+  border: 1px solid var(--brand-linha);
   color: var(--brand);
 }
 
 .pill--mute {
-  background: color-mix(in srgb, var(--text-mute) 12%, transparent);
+  background: var(--text-mute-tinta);
   border: 1px solid var(--fio-forte);
   color: var(--text-dim);
 }
@@ -4095,22 +4109,22 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .hidratacao {
   display: flex;
   align-items: center;
-  gap: var(--espaco-3);
-  margin: 0 0 var(--espaco-6);
-  padding: var(--espaco-4) .85rem;
+  gap: var(--e2);
+  margin: 0 0 var(--e4);
+  padding: var(--e3) var(--e3);
   border: 1px solid transparent;
   border-radius: var(--quina);
   background: var(--surface-2);
   color: var(--text-dim);
-  font-size: .85rem;
-  line-height: 1.4;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 .hidratacao b { color: var(--text); }
 
 /* A média da semana vem antes das pesagens do dia, e a ordem é a decisão: o
    peso do dia oscila com sal e com o carboidrato de ontem, e quem olha o
    número do dia desiste na primeira quinta-feira em que a balança sobe. */
-.pesagens { display: grid; gap: .3rem; margin: 0 0 var(--espaco-5); padding: 0; list-style: none; }
+.pesagens { display: grid; gap: var(--e1); margin: 0 0 var(--e4); padding: 0; list-style: none; }
 
 /* DUAS LINHAS, e não três colunas disputando a mesma largura.
 
@@ -4142,8 +4156,8 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
      abaixo do próprio conteúdo, e o valor — que é `nowrap` — vazava. */
   grid-template-columns: auto 1fr;
   align-items: baseline;
-  gap: var(--espaco-1) var(--espaco-4);
-  padding: var(--espaco-4);
+  gap: var(--e1) var(--e3);
+  padding: var(--e3);
   border-radius: var(--quina);
   background: var(--surface-2);
 }
@@ -4196,19 +4210,19 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 /* O aviso de estagnação. Só aparece depois de três semanas paradas — duas
    acontecem por acaso o tempo todo. */
 .recalibrar {
-  margin: var(--espaco-5) 0;
-  padding: var(--espaco-5);
-  border: 1px solid color-mix(in srgb, var(--agua) 45%, var(--fio));
+  margin: var(--e4) 0;
+  padding: var(--e4);
+  border: 1px solid var(--agua-contorno);
   border-radius: var(--quina);
-  background: color-mix(in srgb, var(--agua) 9%, transparent);
+  background: var(--agua-tinta-fraca);
 }
 
-.recalibrar__titulo { display: block; font-size: .92rem; }
-.recalibrar__texto { margin: .3rem 0 .8rem; color: var(--text-dim); font-size: .82rem; line-height: 1.5; }
-.recalibrar__acoes { display: flex; flex-wrap: wrap; gap: var(--espaco-3); }
+.recalibrar__titulo { display: block; font-size: var(--texto-md); }
+.recalibrar__texto { margin: var(--e1) 0 var(--e3); color: var(--text-dim); font-size: var(--texto-sm); line-height: var(--entrelinha); }
+.recalibrar__acoes { display: flex; flex-wrap: wrap; gap: var(--e2); }
 .recalibrar__acoes form { display: contents; }
 
-.dias-detalhe { margin: var(--espaco-3) 0; }
+.dias-detalhe { margin: var(--e2) 0; }
 
 /* A seta de volta, e ela tinha sumido por efeito colateral.
 
@@ -4220,7 +4234,7 @@ body:not(.tem-tabbar) .container { padding-top: .75rem; }
 .dias-detalhe summary {
   display: flex;
   align-items: center;
-  gap: .4rem;
+  gap: var(--e2);
   min-height: 2.75rem;
   color: var(--text-dim);
   font-size: var(--texto-sm);
@@ -4388,7 +4402,7 @@ html { scrollbar-gutter: stable; }
    Cada linha entra com um atraso próprio: pulsar em uníssono lê como um bloco
    piscando, e em cascata lê como carregamento. */
 .esqueleto--linha { height: 2.75rem; }
-.esqueleto--linha + .esqueleto--linha { margin-top: var(--espaco-2); }
+.esqueleto--linha + .esqueleto--linha { margin-top: var(--e1); }
 .esqueleto--linha:nth-child(2) { animation-delay: calc(var(--mov-degrau) * 4); }
 .esqueleto--linha:nth-child(3) { animation-delay: calc(var(--mov-degrau) * 8); }
 
@@ -4428,7 +4442,7 @@ html { scrollbar-gutter: stable; }
   /* 10px. Era .6rem (9,6px), subiu para 12 e assentou em 10: separa o
      bastante para a lista ler como opções, e devolve 4px por espaço numa tela
      que estava pedindo rolagem. */
-  gap: .625rem;
+  gap: var(--e3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -4446,14 +4460,14 @@ html { scrollbar-gutter: stable; }
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: .75rem;
+  gap: var(--e3);
   height: 100%;
   min-height: 4.25rem;
   /* 13px em volta. Nasceu em 16 e desceu duas vezes: sete cartões de escolha
      no passo do objetivo somavam 564px, e a tela pedia rolagem para chegar no
      "Continuar". Botão que exige rolar é botão que metade das pessoas não
      encontra. */
-  padding: .8rem;
+  padding: var(--e3);
   border-radius: var(--quina);
   background: var(--surface-2);
   /* A quina arredondada corta o que vazar: sem isto, um rótulo de catálogo
@@ -4469,7 +4483,8 @@ html { scrollbar-gutter: stable; }
 
 /* Fora da vista, dentro do documento: sem isto o cartão vira um `div` bonito
    que não navega por teclado nem existe para leitor de tela. */
-.choice-card__input {
+.choice-card__input,
+.choice-card > input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -4513,9 +4528,9 @@ html { scrollbar-gutter: stable; }
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: .2rem;
+  gap: var(--e1);
   /* Espaço para o sinal de escolhido no canto. */
-  padding-right: var(--espaco-7);
+  padding-right: var(--e6);
 }
 
 /* Nenhuma palavra parte no meio.
@@ -4542,15 +4557,15 @@ html { scrollbar-gutter: stable; }
 
 .choice-card__title {
   color: var(--text);
-  font-size: .95rem;
+  font-size: var(--texto-md);
   font-weight: 700;
-  line-height: 1.25;
+  line-height: var(--entrelinha-titulo);
 }
 
 .choice-card__hint {
   color: var(--text-mute);
-  font-size: .78rem;
-  line-height: 1.45;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 /* O distintivo de recomendado.
@@ -4568,7 +4583,7 @@ html { scrollbar-gutter: stable; }
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   min-width: 0;
 }
 
@@ -4578,10 +4593,10 @@ html { scrollbar-gutter: stable; }
    Um cartão 47px mais alto que os irmãos, por nove pixels. */
 .choice-card__selo {
   align-self: baseline;
-  padding: .16rem .42rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 26%, transparent);
+  padding: var(--traco) var(--e2);
+  border: 1px solid var(--brand-linha);
   border-radius: var(--quina-p);
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  background: var(--brand-tinta);
   color: var(--brand);
   /* .7rem = 11,2px. Nasceu em .68 (10,88px) e o teste de legibilidade pegou:
      o piso de 11px vale para TODO texto de interface, e um distintivo que
@@ -4614,9 +4629,10 @@ html { scrollbar-gutter: stable; }
 
 /* ---- estado escolhido, tudo por combinador de irmão ---- */
 
-.choice-card__input:checked ~ .choice-card__frame {
+.choice-card__input:checked ~ .choice-card__frame,
+.choice-card > input:checked ~ .choice-card__frame {
   border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 9%, transparent);
+  background: var(--brand-tinta-fraca);
   /* Brilho contido: marca a escolha sem transformar o formulário em painel
      de nave. Um anel fino, e uma sombra difusa curta embaixo — hoje é o mesmo
      `--halo` que marca a aba atual e a refeição feita. O anel de marca cheia
@@ -4625,12 +4641,14 @@ html { scrollbar-gutter: stable; }
   box-shadow: var(--halo);
 }
 
-.choice-card__input:checked ~ .choice-card__icon {
+.choice-card__input:checked ~ .choice-card__icon,
+.choice-card > input:checked ~ .choice-card__icon {
   background: var(--brand-soft);
   color: var(--brand);
 }
 
-.choice-card__input:checked ~ .choice-card__mark {
+.choice-card__input:checked ~ .choice-card__mark,
+.choice-card > input:checked ~ .choice-card__mark {
   opacity: 1;
   transform: scale(1);
 }
@@ -4638,9 +4656,15 @@ html { scrollbar-gutter: stable; }
 /* Foco visível para quem navega por teclado: o anel vai na moldura, que é
    exatamente o contorno do cartão. Foco é `--brand`; `--agua` é cor de
    pilar. */
-.choice-card__input:focus-visible ~ .choice-card__frame {
+/* ANEL COM VÃO (decisão do dono, 16/09/2026, para o chip de dia e o
+   segmented — que viraram este cartão no lote 5 da dívida visual): a opção
+   marcada já tem a moldura em `--brand`, e um anel colado se confundia com
+   ela. `outline-offset` abre o vão, e o anel se vê nos dois estados. */
+.choice-card__input:focus-visible ~ .choice-card__frame,
+.choice-card > input:focus-visible ~ .choice-card__frame {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4689,8 +4713,8 @@ html { scrollbar-gutter: stable; }
      atravessa o cartão e chega em quem estiver embaixo. */
   pointer-events: none;
   display: grid;
-  gap: var(--espaco-4);
-  padding: .85rem;
+  gap: var(--e3);
+  padding: var(--e3);
   background: var(--surface);
   border: 1px solid transparent;
   border-radius: var(--quina);
@@ -4743,9 +4767,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .install__top {
   display: flex;
   align-items: center;
-  gap: .75rem;
+  gap: var(--e3);
   /* Espaço à direita para o texto nunca passar por baixo do botão fechar. */
-  padding-right: 2.5rem;
+  padding-right: calc(var(--e5) + var(--e5));
 }
 
 /* A borda existe porque o fundo do ícone é o mesmo grafite do app: sem ela o
@@ -4765,21 +4789,21 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: .1rem;
+  gap: var(--traco);
 }
 
-.install__title { font-size: .95rem; }
+.install__title { font-size: var(--texto-md); }
 
 .install__hint {
   color: var(--text-dim);
-  font-size: .78rem;
-  line-height: 1.35;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha-titulo);
 }
 
 .install__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--espaco-3);
+  gap: var(--e2);
 }
 
 /* 44x44 é o mínimo para um alvo de toque: abaixo disso o dedo erra, e um
@@ -4830,11 +4854,11 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: .85rem;
-  padding: var(--espaco-6) 1.05rem;
-  border: 1px solid color-mix(in srgb, var(--chama) 26%, transparent);
+  gap: var(--e3);
+  padding: var(--e4) var(--e4);
+  border: 1px solid var(--chama-linha);
   border-radius: var(--quina-g);
-  background: color-mix(in srgb, var(--chama) 9%, transparent);
+  background: var(--chama-tinta-fraca);
   box-shadow: var(--edge), var(--shadow-rest);
 }
 
@@ -4852,7 +4876,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   height: 2.8rem;
   flex: none;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--chama) 16%, transparent);
+  background: var(--chama-fundo);
   color: var(--text-mute);
 }
 
@@ -4869,20 +4893,20 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   .ofensiva__chama.is-viva { animation: none; }
 }
 
-.ofensiva__corpo { display: grid; gap: .1rem; min-width: 0; }
+.ofensiva__corpo { display: grid; gap: var(--traco); min-width: 0; }
 
 .ofensiva__numero {
   display: flex;
   align-items: baseline;
-  gap: .3rem;
-  font-size: 1.5rem;
+  gap: var(--e1);
+  font-size: var(--texto-xl);
   font-weight: 700;
   letter-spacing: -.03em;
-  line-height: 1.1;
+  line-height: var(--entrelinha-display);
 }
 
 .ofensiva__unidade { color: var(--text-mute); font-size: var(--texto-sm); font-weight: 600; }
-.ofensiva__texto { color: var(--text-dim); font-size: var(--texto-sm); line-height: 1.45; }
+.ofensiva__texto { color: var(--text-dim); font-size: var(--texto-sm); line-height: var(--entrelinha); }
 .ofensiva__recorde { flex: none; }
 
 /* ------------------------------------------------------------- pesagem */
@@ -4909,9 +4933,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
+  gap: var(--e3);
   min-height: 2.75rem;
-  padding: .6rem 1.05rem;
+  padding: var(--e2) var(--e4);
   cursor: pointer;
   list-style: none;
 }
@@ -4919,15 +4943,15 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesar__topo::-webkit-details-marker { display: none; }
 .pesar__topo:hover { background: var(--surface-2); }
 
-.pesar__nome { min-width: 0; color: var(--text); font-size: .95rem; font-weight: 600; }
+.pesar__nome { min-width: 0; color: var(--text); font-size: var(--texto-md); font-weight: 600; }
 
 /* "Registrar" tem cara de ação porque é o rótulo do que a sanfona abre. O
    alvo do dedo é a faixa inteira, e não este texto. Aberta, ela para de
    convidar: o campo já está à vista. */
-.pesar__acao { flex: none; color: var(--brand); font-size: .875rem; font-weight: 600; }
+.pesar__acao { flex: none; color: var(--brand); font-size: var(--texto-md); font-weight: 600; }
 .pesar[open] .pesar__acao { color: var(--text-mute); }
 
-.pesar__corpo { padding: 0 1.05rem var(--espaco-6); }
+.pesar__corpo { padding: 0 var(--e4) var(--e4); }
 
 /* O formulário: o campo cresce, o botão não encolhe. Numa faixa só porque são
    dois controles — a linha de carga precisou de duas porque tinha sete. */
@@ -4935,7 +4959,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: var(--espaco-3);
+  gap: var(--e2);
 }
 
 /* O erro embaixo do campo ocupa a linha inteira da grade (22/09/2026). */
@@ -4949,7 +4973,7 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesagem__valor {
   width: 100%;
   min-height: 2.75rem;
-  padding: var(--espaco-3) .75rem;
+  padding: var(--e2) var(--e3);
   border: 1px solid var(--fio-forte);
   border-radius: var(--quina-p);
   background: var(--surface-2);
@@ -4963,22 +4987,6 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 .pesagem__valor:focus { outline: none; border-color: var(--brand); box-shadow: var(--glow); }
 .pesagem__valor::placeholder { color: var(--text-mute); font-weight: 500; }
 
-.pesagem__salvar {
-  min-height: 2.75rem;
-  min-width: 5.5rem;
-  padding: 0 var(--espaco-6);
-  border: 0;
-  border-radius: var(--quina-p);
-  background: var(--brand);
-  color: var(--on-brand);
-  font-family: inherit;
-  font-size: .95rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pesagem__salvar:hover { background: var(--brand-strong); }
-.pesagem__salvar:disabled { opacity: .55; cursor: progress; }
 
 /* ------------------------------------------------------------------ água */
 
@@ -4988,9 +4996,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    diferentes. */
 .agua {
   display: grid;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   margin-bottom: var(--gap);
-  padding: var(--espaco-6) 1.05rem;
+  padding: var(--e4) var(--e4);
   border: 1px solid transparent;
   border-radius: var(--quina-g);
   background: var(--surface);
@@ -5009,9 +5017,9 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    Sem a metade horizontal da margem negativa do `.btn-link`: dois links com
    8 px de vão se tocavam por 3 px (MOB-11). O alvo continua com 44 px; o
    que muda é que ele não avança sobre o vão. */
-.agua__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espaco-3); }
+.agua__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2); }
 .agua__acoes > * { flex: none; }
-.agua__acoes > [open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--espaco-3); }
+.agua__acoes > [open] { flex: 1 0 100%; display: flex; align-items: center; gap: var(--e2); }
 .agua__acoes .btn-link { margin-inline: 0; }
 
 /* A CONFIRMAÇÃO DE UMA AÇÃO QUE APAGA.
@@ -5023,30 +5031,30 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
 
 .acao-perigosa__confirma {
   min-height: 2.75rem;
-  padding: 0 var(--espaco-3);
+  padding: 0 var(--e2);
   color: var(--danger);
   font-weight: 600;
 }
 
 .progress__fill--agua { background: var(--agua); }
 
-.agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--espaco-3); }
+.agua__botoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e2); }
 
 /* 48px de altura — o pedido é explícito, e estes três são tocados de pé, com
    a garrafa na outra mão. */
 .agua__botao {
   display: grid;
   place-items: center;
-  gap: .05rem;
+  gap: var(--traco);
   width: 100%;
   min-height: 3rem;
-  padding: .4rem .3rem;
+  padding: var(--e2) var(--e1);
   border: 1px solid var(--fio-forte);
   border-radius: var(--quina-p);
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: .88rem;
+  font-size: var(--texto-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -5178,16 +5186,16 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
   z-index: var(--camada-flutuante);
   display: flex;
   align-items: center;
-  gap: var(--espaco-3);
-  padding: .6rem .8rem;
-  border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--terra-linha-forte);
   border-radius: var(--quina);
-  background: color-mix(in srgb, var(--terra) 14%, var(--surface));
+  background: var(--terra-tinta);
   box-shadow: var(--edge), var(--shadow-lift);
   color: var(--terra);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: var(--entrelinha);
 }
 
 /* A faixa em ERRO: o enfileiramento falhou e o toque se perdeu. Mesma
@@ -5195,8 +5203,8 @@ body.tem-convite.tem-tabbar .container { padding-bottom: 17rem; }
    perigo (o dado não foi destruído), é uma ação a refazer, e por isso é
    `--terra` e não `--danger`. */
 .fila--erro {
-  border-color: color-mix(in srgb, var(--terra) 70%, transparent);
-  background: color-mix(in srgb, var(--terra) 22%, var(--surface));
+  border-color: var(--terra-alerta-linha);
+  background: var(--terra-alerta-fundo);
 }
 .fila--erro .fila__icone { color: var(--terra); }
 
@@ -5264,7 +5272,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
     grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
     align-items: start;
   }
-  .container.largo .split__aside { position: sticky; top: calc(var(--appbar-h) + var(--espaco-4)); }
+  .container.largo .split__aside { position: sticky; top: calc(var(--appbar-h) + var(--e3)); }
 
   /* DUAS COLUNAS NUM SPLIT SEM ASIDE — o Progresso (22/09/2026).
 
@@ -5292,23 +5300,23 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-    gap: var(--espaco-7);
+    gap: var(--e6);
   }
   /* A faixa de três números atravessa as duas colunas: ela é o resumo da
      tela, e meia largura a apertaria de volta para 2+1. */
   .container.largo .stack--duas-colunas > :first-child { grid-column: 1 / -1; }
 
-  .container { padding: 1.9rem var(--pad) 3rem; }
+  .container { padding: var(--e7) var(--pad) var(--e8); }
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
   .app-bar__so-desktop { display: block; }
-  .app-bar { padding-inline: 1.9rem; }
+  .app-bar { padding-inline: var(--e7); }
 }
 
 @media (max-width: 22rem) {
   :root { --pad: .9rem; }
   .ring { width: 6.5rem; height: 6.5rem; }
-  .ring__value { font-size: 1.6rem; } .set-row { grid-template-columns: 2.8rem minmax(0, 1fr) auto auto; }
+  .ring__value { font-size: var(--texto-2xl); } .set-row { grid-template-columns: 2.8rem minmax(0, 1fr) auto auto; }
 }
 
 /* O AR DA BARRA DESCE ANTES DE 27rem — e desde 22/09/2026 é 27 e não 22.
@@ -5323,7 +5331,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
    66,8px por aba — "Alimentação" hifenizava num celular comum. Com o ar
    reduzido são 70px, e ela cabe inteira de 360 para cima (medido). */
 @media (max-width: 27rem) {
-  .tabbar { inset-inline: var(--espaco-3); padding: var(--espaco-2) var(--espaco-1); }
+  .tabbar { inset-inline: var(--e2); padding: var(--e1) var(--e1); }
   .tabbar__item { padding-inline: 0; }
 }
 
@@ -5341,7 +5349,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * HTML entrega de graça. */
 
 .fora {
-  margin-top: .6rem;
+  margin-top: var(--e2);
   border: 1px solid transparent;
   border-radius: var(--quina);
   background: var(--surface-2);
@@ -5362,11 +5370,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  padding: .45rem .85rem;
+  padding: var(--e2) var(--e3);
   border-radius: var(--quina-p);
   background: var(--surface-2);
   color: var(--text-dim);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
   cursor: pointer;
   list-style: none;
@@ -5404,26 +5412,26 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora__interno {
   display: flex;
   flex-direction: column;
-  gap: .55rem;
+  gap: var(--e2);
   min-width: 0;
-  padding: 0 .85rem .85rem;
+  padding: 0 var(--e3) var(--e3);
 }
 
 .fora__interno > * { min-width: 0; }
 
-.fora__campo { display: flex; flex-direction: column; gap: .3rem; }
+.fora__campo { display: flex; flex-direction: column; gap: var(--e1); }
 
 .fora__rotulo {
   color: var(--text-dim);
-  font-size: .78rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
 }
 
 .fora__ajuda {
-  margin: .1rem 0 0;
+  margin: var(--traco) 0 0;
   color: var(--text-mute);
-  font-size: .76rem;
-  line-height: 1.45;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 /* O nome ocupa o que sobra e a gramatura tem largura fixa: são três linhas
@@ -5431,7 +5439,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .fora__item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 4.5rem;
-  gap: .45rem;
+  gap: var(--e2);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5449,13 +5457,13 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * entre pares, e nunca no meio de uma palavra — `hyphens: none` vale para os
  * três textos do cartão. */
 .choice-card__exemplo {
-  margin-top: var(--espaco-1);
-  padding: .28rem var(--espaco-3);
+  margin-top: var(--e1);
+  padding: var(--e1) var(--e2);
   border-radius: var(--quina-p);
   background: var(--surface-3);
   color: var(--text-mute);
-  font-size: .72rem;
-  line-height: 1.5;
+  font-size: var(--texto-xs);
+  line-height: var(--entrelinha);
   hyphens: none;
   overflow-wrap: break-word;
 }
@@ -5488,7 +5496,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "icone" "titulo" "texto";
   align-content: start;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   min-height: 0;
 }
 
@@ -5498,7 +5506,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .choice-cards--duas .choice-card__linha { grid-area: titulo; padding-right: 0; }
 .choice-cards--duas .choice-card__hint { grid-area: texto; }
 .choice-cards--duas .choice-card__title { font-size: var(--texto-md); }
-.choice-cards--duas .choice-card__hint { font-size: .74rem; }
+.choice-cards--duas .choice-card__hint { font-size: var(--texto-xs); }
 
 /* O tique deixa o canto e vira um selo no ombro do ícone. No canto ele
    disputava a faixa do título — foi a reserva de 24px que partia a palavra.
@@ -5513,98 +5521,56 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 }
 .choice-cards--duas .choice-card__mark svg { width: .7rem; height: .7rem; }
 
-/* ==========================================================================
-   30. Segmented control e unidade dentro do campo
-   ========================================================================== */
+/* Os sete dias da semana, em cartões de escolha pequenos (dívida visual,
+   lote 5, 28/09/2026). Eram um segmented próprio; hoje é o `choice-card`,
+   com a mesma moldura e o mesmo visto, só que compacto.
 
-/* Duas opções curtas dividindo uma moldura, com a escolhida preenchida.
- *
- * O rádio nativo põe o estado num círculo de 19px na lateral e o texto ao
- * lado: dois lugares para uma informação. Aqui o estado É o botão.
- *
- * Nada de `:has()` — e a primeira versão desta regra usava um, o que era
- * exatamente o erro que este arquivo documenta em outros três lugares.
- *
- * O `<input>` fica dentro do `<label>`, então só `:has()` alcançaria o pai
- * para pintá-lo. A saída é a mesma do cartão de escolha: o preenchimento é um
- * `<span>` IRMÃO do input, alcançável por `~`, deitado atrás do texto. Onde
- * `:has()` não existe, aquela versão deixava o escolhido sem preenchimento
- * nenhum — indistinguível do não escolhido, num controle cuja única função é
- * mostrar qual está escolhido. */
-.segmented {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 0;
-  /* 6 px, e não o degrau de 4: o foco da opção marcada é anel de 2 px com
-     vão de 2 px (`outline-offset`), e com 4 de padding o anel encostava na
-     borda do contêiner (decisão do dono, 16/09/2026). `calc` sobre o token
-     em vez de `6px` cru: a catraca de espaçamento não sobe. */
-  padding: calc(var(--espaco-1) * 1.5);
-  border: 1px solid var(--fio);
-  border-radius: var(--quina-p);
-  background: var(--surface-2);
-}
-
-.segmented li { min-width: 0; }
-
-.segmented label {
-  position: relative;
-  display: flex;
+   SETE COLUNAS NÃO CABEM: a 390 px a coluna do cadastro tem 318 px, e sete
+   células com vão de 4 px dariam 42 — abaixo do alvo de 44. A fila quebra,
+   como antes, com base de 3,8rem. */
+.choice-cards--dias { display: flex; flex-wrap: wrap; gap: var(--e2); }
+.choice-cards--dias > li { flex: 1 1 3.8rem; min-width: 0; }
+.choice-cards--dias .choice-card {
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  padding: var(--espaco-3) .6rem;
-  border: 0;
-  border-radius: var(--quina-p);
-  background: none;
-  color: var(--text-dim);
-  font-size: .92rem;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  padding: var(--e2) var(--e1);
 }
+.choice-cards--dias .choice-card__text { align-items: center; padding-right: 0; }
+.choice-cards--dias .choice-card__mark { top: var(--e1); right: var(--e1); width: .8rem; height: .8rem; }
+.choice-cards--dias .choice-card__mark svg { width: .55rem; height: .55rem; }
 
-/* O rádio sai da tela e continua no documento: é ele que recebe o foco, muda
-   com as setas e envia com o formulário. */
-.segmented input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+/* A lista: opção de uma palavra ou de uma frase, sem ícone nem dica
+   (restrições, interesses, consentimentos). O cartão com ícone pede 4,25rem;
+   aqui a altura é a da lista antiga, e o cadastro não cresce. */
+.choice-cards--lista .choice-card { align-items: center; min-height: 3.1rem; }
+
+/* CAIXA DE VERDADE na lista: a opção de marcar (consentimento, restrição,
+   interesse) mostra o quadrado VAZIO antes de ser marcada. Sem ele, "Li e
+   aceito os Termos" lia como texto numa moldura (captura do lote 5), e
+   consentimento tem de parecer uma coisa que se marca. O rádio não precisa:
+   a escolha única já é dita pelo grupo. */
+.choice-cards--lista .choice-card > input[type="checkbox"] ~ .choice-card__mark {
+  opacity: 1;
+  transform: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--traco) var(--fio-forte);
 }
-
-/* O preenchimento: deitado atrás do texto, sem interceptar toque. */
-.segmented__fundo {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+.choice-cards--lista .choice-card > input[type="checkbox"] ~ .choice-card__mark svg { opacity: 0; }
+.choice-cards--lista .choice-card > input[type="checkbox"]:checked ~ .choice-card__mark {
+  background: var(--brand);
+  box-shadow: none;
 }
+.choice-cards--lista .choice-card > input[type="checkbox"]:checked ~ .choice-card__mark svg { opacity: 1; }
 
-.segmented__texto { position: relative; }
+/* Duas opções curtas lado a lado, sem ícone (o sexo do cadastro). O
+   `--duas` empilha ícone e texto e põe o visto sobre o ícone; sem ícone o
+   visto caía em cima da palavra (captura do lote 5). */
+.choice-cards--par { grid-template-columns: 1fr 1fr; }
 
-.segmented input:checked ~ .segmented__fundo { background: var(--brand); }
-.segmented input:checked ~ .segmented__texto { color: var(--on-brand); }
-
-.segmented label:hover .segmented__fundo { background: var(--surface-3); }
-.segmented input:checked ~ .segmented__fundo:hover,
-.segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-
-/* Foco é `--brand`; `--agua` é cor de pilar. Anel COM VÃO, pelo mesmo motivo
-   do chip de dia (decisão do dono, 16/09/2026): a opção marcada é `--brand`
-   cheio, e sem o vão o foco sumia dentro dela. */
-.segmented input:focus-visible ~ .segmented__fundo {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
+/* ==========================================================================
+   30. Unidade dentro do campo
+   ========================================================================== */
 
 /* A unidade encostada à direita, dentro do campo.
  *
@@ -5616,7 +5582,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * alvo morto de 30px colado no alvo vivo é exatamente onde o polegar erra. */
 .campo-unidade { position: relative; display: block; }
 
-.campo-unidade .field-input { padding-right: 3rem; }
+.campo-unidade .field-input { padding-right: var(--e8); }
 
 .campo-unidade__sufixo {
   position: absolute;
@@ -5624,7 +5590,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   right: .85rem;
   transform: translateY(-50%);
   color: var(--text-mute);
-  font-size: .88rem;
+  font-size: var(--texto-md);
   font-weight: 600;
   pointer-events: none;
 }
@@ -5640,11 +5606,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * único lugar que a pessoa olha ao chegar em qualquer tela, e depois sai do
  * caminho — que é o que "discreto" quer dizer. */
 .app-bar__demo {
-  margin-left: .4rem;
-  padding: .1rem .38rem;
-  border: 1px solid color-mix(in srgb, var(--terra) 30%, transparent);
+  margin-left: var(--e2);
+  padding: var(--traco) var(--e2);
+  border: 1px solid var(--terra-linha-forte);
   border-radius: var(--quina-p);
-  background: color-mix(in srgb, var(--terra) 12%, transparent);
+  background: var(--terra-tinta);
   color: var(--terra);
   font-size: var(--texto-xs);
   font-weight: 700;
@@ -5653,11 +5619,11 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   white-space: nowrap;
 }
 
-.demo-capa { margin-bottom: 1.2rem; }
-.demo-capa h1 { margin: .55rem 0 .3rem; }
+.demo-capa { margin-bottom: var(--e5); }
+.demo-capa h1 { margin: var(--e2) 0 var(--e1); }
 .demo-capa .lead { margin-bottom: 0; }
 
-.demo-pessoa { margin-bottom: 1.4rem; }
+.demo-pessoa { margin-bottom: var(--e6); }
 
 /* Duas colunas de dado, que é o formato de ficha — e o `min-width: 0` em cada
    uma porque nome de objetivo ("Emagrecer e ganhar massa") é mais largo que a
@@ -5665,41 +5631,40 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .demo-pessoa__dados {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: var(--espaco-4) var(--espaco-6);
-  margin: 0 0 var(--espaco-5);
+  gap: var(--e3) var(--e4);
+  margin: 0 0 var(--e4);
 }
 
 .demo-pessoa__dados > div { min-width: 0; }
 .demo-pessoa__dados dt {
   color: var(--text-mute);
-  font-size: .74rem;
+  font-size: var(--texto-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .03em;
 }
 .demo-pessoa__dados dd {
-  margin: .1rem 0 0;
+  margin: var(--traco) 0 0;
   color: var(--text);
-  font-size: .98rem;
+  font-size: var(--texto-base);
   font-weight: 700;
   overflow-wrap: break-word;
 }
 
 .demo-pessoa__aviso {
   margin: 0;
-  padding-top: .8rem;
+  padding-top: var(--e3);
   border-top: 1px solid var(--fio);
   color: var(--text-mute);
   font-size: var(--texto-sm);
-  line-height: 1.5;
+  line-height: var(--entrelinha);
 }
 
-.demo-titulo { margin: 0 0 var(--espaco-4); font-size: 1.05rem; }
 
 .demo-areas {
   display: grid;
-  gap: .55rem;
-  margin: 0 0 1.1rem;
+  gap: var(--e2);
+  margin: 0 0 var(--e4);
   padding: 0;
   list-style: none;
 }
@@ -5712,9 +5677,9 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: .2rem .8rem;
+  gap: var(--e1) var(--e3);
   min-height: 2.75rem;
-  padding: .85rem var(--espaco-6);
+  padding: var(--e3) var(--e4);
   border: 1px solid transparent;
   border-radius: var(--quina);
   background: var(--surface);
@@ -5731,7 +5696,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   min-width: 0;
   color: var(--text-mute);
   font-size: var(--texto-sm);
-  line-height: 1.45;
+  line-height: var(--entrelinha);
   hyphens: none;
   overflow-wrap: break-word;
 }
@@ -5747,8 +5712,8 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 .demo-area__seta svg { width: 1.1rem; height: 1.1rem; }
 .demo-area:hover .demo-area__seta { color: var(--brand); }
 
-.lista-simples { margin: 0 0 var(--espaco-6); padding-left: 1.15rem; line-height: 1.6; }
-.lista-simples li { margin-bottom: var(--espaco-2); }
+.lista-simples { margin: 0 0 var(--e4); padding-left: var(--e5); line-height: var(--entrelinha); }
+.lista-simples li { margin-bottom: var(--e1); }
 
 /* O aviso de ambiente de demonstração.
  *
@@ -5773,17 +5738,17 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   /* A nervura do título (`.page-head h1::after`) sobe ~24 px acima do `h1`;
      com 16 px a ponta encostava no sublinhado de "Saiba mais" (produção,
      17/09/2026). MEDIDO em 18/09: com 32 px a ponta cai exatamente na
      base da caixa do link (folga 0); 40 px deixam 8 px. */
-  margin: 0 0 calc(var(--espaco-7) + var(--espaco-6));
-  padding: var(--espaco-1) 0 var(--espaco-1) var(--espaco-5);
-  border-left: 2px solid color-mix(in srgb, var(--terra) 55%, transparent);
+  margin: 0 0 calc(var(--e6) + var(--e4));
+  padding: var(--e1) 0 var(--e1) var(--e4);
+  border-left: 2px solid var(--terra-aviso);
   color: var(--text-mute);
   font-size: var(--texto-sm);
-  line-height: 1.45;
+  line-height: var(--entrelinha);
 }
 
 /* O link herda o alvo de 44px do `.btn-link`, e só a cor muda — o aviso é
@@ -5821,18 +5786,18 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 /* O fio de acento no topo dos cartões de destaque do painel.
  *
- * Só nos três que a pessoa lê ANTES de decidir alguma coisa: a ofensiva, o
- * resumo do dia e a água. Os outros seis cartões do painel são consulta —
+ * Só nos que a pessoa lê ANTES de decidir alguma coisa (o resumo do dia
+ * saiu daqui em 28/09/2026: ele é o PRATO da Alimentação): a ofensiva e a
+ * água. Os outros seis cartões do painel são consulta —
  * balanço de energia, como chegamos na meta, lembretes — e um fio verde em
  * todos eles não destacaria nada, só pintaria a tela de listras.
  *
  * `color-mix` com o token, e não `rgba(16, 185, 129, .2)` escrito à mão: o
  * verde do tema claro é #0c6b40, e o esmeralda fixo apareceria ali como uma
  * cor que não pertence a lugar nenhum da paleta. Um valor, dois temas. */
-.today-hero,
 .ofensiva,
 .agua {
-  border-top: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  border-top: 1px solid var(--brand-linha);
 }
 
 /* ==========================================================================
@@ -5863,7 +5828,7 @@ body::before {
   pointer-events: none;
   background: radial-gradient(
     120% 100% at 50% 0%,
-    color-mix(in srgb, var(--brand) 6%, transparent),
+    var(--palco-brilho-alto),
     transparent 70%
   );
 }
@@ -5880,10 +5845,9 @@ body::before {
  * uma cor sólida custa quadros para produzir a mesma cor sólida.
  *
  * O fundo precisa ser translúcido, senão não há o que ver através. */
-.today-hero,
 .ofensiva,
 .agua {
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  background: var(--surface-translucida);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
@@ -5891,7 +5855,6 @@ body::before {
 /* Sem suporte a `backdrop-filter`, o fundo translúcido deixaria o halo passar
    direto e o texto perderia contraste. Ali o cartão volta a ser opaco. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .today-hero,
   .ofensiva,
   .agua { background: var(--surface); }
 }
@@ -5929,7 +5892,7 @@ body.montando { overflow: hidden; }
 .montagem__corpo {
   display: grid;
   justify-items: center;
-  gap: var(--espaco-5);
+  gap: var(--e4);
   max-width: 20rem;
   text-align: center;
 }
@@ -5941,7 +5904,7 @@ body.montando { overflow: hidden; }
 .montagem__anel {
   width: 2.75rem;
   height: 2.75rem;
-  border: 3px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  border: 3px solid var(--brand-linha);
   border-top-color: var(--brand);
   border-radius: 50%;
   animation: montagem-gira calc(var(--mov-sucesso) * 1.6) linear infinite;
@@ -5960,13 +5923,13 @@ body.montando { overflow: hidden; }
   color: var(--text);
   font-size: var(--texto-base);
   font-weight: 600;
-  line-height: 1.45;
+  line-height: var(--entrelinha);
 }
 
 .montagem__nota {
   margin: 0;
   color: var(--text-mute);
-  font-size: .82rem;
+  font-size: var(--texto-sm);
 }
 
 /* Quem pediu menos movimento recebe o anel parado — e ele continua sendo o
@@ -5980,12 +5943,6 @@ body.montando { overflow: hidden; }
    34. Perfil: metas e conta
    ========================================================================== */
 
-/* O cartão de metas leva a borda de acento dos destaques do painel: ele é o
-   mesmo tipo de peça — o número que a pessoa veio conferir. */
-.card--metas {
-  border-top: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
-}
-
 /* Duas colunas de dado, e as duas primeiras em corpo maior.
  *
  * Caloria e proteína acima de carboidrato e gordura pela mesma razão do
@@ -5995,43 +5952,43 @@ body.montando { overflow: hidden; }
 .metas {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-  gap: .75rem var(--espaco-6);
-  margin: 0 0 var(--espaco-6);
+  gap: var(--e3) var(--e4);
+  margin: 0 0 var(--e4);
 }
 
 .metas > div { min-width: 0; }
 
 .metas dt {
   color: var(--text-mute);
-  font-size: .74rem;
+  font-size: var(--texto-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .03em;
 }
 
 .metas dd {
-  margin: .12rem 0 0;
+  margin: var(--traco) 0 0;
   color: var(--text);
   font-size: var(--texto-base);
   font-weight: 700;
 }
 
-.metas__principal { font-size: 1.35rem; font-weight: 700; }
+.metas__principal { font-size: var(--texto-xl); font-weight: 700; }
 /* A unidade não cresce junto: "2765" é o dado e "kcal" é o rótulo dele. */
 .metas__principal span { font-size: var(--texto-sm); font-weight: 600; color: var(--text-mute); }
 
 .metas__nota {
-  margin: 0 0 var(--espaco-5);
+  margin: 0 0 var(--e4);
   color: var(--text-dim);
-  font-size: .82rem;
-  line-height: 1.5;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 .metas__rodape {
-  margin: var(--espaco-4) 0 0;
+  margin: var(--e3) 0 0;
   color: var(--text-mute);
-  font-size: .76rem;
-  line-height: 1.45;
+  font-size: var(--texto-sm);
+  line-height: var(--entrelinha);
 }
 
 /* Sair é irreversível do ponto de vista de quem não lembra a senha. A cor de
@@ -6041,14 +5998,14 @@ body.montando { overflow: hidden; }
 .card--conta { margin-top: var(--gap); }
 
 .btn--perigo {
-  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger-linha-forte);
+  background: var(--danger-tinta);
   color: var(--danger);
 }
 
 .btn--perigo:hover {
   border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  background: var(--danger-tinta-hover);
 }
 
 /* ==========================================================================
@@ -6099,7 +6056,7 @@ body.montando { overflow: hidden; }
   pointer-events: none;
   background:
     radial-gradient(90% 55% at 50% -8%,
-                    color-mix(in srgb, var(--brand) 20%, transparent) 0%,
+                    var(--palco-entrada) 0%,
                     transparent 62%),
     /* 12 % de preto no ponto mais forte, e não 55 %: o rodapé da entrada
        ("Esqueci minha senha", "Criar agora", os links legais) mora na borda
@@ -6119,15 +6076,15 @@ body.montando { overflow: hidden; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--espaco-2);
-  margin-bottom: var(--espaco-7);
+  gap: var(--e1);
+  margin-bottom: var(--e6);
   text-align: center;
 }
 .entrada__logo {
   display: block;
   width: 3.5rem;
   height: 3.5rem;
-  margin-bottom: var(--espaco-3);
+  margin-bottom: var(--e2);
 }
 .entrada__logo .marca {
   width: 100%;
@@ -6135,7 +6092,7 @@ body.montando { overflow: hidden; }
   border-radius: var(--quina);
   /* O mesmo halo difuso do fundo, agora ancorado na própria marca: é o que
      faz o ícone assentar sobre o escuro em vez de flutuar recortado. */
-  box-shadow: 0 12px 40px -14px color-mix(in srgb, var(--brand) 60%, transparent);
+  box-shadow: 0 12px 40px -14px var(--marca-brilho);
 }
 .entrada__wordmark {
   font-family: var(--font-display);
@@ -6172,12 +6129,11 @@ body.montando { overflow: hidden; }
   .entrada__logo {
     width: 2.75rem;
     height: 2.75rem;
-    margin-bottom: var(--espaco-2);
+    margin-bottom: var(--e1);
   }
-  .entrada__marca { margin-bottom: var(--espaco-5); }
+  .entrada__marca { margin-bottom: var(--e4); }
   .entrada__wordmark { font-size: var(--texto-xl); }
   .entrada__tagline { font-size: var(--texto-sm); }
-  .auth .card { padding: var(--espaco-6) var(--espaco-5); }
   .auth h1 { font-size: var(--texto-2xl); }
 }
 
@@ -6194,12 +6150,7 @@ body.montando { overflow: hidden; }
 
    `background: none` e não uma superfície: se o painel voltar a ter fundo,
    volta o retângulo, e com ele a sensação de formulário dentro de página. */
-.entrada__cartao {
-  padding: 0;
-  background: none;
-  border: 0;
-  box-shadow: none;
-}
+.entrada__cartao { padding: var(--e6) var(--e5); }
 
 /* O título da tela alinha à esquerda com o resto do formulário. Centralizado,
    ele lia como cabeçalho de documento; à esquerda, ele abre a coluna que os
@@ -6207,7 +6158,7 @@ body.montando { overflow: hidden; }
 .entrada__cartao > h1.center,
 .entrada__cartao > p.lead.center { text-align: left; }
 
-.entrada__cartao > h1.center { margin-bottom: var(--espaco-1); }
+.entrada__cartao > h1.center { margin-bottom: var(--e1); }
  /* O vidro da entrada saiu junto com o cartão.
 
    Este bloco dava ao painel de login um fundo de superfície a 82% mais
@@ -6229,23 +6180,6 @@ body.montando { overflow: hidden; }
   min-height: calc(100dvh - 3.6rem);
 }
 
-/* O CARTÃO DA ENTRADA SAIU, e era daqui que ele vinha.
-
-   Este seletor tem dois níveis de classe — `.auth--entrada .card` — contra o
-   único de `.entrada__cartao`. Removi o fundo lá primeiro e o retângulo
-   continuou na tela por três capturas: especificidade não se resolve por
-   ordem no arquivo.
-
-   O que sai: fundo translúcido, desfoque e sombra. O halo de marca que este
-   painel existia para desfocar continua ali, e agora ele banha o formulário
-   inteiro em vez de ficar espremido atrás de um retângulo. O que fica: o
-   padding, que é o que segura a coluna longe da borda do telefone. */
-.auth--entrada .card {
-  padding: 1.4rem 1.15rem;
-  background: none;
-  border: 0;
-  box-shadow: none;
-}
 
 /* ---- o olho da senha ---- */
 
@@ -6254,7 +6188,7 @@ body.montando { overflow: hidden; }
 /* O espaço à direita é do botão. Sem ele o cursor caminha por baixo do ícone e
    os últimos caracteres digitados ficam escondidos justamente por quem foi
    posto ali para mostrá-los. */
-.campo-senha .field-input { padding-right: 3.25rem; }
+.campo-senha .field-input { padding-right: calc(var(--e7) + var(--e5)); }
 
 .campo-senha__olho {
   position: absolute;
@@ -6315,10 +6249,10 @@ body.montando { overflow: hidden; }
 .hoje {
   display: flex;
   flex-direction: column;
-  gap: .85rem;
+  gap: var(--e3);
   border-radius: var(--quina-g);
   background: var(--surface-focus);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  border-color: var(--brand-linha-forte);
 }
 
 /* O sobretítulo é o que responde "que tela é esta" em uma olhada. Ele é
@@ -6607,10 +6541,10 @@ body.montando { overflow: hidden; }
    destaque é "Entrar" e "Criar conta". O Google é uma alternativa: mesma
    largura, mesmo alvo, peso menor. Invertê-lo empurraria para o caminho que
    nem todo mundo quer usar. */
-.google-entrada { margin: 0 0 .85rem; }
+.google-entrada { margin: 0 0 var(--e3); }
 
 .btn--google {
-  gap: .6rem;
+  gap: var(--e2);
   font-weight: 600;
 }
 
@@ -6635,8 +6569,8 @@ body.montando { overflow: hidden; }
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: .75rem;
-  margin: 0 0 1.1rem;
+  gap: var(--e3);
+  margin: 0 0 var(--e4);
   color: var(--text-mute);
   font-size: var(--texto-sm);
 }
@@ -6649,15 +6583,15 @@ body.montando { overflow: hidden; }
 
 /* A tela de conectar a conta (o caso 4 da política de vínculo). */
 .vinculo__email {
-  margin: -.35rem 0 1.15rem;
+  margin: calc(-1 * var(--e1)) 0 var(--e5);
   color: var(--text);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .vinculo__explica {
-  margin: 0 0 1.1rem;
+  margin: 0 0 var(--e4);
   color: var(--text-dim);
-  font-size: .88rem;
+  font-size: var(--texto-md);
 }
 
 /* ==========================================================================
@@ -6863,8 +6797,8 @@ body.montando { overflow: hidden; }
   display: block;
   aspect-ratio: 16 / 9;
   max-height: calc(100dvh - var(--appbar-h) - var(--exec-descanso)
-                   - var(--exec-cabeca) - var(--exec-bloco) - var(--espaco-7));
-  background: #000;
+                   - var(--exec-cabeca) - var(--exec-bloco) - var(--e6));
+  background: var(--video-fundo);
 }
 /* O relógio de descanso está na tela: 64px a menos de faixa. A classe vem do
    servidor (`{% if estado.descanso_restante %}`), nunca de `:has()`. */
@@ -6885,19 +6819,28 @@ body.montando { overflow: hidden; }
 
 .demo__fechar {
   position: absolute;
-  top: var(--espaco-3);
-  right: var(--espaco-3);
+  top: var(--e2);
+  right: var(--e2);
   min-height: 2.75rem;
   min-width: 2.75rem;
-  padding: 0 var(--espaco-4);
+  padding: 0 var(--e3);
   border: 0;
   border-radius: var(--quina-p);
-  background: rgba(0, 0, 0, .62);
-  color: #fff;
+  background: var(--video-veu);
+  color: var(--video-texto);
   font: inherit;
   font-size: var(--texto-sm);
   font-weight: 700;
   cursor: pointer;
+}
+
+/* "Buscar no YouTube" é a única saída da execução sem vídeo, e media 21 px
+   de altura (auditoria visual de 27/09/2026). */
+.agora__sem-media a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
 }
 
 .agora__sem-media {
@@ -7008,7 +6951,7 @@ body.montando { overflow: hidden; }
 .series__item--pendente-rede { border-style: dashed; }
 .meal--pendente-rede { opacity: .85; }
 .aguardando-rede {
-  margin: var(--espaco-3) 0 0;
+  margin: var(--e2) 0 0;
   color: var(--text-dim);
   font-size: var(--texto-sm);
 }
@@ -7642,28 +7585,16 @@ body:not(.tem-tabbar) .agora__registro {
    `prefers-contrast`.
 
    Uma superfície de foco POR TELA. Se um segundo cartão pedir este fundo, a
-   pergunta certa é qual dos dois deixa de ser foco. */
-.agora-card {
-  padding-top: .85rem;
-  background: var(--surface-focus);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
-}
+   pergunta certa é qual dos dois deixa de ser foco.
 
-/* Os ramos que NÃO são ação com hora marcada abrem mão do foco.
-
-   Água e pesagem são convites, e o cartão vazio é a ausência de pendência —
-   nenhum dos três tem hora que passa. Deixar os três no verde faria a tela
-   dizer "urgente" todo dia, e uma tela que grita sempre não grita nunca. */
-.agora-card--agua,
-.agora-card--pesagem,
-.agora-card--vazio {
-  background: var(--surface);
-  border-color: var(--fio);
-}
+   Desde 28/09/2026 o fundo e o contorno são do `.card--prato`, e quem
+   decide é o SERVIDOR (`_agora.html`): água, pesagem e o cartão vazio são
+   convite ou ausência de pendência — nenhum tem hora que passa, e deixar
+   os três no verde faria a tela dizer "urgente" todo dia. */
 
 .agora__rotulo {
-  margin: 0 0 var(--espaco-1);
-  font-size: .72rem;
+  margin: 0 0 var(--e1);
+  font-size: var(--texto-xs);
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -7678,13 +7609,13 @@ body:not(.tem-tabbar) .agora__registro {
 .agora-card--vazio .agora__rotulo { color: var(--text-mute); }
 
 .agora__titulo {
-  margin: 0 0 .3rem;
+  margin: 0 0 var(--e1);
   /* O nome da refeição da vez é herói: Bodoni a 22,7 px (o mesmo 1.42rem do
      nome do exercício), 600. */
   font-family: var(--font-display);
-  font-size: 1.42rem;
+  font-size: var(--texto-xl);
   font-weight: 800;
-  line-height: 1.15;
+  line-height: var(--entrelinha-display);
   letter-spacing: .01em;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -7692,10 +7623,10 @@ body:not(.tem-tabbar) .agora__registro {
 }
 
 .agora__detalhe {
-  margin: 0 0 .75rem;
+  margin: 0 0 var(--e3);
   color: var(--text-dim);
   font-size: var(--texto-md);
-  line-height: 1.4;
+  line-height: var(--entrelinha);
   min-width: 0;
 }
 
@@ -7720,25 +7651,33 @@ body:not(.tem-tabbar) .agora__registro {
    meta que ninguém abre o app para cumprir. O conteúdo é o mesmo; o cartão em
    volta existe só para ela não ficar solta agora que não divide seção com o
    cardápio. */
-.agua-card { padding-top: .8rem; }
+.agua-card { padding-top: var(--e3); }
 
 /* -- As explicações do cálculo, recolhidas ------------------------------- */
 
 /* TMB, TDEE, fator de atividade, fórmula e dados de entrada continuam na
    página, inteiros. O que muda é que eles não abrem sozinhos: eram ~1.100px
    de tabela numa tela cuja pergunta é "o que eu como agora". */
-.explicacao { padding-block: .2rem; }
-
 .explicacao__head {
   display: flex;
   align-items: center;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   min-height: 2.75rem;
-  padding-block: var(--espaco-2);
+  padding-block: var(--e1);
   cursor: pointer;
   list-style: none;
 }
 .explicacao__head::-webkit-details-marker { display: none; }
+/* Fechada, a explicação é UMA LINHA: o `<summary>` ocupa o respiro de cima
+   e de baixo do cartão, e o toque vale na faixa inteira. A caixa continua a
+   do `.card` (`UmCartaoSoTests`); quem estica é a linha — com o `--pad` do
+   cartão em volta, as três explicações da Alimentação iam de 54 a 86 px
+   (medido em 28/09/2026). A do Peso mora DENTRO de um cartão e fica como é. */
+.card.explicacao > .explicacao__head {
+  margin-top: calc(-1 * var(--pad));
+  padding-block: var(--e3);
+}
+.card.explicacao:not([open]) > .explicacao__head { margin-bottom: calc(-1 * var(--pad)); }
 /* `h3` junto do `h2`: o mesmo cabeçalho serve a um bloco de tela (a
    explicação da meta, `h2`) e a uma seção DENTRO de um cartão (a lista de
    pesagens, `h3`, que não pode roubar o nível do "Peso" acima dela). */
@@ -7751,7 +7690,7 @@ body:not(.tem-tabbar) .agora__registro {
    uma seta: seta sozinha não diz o que vai acontecer. */
 .explicacao__dica {
   margin-left: auto;
-  font-size: .76rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
   color: var(--text-mute);
   white-space: nowrap;
@@ -7788,7 +7727,7 @@ body:not(.tem-tabbar) .agora__registro {
   flex: none;
   margin-left: auto;
   align-self: center;
-  padding: .2rem var(--espaco-3);
+  padding: var(--e1) var(--e2);
   /* `--pill` e não `999px`: a escala de raios é um token e o sistema de design
      tem teste proibindo valor cru. Este é o mesmo token das pílulas da ficha
      de treino — uma pílula, um raio. */
@@ -7810,7 +7749,7 @@ body:not(.tem-tabbar) .agora__registro {
    só uma borda neutra mais firme. */
 .meal__marca--agora {
   background: var(--brand-soft);
-  border-color: color-mix(in srgb, var(--brand) 34%, transparent);
+  border-color: var(--brand-linha-forte);
   color: var(--brand-strong);
 }
 
@@ -7823,19 +7762,19 @@ body:not(.tem-tabbar) .agora__registro {
    curta — mesma exigência, metade da leitura. A validação não mudou: quem
    recusa senha continua sendo `AUTH_PASSWORD_VALIDATORS`. */
 .senha__titulo {
-  margin: 0 0 .2rem;
+  margin: 0 0 var(--e1);
   font-weight: 600;
   color: var(--text-dim);
 }
 
 .senha__regras {
   margin: 0;
-  padding-left: 1.05rem;
+  padding-left: var(--e4);
   display: grid;
-  gap: .1rem;
+  gap: var(--traco);
 }
 
-.senha__regras > li { line-height: 1.35; }
+.senha__regras > li { line-height: var(--entrelinha-titulo); }
 
 /* ==========================================================================
    40. Conquistas: o aviso e a tela
@@ -7853,11 +7792,11 @@ body:not(.tem-tabbar) .agora__registro {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + .6rem);
   /* (o desconto da barra ausente vem logo abaixo, pela classe do servidor) */
   z-index: var(--camada-aviso);
-  padding: var(--espaco-5) var(--espaco-6);
+  padding: var(--e4) var(--e4);
   border: 1px solid var(--fio-forte);
   border-radius: var(--quina);
   background: var(--surface-2);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  box-shadow: var(--sombra-aviso);
 }
 /* Sem barra de abas (a execução do treino), o aviso desce junto: ele segue
    `.install`, e `.install` já é `body.tem-tabbar`. Aqui a regra base não
@@ -7872,7 +7811,7 @@ body:not(.tem-tabbar) .conquista {
    de concluir, 22/09/2026): nada fixo, nada por cima do botão. */
 .conquista--em-fluxo {
   position: static;
-  margin: var(--espaco-4) 0 0;
+  margin: var(--e3) 0 0;
   box-shadow: 0 0 0 0 transparent;
 }
 
@@ -7894,32 +7833,32 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .conquista__slide {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--espaco-4) var(--espaco-5);
+  gap: var(--e3) var(--e4);
 }
 
 .conquista__slide[hidden] { display: none; }
 
-.conquista__emoji { font-size: 1.7rem; line-height: 1; }
+.conquista__emoji { font-size: var(--texto-2xl); line-height: 1; }
 
-.conquista__texto { min-width: 0; display: grid; gap: .15rem; }
+.conquista__texto { min-width: 0; display: grid; gap: var(--traco); }
 
 .conquista__rotulo {
   margin: 0;
   color: var(--brand);
-  font-size: .72rem;
+  font-size: var(--texto-xs);
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
 }
 
-.conquista__titulo { font-size: 1.05rem; }
-.conquista__frase { color: var(--text-dim); font-size: .86rem; line-height: 1.45; }
+.conquista__titulo { font-size: var(--texto-base); }
+.conquista__frase { color: var(--text-dim); font-size: var(--texto-md); line-height: var(--entrelinha); }
 
 .conquista__acoes {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   align-items: stretch;
 }
 
@@ -7948,7 +7887,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .conquistas__resumo {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--espaco-3);
+  gap: var(--e2);
 }
 
 .conquistas__numero {
@@ -7956,12 +7895,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      `achievements/tests.py` exige que o `num` continue no HTML, então ele
      fica; o que muda é a família deixar de DEPENDER dele. */
   display: block;
-  font-size: 1.5rem;
+  font-size: var(--texto-xl);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.conquistas__rotulo { color: var(--text-mute); font-size: .72rem; }
+.conquistas__rotulo { color: var(--text-mute); font-size: var(--texto-xs); }
 
 /* O interruptor do som opcional. Desligado por padrão — o `checked` inicial
    é lido do `localStorage` pelo `conquista.js`, nunca escrito pelo servidor
@@ -7969,7 +7908,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .conquistas__som {
   display: flex;
   align-items: center;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-height: 2.75rem;
   color: var(--text-dim);
   cursor: pointer;
@@ -7984,28 +7923,28 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .conquista-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: .8rem;
+  gap: var(--e3);
   align-items: center;
   min-height: 44px;
-  padding: var(--espaco-4) .2rem;
+  padding: var(--e3) var(--e1);
   border-bottom: 1px solid var(--fio);
 }
 
 .conquista-item:last-child { border-bottom: 0; }
 .conquista-item__emoji { font-size: var(--texto-xl); line-height: 1; }
 .conquista-item__nome { min-width: 0; }
-.conquista-item__frase { color: var(--text-dim); font-size: .82rem; line-height: 1.4; }
-.conquista-item__quantas { color: var(--text-mute); font-size: .78rem; }
+.conquista-item__frase { color: var(--text-dim); font-size: var(--texto-sm); line-height: var(--entrelinha); }
+.conquista-item__quantas { color: var(--text-mute); font-size: var(--texto-sm); }
 
 .conquista-item__share {
   min-height: 44px;
   min-width: 44px;
-  padding: 0 .8rem;
+  padding: 0 var(--e3);
 }
 
 /* Progresso: barra fina, número tabular. O número é o que responde "falta
    quanto?"; a barra só dá a leitura de relance. */
-.progresso { display: grid; gap: .3rem; }
+.progresso { display: grid; gap: var(--e1); }
 
 .progresso__trilho {
   height: 6px;
@@ -8018,7 +7957,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 .progresso__num {
   color: var(--text-mute);
-  font-size: .78rem;
+  font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -8030,50 +7969,51 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Texto longo, e a única coisa que ele precisa é ser lido. Nada de coluna
    estreita decorativa: o `.card` já limita a largura, e a medida de linha do
    corpo do app vale aqui como vale no resto. */
-.legal h2 {
-  font-size: 1.05rem;
-  margin-bottom: var(--espaco-3);
+.legal h2,
+.card--prosa h2 {
+  font-size: var(--texto-lg);
+  margin-bottom: var(--e2);
 }
 
 .legal h3 {
-  font-size: .92rem;
+  font-size: var(--texto-md);
   color: var(--text-mute);
-  margin: var(--espaco-6) 0 .4rem;
+  margin: var(--e4) 0 var(--e2);
 }
 
 .legal p,
-.legal li { line-height: 1.6; }
+.legal li { line-height: var(--entrelinha); }
 
 .legal ul {
-  margin: 0 0 .4rem 1.1rem;
+  margin: 0 0 var(--e2) var(--e4);
   display: grid;
-  gap: var(--espaco-2);
+  gap: var(--e1);
 }
 
 /* Termo em cima, explicação embaixo. Duas colunas a 390px espremeriam as duas
    e o texto quebraria no meio de "restrições alimentares". */
 .legal__dados {
   display: grid;
-  gap: .1rem;
-  margin: 0 0 .6rem;
+  gap: var(--traco);
+  margin: 0 0 var(--e2);
 }
 
 .legal__dados dt {
   font-weight: 600;
-  margin-top: .55rem;
+  margin-top: var(--e2);
 }
 
 .legal__dados dd {
   margin: 0;
   color: var(--text-mute);
-  line-height: 1.55;
+  line-height: var(--entrelinha);
 }
 
 /* A lacuna declarada. Fundo tingido para não passar como parágrafo comum:
    quem lê precisa perceber que ali falta uma informação, e não que o texto
    simplesmente terminou. */
 .legal__pendencia {
-  padding: var(--espaco-4) .85rem;
+  padding: var(--e3) var(--e3);
   border-radius: var(--quina-p);
   border-left: 3px solid var(--danger);
   background: var(--surface-2);
@@ -8087,7 +8027,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 
 .legal__volta {
-  margin: 1.2rem 0 0;
+  margin: var(--e5) 0 0;
   text-align: center;
 }
 
@@ -8102,15 +8042,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  padding: 0 var(--espaco-5);
+  padding: 0 var(--e4);
 }
 
 /* Os dois links no rodapé de entrar/criar conta e do perfil. Discretos: a
    atenção da tela pertence ao formulário. */
 .links-legais {
-  margin: 1.1rem 0 0;
+  margin: var(--e4) 0 0;
   text-align: center;
-  font-size: .82rem;
+  font-size: var(--texto-sm);
   color: var(--text-mute);
   display: flex;
   justify-content: center;
@@ -8124,18 +8064,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      390px — com 24 de vão dá 347 e a linha quebra num celular comum, com 16
      dá 331 e cabe. A 320 ela quebra (276 de container), e "Ajuda" desce
      centralizada, que é o pior caso e continua legível. */
-  gap: var(--espaco-6);
+  gap: var(--e4);
   flex-wrap: wrap;
 }
 
 /* Os links dentro da caixa de aceite dos Termos (22/09/2026): texto
    corrido, mas alvo de 44 px — o preenchimento vertical vai para dentro da
    margem negativa, então a linha não cresce. Medido na varredura: 150 × 16. */
-.consentimento__links { display: block; margin-top: var(--espaco-1); }
+.consentimento__links { display: block; margin-top: var(--e1); }
 .consentimento__links a {
   display: inline-block;
-  padding: var(--espaco-4) 0;
-  margin: calc(-1 * var(--espaco-4)) 0;
+  padding: var(--e3) 0;
+  margin: calc(-1 * var(--e3)) 0;
   color: var(--brand);
 }
 
@@ -8146,16 +8086,16 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 var(--espaco-3);
+  padding: 0 var(--e2);
   /* O rótulo não quebra no meio: "Política de / Privacidade" em duas linhas
      dentro do próprio link é pior que a linha quebrar entre os links. */
   white-space: nowrap;
 }
 
 .conta__exportar-nota {
-  margin: -.2rem 0 var(--espaco-5);
+  margin: calc(-1 * var(--e1)) 0 var(--e4);
   font-size: var(--texto-sm);
-  line-height: 1.5;
+  line-height: var(--entrelinha);
 }
 
 /* ==========================================================================
@@ -8208,7 +8148,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .tabela-gestao {
   width: 100%;
   border-collapse: collapse;
-  font-size: .85rem;
+  font-size: var(--texto-sm);
   /* Número em coluna precisa de largura fixa por dígito, ou a coluna dança a
      cada linha e a leitura vertical some. */
   font-variant-numeric: tabular-nums;
@@ -8216,7 +8156,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 .tabela-gestao th,
 .tabela-gestao td {
-  padding: .65rem .75rem;
+  padding: var(--e3) var(--e3);
   text-align: left;
   white-space: nowrap;
   border-bottom: 1px solid var(--fio);
@@ -8228,7 +8168,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   background: var(--surface-2);
   color: var(--text-dim);
   font-weight: 600;
-  font-size: .78rem;
+  font-size: var(--texto-sm);
 }
 
 .tabela-gestao tbody tr:last-child td { border-bottom: 0; }
@@ -8236,8 +8176,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .filtro-gestao {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  margin-bottom: var(--espaco-6);
+  gap: var(--e3);
+  margin-bottom: var(--e4);
 }
 
 /* 44px de altura E de largura: a régua do app vale aqui também, e um select
@@ -8245,7 +8185,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .filtro-gestao select {
   min-height: 44px;
   min-width: 44px;
-  padding: 0 .75rem;
+  padding: 0 var(--e3);
   border: 1px solid var(--fio);
   border-radius: var(--quina);
   background: var(--surface);
@@ -8257,8 +8197,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--espaco-6);
-  margin-top: var(--espaco-6);
+  gap: var(--e4);
+  margin-top: var(--e4);
 }
 
 /* As abas do painel. Existem porque `app-bar__link` some abaixo de 60rem — ele
@@ -8269,10 +8209,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    44px de altura E de largura, como no app inteiro. */
 .gestao-abas {
   display: flex;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   min-width: 0;
   overflow-x: auto;
-  padding: .75rem var(--espaco-6);
+  padding: var(--e3) var(--e4);
   border-bottom: 1px solid var(--fio);
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
@@ -8284,7 +8224,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   justify-content: center;
   min-height: 44px;
   min-width: 44px;
-  padding: 0 var(--espaco-6);
+  padding: 0 var(--e4);
   border-radius: var(--quina-p);
   color: var(--text-dim);
   font-size: var(--texto-md);
@@ -8319,7 +8259,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      outra sobrar. */
   grid-template-columns: 3.2rem 1fr auto;
   align-items: center;
-  gap: .75rem;
+  gap: var(--e3);
   min-height: 2rem;
 }
 
@@ -8332,7 +8272,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* O delta da carga: sobe é a cor da marca, desce é o tom de alerta do app.
    Cor NÃO é o único sinal — o sinal de `+` e o de `-` vêm no próprio número,
    porque informação transmitida só por cor some para quem não a distingue. */
-.delta { margin-left: .4rem; font-size: .78rem; font-weight: 700; }
+.delta { margin-left: var(--e2); font-size: var(--texto-sm); font-weight: 700; }
 .delta--sobe { color: var(--brand-strong); }
 .delta--desce { color: var(--terra); }
 
@@ -8340,7 +8280,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: block;
   color: var(--text-mute);
   font-family: var(--font);
-  font-size: .72rem;
+  font-size: var(--texto-xs);
   font-weight: 500;
 }
 
@@ -8490,7 +8430,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    3.000 sozinho não carrega. */
 .goles {
   display: grid;
-  gap: var(--espaco-1);
+  gap: var(--e1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -8500,9 +8440,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-width: 0;
-  padding: var(--espaco-2) var(--espaco-4);
+  padding: var(--e1) var(--e3);
   border-radius: var(--quina-p);
   background: var(--surface-2);
 }
@@ -8532,23 +8472,23 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 
 /* A quantidade digitada. */
-.agua-livre { margin-top: var(--espaco-5); }
+.agua-livre { margin-top: var(--e4); }
 
 .agua-livre__rotulo {
   display: block;
-  margin-bottom: var(--espaco-2);
+  margin-bottom: var(--e1);
   color: var(--text-dim);
   font-size: var(--texto-sm);
   font-weight: 600;
 }
 
-.agua-livre__linha { display: flex; gap: var(--espaco-3); }
+.agua-livre__linha { display: flex; gap: var(--e2); }
 
 .agua-livre__campo {
   flex: 1;
   min-width: 0;
   min-height: 2.75rem;
-  padding: 0 var(--espaco-4);
+  padding: 0 var(--e3);
   border: 1px solid var(--fio-forte);
   border-radius: var(--quina-p);
   background: var(--surface-2);
@@ -8588,7 +8528,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    com aritméticas diferentes — uma que se sobrepõe e outra que fecha — e sem
    um rótulo entre elas o operador somaria a de cima. */
 .card__subtitulo {
-  margin: var(--espaco-5) 0 var(--espaco-2);
+  margin: var(--e4) 0 var(--e1);
   color: var(--text-dim);
   font-size: var(--texto-sm);
   font-weight: 700;
@@ -8626,9 +8566,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-height: 3.25rem;
-  padding: var(--espaco-4);
+  padding: var(--e3);
   border-radius: var(--quina);
   color: var(--text);
   text-decoration: none;
@@ -8655,7 +8595,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .mapa__apoio {
   color: var(--text-mute);
   font-size: var(--texto-xs);
-  line-height: 1.35;
+  line-height: var(--entrelinha-titulo);
 }
 
 /* ==========================================================================
@@ -8673,10 +8613,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-width: 0;
-  margin-bottom: var(--espaco-7);
-  padding: var(--espaco-4) var(--espaco-5);
+  margin-bottom: var(--e6);
+  padding: var(--e3) var(--e4);
   border: 1px solid transparent;
   border-radius: var(--quina);
   background: var(--surface);
@@ -8704,7 +8644,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .identidade__texto {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-1);
+  gap: var(--e1);
   min-width: 0;
 }
 .identidade__nome {
@@ -8717,7 +8657,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .identidade__acao {
   display: inline-flex;
   align-items: center;
-  gap: var(--espaco-1);
+  gap: var(--e1);
   color: var(--brand);
   font-size: var(--texto-sm);
   font-weight: 600;
@@ -8728,8 +8668,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* A lista de linhas dentro de um cartão: o cartão dá o fundo e a borda, as
    linhas herdam a grade de `.mapa__area` e ganham uma coluna para o ícone. */
 .mapa__lista--cartao {
-  margin-bottom: var(--espaco-7);
-  padding: var(--espaco-2);
+  margin-bottom: var(--e6);
+  padding: var(--e1);
   border-radius: var(--quina);
   background: var(--surface);
   box-shadow: var(--edge), var(--shadow-rest);
@@ -8752,15 +8692,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 /* A linha que é uma AÇÃO (Sair): um formulário com a mesma grade, e o botão
    ocupa as colunas do texto — fundo e borda nenhuns, o toque é a linha. */
-.mapa__area--acao { padding: 0 var(--espaco-4); }
+.mapa__area--acao { padding: 0 var(--e3); }
 .mapa__botao {
   grid-column: 2 / -1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--espaco-1);
+  gap: var(--e1);
   min-height: 3.5rem;
-  padding: var(--espaco-3) 0;
+  padding: var(--e2) 0;
   border: 0;
   background: none;
   color: inherit;
@@ -8772,8 +8712,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .modulo__acao {
   display: inline-flex;
   align-items: center;
-  gap: var(--espaco-1);
-  margin-top: var(--espaco-4);
+  gap: var(--e1);
+  margin-top: var(--e3);
   color: var(--brand);
   font-size: var(--texto-sm);
   font-weight: 600;
@@ -8786,11 +8726,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   .mais {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: var(--espaco-6);
+    gap: var(--e4);
     align-items: start;
   }
   .mais__areas .modulos { grid-template-columns: minmax(0, 1fr); }
-  .identidade { padding: var(--espaco-5) var(--espaco-6); }
+  .identidade { padding: var(--e4) var(--e4); }
 }
 /* No celular, "Editar perfil" cede a largura ao nome: fica só a seta — a
    linha inteira já é a porta. */
@@ -8835,19 +8775,19 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* A linha discreta no rodapé de um cartão de entrada: "Ainda não tem conta?".
    Aparecia em cinco ocorrências, quatro telas, com 1,25rem em quatro e
    0,9rem numa delas. */
-.form__nota { margin-top: var(--espaco-7); }
+.form__nota { margin-top: var(--e6); }
 
 /* A saída de emergência do próprio formulário — "Esqueci minha senha" — fica
    MAIS PERTO dele que o rodapé do cartão. A distância menor era o 0,9rem que
    a unificação apagou, e ela é decisão escrita no template: quem errou a
    senha lê o erro e encontra o link logo abaixo. Duas linhas equidistantes
    apagam a diferença entre "sair desta tentativa" e "ir para o cadastro". */
-.form__nota--perto { margin-top: var(--espaco-5); }
+.form__nota--perto { margin-top: var(--e4); }
 
 /* Um botão ou link de bloco que fica SOZINHO depois do conteúdo e precisa de
    ar em cima para não colar no que veio antes. Tinha 1,25rem, 1rem e 0,8rem
    para o mesmo papel em quatro telas. */
-.acao-solta { margin-top: var(--espaco-6); }
+.acao-solta { margin-top: var(--e4); }
 
 /* Um cartão que é PROSA: o último parágrafo não soma a própria margem ao
    padding do cartão. Três telas do demo escreviam `margin-bottom:0` à mão.
@@ -8865,7 +8805,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 /* A fileira de pílulas quando ela é o conteúdo do cartão, e não um detalhe de
    linha: aí ela precisa de ar antes do texto de apoio. */
-.chip-row--conteudo { margin-bottom: var(--espaco-5); }
+.chip-row--conteudo { margin-bottom: var(--e4); }
 
 /* Ações de bloco EMPILHADAS: cada uma precisa de respiro da seguinte. Eram
    dois `margin-bottom:.6rem` escritos à mão no rodapé do Perfil, um no link e
@@ -8878,14 +8818,14 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    de saúde — 0,9rem de deslocamento numa frase que precisa ficar junto do
    controle. Por isso o par formulário+nota entra na pilha como UM item, dentro
    de `.acao-com-nota`, e a pilha só espaça o que é ação de verdade. */
-.acoes-empilhadas > * + * { margin-top: var(--espaco-4); }
+.acoes-empilhadas > * + * { margin-top: var(--e3); }
 
 /* Uma ação e a frase que a explica são um bloco só. */
 .acao-com-nota > :first-child { margin-top: 0; }
 
 /* Texto de apoio logo acima de um botão: a linha explica o botão, e as duas
    coisas são um bloco só. */
-.nota-do-botao { margin: 0 0 var(--espaco-4); }
+.nota-do-botao { margin: 0 0 var(--e3); }
 
 /* ==========================================================================
    46. Treino V4 — os músculos do exercício, em texto
@@ -8999,7 +8939,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   /* Fora do fluxo: o botão de água é `grid` de duas linhas, e um `::after`
      no fluxo virava a terceira — os três botões engordavam juntos no toque. */
   position: absolute;
-  right: var(--espaco-3);
+  right: var(--e2);
   top: 50%;
   width: .85em;
   height: .85em;
@@ -9028,7 +8968,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    campo de carga encolhia a página em ~100 px e o botão "Concluir série"
    escapava do dedo (medido: `scrollHeight` 1026 → 923 no foco). Sem barra
    não há espaço reservado para devolver. */
-.teclado-aberto.tem-tabbar .container { padding-bottom: var(--espaco-6); }
+.teclado-aberto.tem-tabbar .container { padding-bottom: var(--e4); }
 .tabbar__item.is-active { view-transition-name: aba-ativa; }
 
 /* ---- Onboarding: a trilha morfa (um terço → dois terços → inteira) e a
@@ -9237,8 +9177,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    decide. Cartão comum, duas ações lado a lado que empilham em tela estreita.
    ========================================================================== */
 .aviso-regenerar__titulo { margin: 0; font-size: var(--texto-lg); }
-.aviso-regenerar__texto { margin: var(--espaco-2) 0 0; color: var(--text-dim); font-size: var(--texto-sm); }
-.aviso-regenerar__acoes { display: flex; flex-wrap: wrap; gap: var(--espaco-2); margin-top: var(--espaco-3); }
+.aviso-regenerar__texto { margin: var(--e1) 0 0; color: var(--text-dim); font-size: var(--texto-sm); }
+.aviso-regenerar__acoes { display: flex; flex-wrap: wrap; gap: var(--e1); margin-top: var(--e2); }
 .aviso-regenerar__acoes form { flex: 1 1 10rem; min-width: 0; }
 .aviso-regenerar__acoes .btn { width: 100%; }
 
@@ -9326,7 +9266,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   aspect-ratio: 390 / 844;
   background: var(--surface-2);
 }
-.landing__hero .stack { margin-top: var(--espaco-5); }
+.landing__hero .stack { margin-top: var(--e4); }
+
+/* A frase que chama para a demonstração, no fim da landing: em rótulo de
+   11 px ela virava legenda (revisão do lote 4, 28/09/2026). */
+.landing__cta-titulo { font-size: var(--texto-lg); }
 
 /* ACIMA DE 900px A LANDING DEIXA DE SER UM CELULAR CENTRALIZADO (22/09/2026).
 
@@ -9345,7 +9289,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
     align-items: center;
-    column-gap: var(--espaco-7);
+    column-gap: var(--e6);
     text-align: left;
   }
   /* O selo e o título ocupam a coluna da esquerda; as saídas, a direita.
@@ -9373,7 +9317,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: start;
-    gap: var(--espaco-6);
+    gap: var(--e4);
   }
 }
 
@@ -9402,15 +9346,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   /* Linhas de mesma altura: é o que faz "peso igual" ser verdade e não
      promessa. */
   grid-auto-rows: 1fr;
-  gap: var(--espaco-4);
+  gap: var(--e3);
 }
 
 .painel__cartao {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   min-width: 0;
-  padding: var(--espaco-5);
+  padding: var(--e4);
   background: var(--surface);
   border-radius: var(--quina);
 }
@@ -9426,7 +9370,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .painel__rotulo {
   display: flex;
   align-items: center;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   margin: 0;
   color: var(--text-dim);
   font-family: var(--font);
@@ -9456,7 +9400,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   font-size: var(--texto-lg);
   font-weight: 700;
   letter-spacing: -.01em;
-  line-height: 1.2;
+  line-height: var(--entrelinha-display);
 }
 
 /* O "/ 2500 ml" e o "/24 séries": o denominador é contexto, não manchete. */
@@ -9472,7 +9416,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   margin: 0;
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  line-height: 1.35;
+  line-height: var(--entrelinha-titulo);
 }
 
 /* O rodapé desce até o fim do cartão: é ele que alinha as quatro ações na
@@ -9481,9 +9425,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   margin: auto 0 0;
-  padding-top: var(--espaco-2);
+  padding-top: var(--e1);
 }
 
 .painel__rodape .btn { margin: 0; }
@@ -9493,7 +9437,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .ring--mini {
   width: 4.8rem;
   height: 4.8rem;
-  margin: var(--espaco-1) 0;
+  margin: var(--e1) 0;
 }
 
 .ring--mini::after { inset: .42rem; }
@@ -9514,7 +9458,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .painel .agua {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-2);
+  gap: var(--e1);
   height: 100%;
   margin: 0;
   padding: 0;
@@ -9538,7 +9482,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .painel .agua__botoes {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--espaco-1);
+  gap: var(--e1);
 }
 /* O `<form>` é o item da linha e o `<button>` mora dentro dele: sem esticar
    os dois, o botão fica do tamanho do texto (medido: 29px de largura, abaixo
@@ -9547,7 +9491,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .painel .agua__botao {
   width: 100%;
   min-height: 2.75rem;
-  padding: var(--espaco-2) 0;
+  padding: var(--e1) 0;
   font-size: var(--texto-sm);
 }
 
@@ -9606,7 +9550,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .meal__head {
   display: flex;
   align-items: baseline;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   flex-wrap: wrap;
 }
 .meal__title { flex: 1; min-width: 0; }
@@ -9627,9 +9571,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .meal__linha {
   display: flex;
   align-items: center;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   min-height: 2.75rem;
-  padding-block: var(--espaco-2);
+  padding-block: var(--e1);
   cursor: pointer;
   list-style: none;
   color: var(--text-dim);
@@ -9664,14 +9608,18 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.meal__linha .meal__linha-kcal + .meal__marca { margin-left: var(--espaco-3); }
+.meal__linha .meal__linha-kcal + .meal__marca { margin-left: var(--e2); }
+/* O selo da VEZ tem cinco letras e não cede: "Agora" virava "Ag…" a 390 px
+   (caixa de 46, texto de 50 — auditoria visual de 27/09/2026). Quem cede
+   é o nome, que já quebra em duas linhas. */
+.meal__linha .meal__marca--agora { flex-shrink: 0; }
 
 /* A marca da vencida fala a língua do convite que ela substituiu (a classe
    é `--passou`, e não `--atrasada`: `MarcadorNaTelaTests` proíbe linguagem
    punitiva no selo, e proíbe na CLASSE também — pendência não é falha): `--brand`,
    como era o "Não registrada · registrar". A da vez continua sendo a pílula
    de fundo tingido. */
-.meal__marca--passou { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 24%, transparent); }
+.meal__marca--passou { color: var(--brand); border-color: var(--brand-linha); }
 /* A seta GIRA em vez de trocar de glifo: um `▾` que vira `▴` de uma vez é a
    sanfona "saltando" em miniatura. `inline-block` porque `transform` não
    pega em inline. */
@@ -9683,7 +9631,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   transition: transform var(--mov-estado) var(--ease);
 }
 .meal__futuro[open] > .meal__linha::after { transform: rotate(180deg); }
-.meal__futuro[open] > .meal__linha { margin-bottom: var(--espaco-3); }
+.meal__futuro[open] > .meal__linha { margin-bottom: var(--e2); }
 
 /* -- As duas opções ------------------------------------------------------ */
 
@@ -9693,8 +9641,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .meal__opcoes {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--espaco-4);
-  margin-top: var(--espaco-4);
+  gap: var(--e3);
+  margin-top: var(--e3);
 }
 
 @media (min-width: 48rem) {
@@ -9706,9 +9654,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .receita {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   min-width: 0;
-  padding: var(--espaco-4);
+  padding: var(--e3);
   background: var(--surface-2);
   border-radius: var(--quina);
 }
@@ -9738,7 +9686,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    link que abre a receita. */
 .receita__chip {
   align-self: start;
-  padding: var(--espaco-1) var(--espaco-3);
+  padding: var(--e1) var(--e2);
   border: 1px solid var(--fio-forte);
   border-radius: var(--quina-p);
   color: var(--text-dim);
@@ -9749,7 +9697,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .receita__nome {
   margin: 0;
   font-size: var(--texto-md);
-  line-height: 1.2;
+  line-height: var(--entrelinha-display);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -9762,7 +9710,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: var(--espaco-2) var(--espaco-3);
+  gap: var(--e1) var(--e2);
   margin: 0;
   font-size: var(--texto-sm);
   color: var(--text-dim);
@@ -9774,15 +9722,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   line-height: 1;
   color: var(--text);
 }
-.receita__unidade { margin-inline-start: calc(var(--espaco-2) * -1); }
-.receita__macros { display: flex; gap: var(--espaco-3); }
+.receita__unidade { margin-inline-start: calc(var(--e1) * -1); }
+.receita__macros { display: flex; gap: var(--e2); }
 .receita__tempo { margin-left: auto; }
 
 .receita__itens {
   margin: 0;
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  line-height: 1.4;
+  line-height: var(--entrelinha);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -9816,9 +9764,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      altura, e a 390px "Comi outra coisa" quebra em duas linhas enquanto "Não
      comi" fica numa. Medido: 52px contra 68px lado a lado. */
   align-items: stretch;
-  gap: var(--espaco-3);
-  margin-top: var(--espaco-4);
-  padding-top: var(--espaco-3);
+  gap: var(--e2);
+  margin-top: var(--e3);
+  padding-top: var(--e2);
   border-top: 1px solid var(--fio);
 }
 
@@ -9855,7 +9803,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    plano: o jeito honesto é repetir o valor do `.btn`. */
 .meal__secundarias .fora__abrir {
   min-height: 3.25rem;
-  padding: var(--espaco-4) var(--espaco-6);
+  padding: var(--e3) var(--e4);
   background: none;
   color: inherit;
   font-size: var(--texto-md);
@@ -9896,7 +9844,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .receita__abrir {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   min-width: 0;
   color: inherit;
   text-decoration: none;
@@ -9925,19 +9873,19 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   width: min(34rem, 100vw);
   max-width: 100vw;
   margin: auto auto 0;
-  padding: var(--espaco-5);
+  padding: var(--e4);
   border: 0;
   border-top: var(--traco) solid var(--brand);
   background: var(--surface);
   color: var(--text);
 }
-.folha-receita::backdrop { background: rgb(0 0 0 / .55); }
+.folha-receita::backdrop { background: var(--veu-folha); }
 .folha-receita__topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--espaco-4);
-  margin-bottom: var(--espaco-4);
+  gap: var(--e3);
+  margin-bottom: var(--e3);
 }
 .folha-receita__titulo { margin: 0; font-size: var(--texto-lg); }
 .folha-receita__fechar { min-height: 2.75rem; min-width: 2.75rem; white-space: nowrap; }
@@ -9963,8 +9911,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    nervura sobe ~15px acima do topo do h1 (45% da largura × sen 14°), então
    o vão precisa ser maior que isso. Com `--espaco-7` + `--espaco-5` sobram
    ~20px de folga, medidos. */
-.receita-pagina__volta { margin: 0 0 calc(var(--espaco-7) + var(--espaco-5)); }
-.receita-folha { display: flex; flex-direction: column; gap: var(--espaco-4); }
+.receita-pagina__volta { margin: 0 0 calc(var(--e6) + var(--e4)); }
+.receita-folha { display: flex; flex-direction: column; gap: var(--e3); }
 .receita-folha__ilu {
   display: block;
   background: var(--surface-3);
@@ -9982,7 +9930,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--espaco-2) var(--espaco-4);
+  gap: var(--e1) var(--e3);
 }
 .receita-folha__porcao-rotulo {
   font-size: var(--texto-sm);
@@ -10004,7 +9952,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: var(--espaco-2) var(--espaco-4);
+  gap: var(--e1) var(--e3);
   margin: 0;
   font-size: var(--texto-sm);
   color: var(--text-dim);
@@ -10016,8 +9964,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   line-height: 1;
   color: var(--text);
 }
-.receita-folha__unidade { margin-inline-start: calc(var(--espaco-3) * -1); }
-.receita-folha__macros { display: flex; flex-wrap: wrap; gap: var(--espaco-3); }
+.receita-folha__unidade { margin-inline-start: calc(var(--e2) * -1); }
+.receita-folha__macros { display: flex; flex-wrap: wrap; gap: var(--e2); }
 .receita-folha__tempo { margin-left: auto; }
 
 .receita-folha__titulo {
@@ -10039,13 +9987,13 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   counter-reset: passo;
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-3);
+  gap: var(--e2);
 }
 .receita-folha__passos li {
   counter-increment: passo;
   display: grid;
   grid-template-columns: 1.75rem 1fr;
-  gap: var(--espaco-3);
+  gap: var(--e2);
   align-items: start;
   min-width: 0;
 }
@@ -10058,26 +10006,26 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
      é herói dentro da linha dele, então ele SOBE em vez de trocar de
      família. */
   font-size: var(--texto-xl);
-  line-height: 1.1;
+  line-height: var(--entrelinha-display);
   color: var(--brand);
 }
 
 .receita-folha__acao { margin: 0; }
-.receita-folha__outras { display: flex; flex-direction: column; gap: var(--espaco-3); }
+.receita-folha__outras { display: flex; flex-direction: column; gap: var(--e2); }
 .receita-folha__lista {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-2);
+  gap: var(--e1);
 }
 .receita-folha__outra {
   display: flex;
   align-items: center;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-height: 2.75rem;
-  padding: var(--espaco-2) var(--espaco-3);
+  padding: var(--e1) var(--e2);
   min-width: 0;
   color: inherit;
   text-decoration: none;
@@ -10112,7 +10060,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 @media (min-width: 60rem) {
   .container.largo .painel-receita { display: block; }
   .container.largo .painel-receita .receita-folha {
-    max-height: calc(100vh - var(--appbar-h) - var(--espaco-7) * 2);
+    max-height: calc(100vh - var(--appbar-h) - var(--e6) * 2);
     overflow-y: auto;
   }
 }
@@ -10137,12 +10085,12 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-2);
+  gap: var(--e1);
 }
 .compras-previa__itens li {
   display: flex;
   justify-content: space-between;
-  gap: var(--espaco-4);
+  gap: var(--e3);
   min-width: 0;
   font-size: var(--texto-sm);
 }
@@ -10151,11 +10099,14 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Dentro da folha o nome da receita já é o título da barra de cima — duas
    vezes o mesmo nome, um embaixo do outro, é o que a régua de repetição
    existe para impedir. No painel e na tela ele fica. */
+/* O nome da receita abre a tela dela: título a `--texto-lg`, como a pergunta
+   do aviso de regenerar e o título da folha. */
+.receita-folha__nome { font-size: var(--texto-lg); }
 .folha-receita__corpo .receita-folha__nome { display: none; }
 
 .receita-folha__feita {
   margin: 0;
-  padding: var(--espaco-3) var(--espaco-4);
+  padding: var(--e2) var(--e3);
   background: var(--brand-soft);
   border-radius: var(--quina-p);
   font-size: var(--texto-sm);
@@ -10166,7 +10117,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    de duas linhas a jogaria para o meio do bloco. */
 .secao__selo {
   vertical-align: baseline;
-  margin-inline-start: var(--espaco-2);
+  margin-inline-start: var(--e1);
   font-size: var(--texto-sm);
   white-space: nowrap;
 }
@@ -10180,9 +10131,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
-  gap: var(--espaco-4);
+  gap: var(--e3);
 }
-.vitrine-ilustracoes li { display: flex; flex-direction: column; gap: var(--espaco-2); min-width: 0; }
+.vitrine-ilustracoes li { display: flex; flex-direction: column; gap: var(--e1); min-width: 0; }
 .vitrine-ilustracoes__nome { font-size: var(--texto-sm); color: var(--text-dim); }
 
 /* A vencida continua sendo AÇÃO EM ABERTO, e é a linha dela que diz isso —
@@ -10221,9 +10172,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   top: 0;
   z-index: var(--camada-barra-topo);
   display: flex;
-  gap: var(--espaco-2);
-  margin-bottom: var(--espaco-6);
-  padding: var(--espaco-3) 0;
+  gap: var(--e1);
+  margin-bottom: var(--e4);
+  padding: var(--e2) 0;
   background: var(--bg);
 }
 
@@ -10236,7 +10187,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--espaco-4) var(--espaco-3);
+  padding: var(--e3) var(--e2);
   border: var(--traco) solid var(--fio);
   border-radius: var(--quina);
   color: var(--text-dim);
@@ -10256,17 +10207,17 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .tiles--tendencia {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--espaco-3);
-  margin-bottom: var(--espaco-6);
+  gap: var(--e2);
+  margin-bottom: var(--e4);
 }
 
 .tile--tendencia {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 0 var(--espaco-2);
+  gap: 0 var(--e1);
   min-width: 0;
-  padding: var(--espaco-4);
+  padding: var(--e3);
   border: var(--traco) solid var(--fio);
   border-radius: var(--quina);
 }
@@ -10283,11 +10234,11 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   font-family: var(--font-display);
   font-size: var(--texto-2xl);
   font-weight: 900;
-  line-height: 1.05;
+  line-height: var(--entrelinha-display);
 }
 
 .tile__unidade {
-  margin-left: var(--espaco-1);
+  margin-left: var(--e1);
   color: var(--text-dim);
   font-family: var(--font);
   font-size: var(--texto-sm);
@@ -10304,10 +10255,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 
 .tile--tendencia .tile__meta {
   grid-column: 1 / -1;
-  margin-top: var(--espaco-2);
+  margin-top: var(--e1);
   color: var(--text-dim);
   font-size: var(--texto-xs);
-  line-height: 1.35;
+  line-height: var(--entrelinha-titulo);
 }
 
 /* --- o sistema de gráfico ------------------------------------------------ */
@@ -10322,7 +10273,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .area-evolucao--agua    { --cor-area: var(--agua); }
 .area-evolucao--corrida { --cor-area: var(--brasa); }
 
-.grafico { margin-top: var(--espaco-5); }
+.grafico { margin-top: var(--e4); }
 .grafico svg { display: block; width: 100%; height: auto; }
 
 /* O mapa é limitado em altura para não esticar numa coluna larga: quadrado de
@@ -10347,15 +10298,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .grafico__legenda {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--espaco-2) var(--espaco-4);
-  margin: var(--espaco-3) 0 0;
+  gap: var(--e1) var(--e3);
+  margin: var(--e2) 0 0;
   color: var(--text-dim);
   font-size: var(--texto-xs);
 }
-.legenda-item { display: inline-flex; align-items: center; gap: var(--espaco-2); }
+.legenda-item { display: inline-flex; align-items: center; gap: var(--e1); }
 .legenda-cor {
-  width: var(--espaco-4);
-  height: var(--espaco-4);
+  width: var(--e3);
+  height: var(--e3);
   border-radius: var(--quina-p);
   background: var(--cor-area);
 }
@@ -10407,7 +10358,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .grafico-linha__ponto { fill: var(--terra); }
 
-.peso__registrar { margin-top: var(--espaco-5); }
+.peso__registrar { margin-top: var(--e4); }
 
 /* --- o "?" de cada seção -------------------------------------------------- */
 
@@ -10428,15 +10379,15 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .ajuda-inline__abrir::-webkit-details-marker { display: none; }
 .ajuda-inline[open] .ajuda-inline__abrir { color: var(--brand); }
 .ajuda-inline__texto {
-  margin: var(--espaco-3) 0 0;
+  margin: var(--e2) 0 0;
   color: var(--text-dim);
   font-size: var(--texto-sm);
-  line-height: 1.45;
+  line-height: var(--entrelinha);
 }
 
 /* --- recordes e listas de apoio ------------------------------------------ */
 
-.recordes { margin-top: var(--espaco-5); }
+.recordes { margin-top: var(--e4); }
 .recordes__titulo {
   color: var(--text-dim);
   font-size: var(--texto-xs);
@@ -10445,17 +10396,17 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .data-list__meta { color: var(--text-dim); font-weight: 400; }
 
-.grafico__nota { margin: var(--espaco-4) 0 0; font-size: var(--texto-sm); }
+.grafico__nota { margin: var(--e3) 0 0; font-size: var(--texto-sm); }
 
 /* A PRÉVIA FANTASMA: a conta é mais nova que o período pedido, e a tela diz
    isso em vez de completar com semanas que não existiram. */
 .previa-fantasma {
-  margin: var(--espaco-4) 0 0;
-  padding-top: var(--espaco-3);
+  margin: var(--e3) 0 0;
+  padding-top: var(--e2);
   border-top: 1px dashed var(--fio);
   color: var(--text-dim);
   font-size: var(--texto-xs);
-  line-height: 1.4;
+  line-height: var(--entrelinha);
 }
 
 @media (min-width: 60rem) {
@@ -10476,7 +10427,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
    que é um só. Repetida nos quatro cartões (primeira versão, 23/09/2026) a
    explicação virava ruído — quatro vezes a mesma frase numa rolagem. */
 .previa-fantasma--tela {
-  margin: calc(var(--espaco-6) * -1) 0 var(--espaco-6);
+  margin: calc(var(--e4) * -1) 0 var(--e4);
   padding-top: 0;
   border-top: 0;
 }
@@ -10508,8 +10459,8 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 .tabela-rolagem {
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  margin-inline: calc(var(--espaco-4) * -1);
-  padding-inline: var(--espaco-4);
+  margin-inline: calc(var(--e3) * -1);
+  padding-inline: var(--e3);
 }
 .tabela-rolagem:focus-visible { outline: var(--traco) solid var(--brand); outline-offset: 2px; }
 
@@ -10520,7 +10471,7 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .coorte th,
 .coorte td {
-  padding: var(--espaco-2) var(--espaco-3);
+  padding: var(--e1) var(--e2);
   text-align: right;
   white-space: nowrap;
   border-bottom: 1px solid var(--fio);

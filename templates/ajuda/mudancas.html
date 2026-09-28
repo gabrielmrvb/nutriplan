@@ -17,7 +17,7 @@
 
   {% for secao in secoes %}
     <section class="card mudancas">
-      <div class="card__head"><h2><time datetime="{{ secao.data|date:'Y-m-d' }}">{{ secao.data|date:"d/m/Y" }}</time></h2></div>
+      <div class="card__head"><h2 class="sobretitulo"><time datetime="{{ secao.data|date:'Y-m-d' }}">{{ secao.data|date:"d/m/Y" }}</time></h2></div>
       <ul class="mudancas__lista">
         {% for item in secao.itens %}<li>{{ item|safe }}</li>{% endfor %}
       </ul>
