@@ -4,9 +4,11 @@ Até duas casas, sem zero à direita, com vírgula decimal: 5,2 · 5,23 · 10. A
 mesma corrida aparecia como "5,20 km" na lista (o filtro `km` da corrida) e
 "5,2 km" na Home (`floatformat:1`, que ainda cortava "5,23" para "5,2").
 
-A CARGA vai usar a mesma função (M1: "40×6" ao lado de "42,50×6"), mas os
-testes que cobram "62,50" moram em `workouts/`, onde a missão-mãe está
-trabalhando — fica para a parte 2, registrada no ledger.
+A CARGA usa a mesma função desde a parte 2 (item 5, 28/09/2026): o filtro
+`carga` substitui o `floatformat:'-2'` ad hoc espalhado por
+`templates/workouts/`, que mantinha o zero à direita ("62,50" em vez de
+"62,5"). `config/test_numeros.py` varre `templates/workouts/` atrás do
+formato antigo, no mesmo molde da varredura de `|distancia`.
 
 Registrado como biblioteca EMBUTIDA (`TEMPLATES["OPTIONS"]["builtins"]`): o
 filtro existe em todo template sem `{% load %}`. `config/test_numeros.py`
@@ -32,5 +34,14 @@ def distancia(metros):
     """Metros para quilômetros: `5230` vira "5,23"."""
     try:
         return decimal_curto(Decimal(str(metros)) / 1000)
+    except (InvalidOperation, TypeError, ValueError):
+        return "—"
+
+
+@register.filter
+def carga(peso):
+    """Carga em kg, sem zero à direita: `Decimal('62.50')` vira "62,5"."""
+    try:
+        return decimal_curto(peso)
     except (InvalidOperation, TypeError, ValueError):
         return "—"
