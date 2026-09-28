@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **A dica do exercício sem vídeo volta a ser lida.** Na execução, quando o exercício não tem demonstração, a dica do movimento aparecia espremida ao lado do aviso, com uma sílaba por linha. Agora ela vem inteira, embaixo do aviso.
 - **A Ajuda explica a ofensiva como ela funciona hoje.** A resposta "O que conta para a ofensiva?" diz exatamente o que fecha o dia de treino e o de descanso. A legenda do Progresso passou a dizer "dia de treino, sem série" e "dia de descanso".
 - **Quem só corre vê a própria rotina.** Se você disse no cadastro que não faz musculação, a Home abre com Alimentação e Corrida e não mostra mais "Montar treino"; o Progresso mostra a corrida no lugar do treino, e as Conquistas passaram a ter metas de corrida e de refeições registradas.
 - **O primeiro dia não cobra o que ainda não aconteceu.** A Hidratação não lista mais os dias de antes da sua conta, e o Progresso não mostra seta de queda para o treino de hoje enquanto o dia não acabou.
