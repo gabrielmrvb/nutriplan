@@ -14,3 +14,16 @@ Sete frentes, ordem do dono: 3 → 1 → 5 → 6 → 2 → 7. O #162 não estava
 8. **Ficou de fora, com dono:** `/treino/` da corredora (hoje só texto e um link; o botão de ativar a musculação deveria ser o principal) e "Exercícios que já fiz" para quem não faz musculação. As duas telas estão em `templates/workouts/`, com a sessão da Parte 2 no ledger. Voltam no fim.
 9. **Dia de descanso** (academia, dia 12): Home ("Descanso · Próximo: amanhã, A") e painel do Treino já davam o próximo passo. Nada a mudar.
 10. **Capturas:** antes/depois no scratchpad da sessão (`av2/out-onda5-antes`, `out-onda5-depois`).
+
+## Onda 6 — voz
+
+1. **Inventário:** partiu do da auditoria visual (277 linhas de botões e títulos) e foi completado varrendo o texto literal de todos os templates (fora os de gestão) atrás de punição, linguagem de contrato, jargão de software e siglas soltas.
+2. **Guia:** `docs/VOZ.md`, uma página com tom, pessoa (sempre "você"), proibidos com a alternativa, exceções declaradas (legal, `demo/sobre`, gestão, "falha" no treino) e a referência à régua de "plano"/"dieta" que já existia.
+3. **Régua:** `config/test_voz.py` lê o texto literal, inclusive o de dentro de `{% translate %}`. Tem controle positivo por categoria, e a sabotagem ficou 2/2 vermelha.
+4. **Achado principal:** a FAQ da ofensiva ainda dizia "o app diz o que faltou" e "dois de três". A frase tinha saído da Home em 24/09, e a regra real é "treino e mais uma" no dia de treino. A FAQ foi reescrita a partir do código (`Dia.completo`).
+5. **"Combinado"** (palavra de contrato, achado 7b de 24/09): saiu da legenda e dos títulos do mapa do Progresso e do "?" da área de treino.
+6. **"Usuário fictício":** virou "pessoa fictícia" na landing e no demo.
+7. **O que ficou, de propósito:** as siglas TDEE e TMB só aparecem entre parênteses depois do termo em português, em "Dados do cálculo". "Déficit" e "superávit" continuam, porque são português corrente.
+8. **Provas:** régua mais i18n, linguagem, ajuda, demo, evolução e landing: 132 testes OK.
+9. **Notas:** a mudança é só de texto, com o mesmo comprimento ± 1 linha. Nenhuma tela mudou de estrutura.
+10. **Não coberto:** texto calculado no servidor (frases em Python). A régua lê templates. As frases de `plans/evolucao.py` foram corrigidas à mão, e as outras ficam para uma régua de mensagens se o padrão voltar.
