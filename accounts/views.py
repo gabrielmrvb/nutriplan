@@ -21,6 +21,7 @@ from . import limites
 from .adapters import MAXIMO_DE_TENTATIVAS, SESSAO_TENTATIVAS, SESSAO_VINCULO
 from . import entrada
 from analytics import servidor as analytics
+from analytics.privacidade import sincronizar_sessao
 from .forms import (
     DIA_CURTO,
     BodyDataForm,
@@ -1063,9 +1064,11 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
 class RastreioAnalyticsView(AcaoDeTela, LoginRequiredMixin, View):
     """Liga ou desliga a análise de uso do app.
 
-    Desligar NÃO apaga evento: o uso continua contando no agregado ANÔNIMO — o
-    que para é a atribuição à pessoa. O flag vai para a SESSÃO no mesmo instante
-    (`marcar_sessao`), para a régua da rota da série o ler sem consulta. Ver
+    [REVISAR I2, Lote 1, 28/09/2026] Desligar BLOQUEIA o evento inteiro —
+    nenhum registro do uso é feito, nem anônimo (decisão 2 do plano de
+    28/09/2026; era "o uso continua contando no agregado ANÔNIMO" até
+    então). O flag vai para a SESSÃO no mesmo instante (`marcar_sessao`),
+    para a régua da rota da série o ler sem consulta. Ver
     `analytics/privacidade.py`.
     """
 
@@ -1086,7 +1089,7 @@ class RastreioAnalyticsView(AcaoDeTela, LoginRequiredMixin, View):
             % (
                 "Você permite a análise de uso."
                 if rastrear
-                else "Seu uso conta só de forma anônima agora."
+                else "Nenhum registro do seu uso é feito agora, nem anônimo."
             ),
         )
         return redirect(self.tela_da_acao)
@@ -1106,6 +1109,11 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 perfil = request.user.profile
             except Profile.DoesNotExist:
                 perfil = None
+            if perfil is not None:
+                # O Perfil também ressincroniza o opt-out de análise: ele não
+                # herda o mixin, e abrir SÓ esta tela noutro aparelho deixava a
+                # sessão gravando (decisão do dono, 28/09/2026).
+                sincronizar_sessao(request, perfil)
             if perfil is not None and perfil.onboarding_complete and consentimento.deve_consentir(perfil):
                 return redirect("accounts:consentimento")
         return super().dispatch(request, *args, **kwargs)
@@ -1233,6 +1241,11 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
                 profile = None
             if profile is None or not profile.onboarding_complete:
                 return redirect("accounts:onboarding")
+            # O opt-out mora na SESSÃO de quem o mudou; a do OUTRO aparelho
+            # seguia gravando eventos identificados, renovada para sempre
+            # (I-A da revisão final, 28/09/2026). O perfil já está aqui, então
+            # conferir custa zero consultas — e só escreve quando diverge.
+            sincronizar_sessao(request, profile)
             # Conta de antes dos consentimentos (ou de uma versão anterior dos
             # legais) passa UMA vez por `/conta/consentimento/` antes de
             # qualquer tela. Custa zero consultas: a versão está no perfil.

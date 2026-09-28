@@ -22,6 +22,7 @@ from accounts.models import ONBOARDING_DONE, User, WeightEntry
 from plans.models import HydrationLog
 from workouts.models import ExerciseLog
 
+from accounts.consentimento import VERSAO_DOS_LEGAIS
 from .models import Preferencia, TipoDeEmail
 from .brevo import sincronizar_se_vencido
 from .services import TLD_QUE_NAO_ENTREGA, enviar
@@ -62,6 +63,12 @@ def _candidatos(campo_ligado):
         # `.invalid` nem entra na lista (o demo tem ficha ativa e onboarding
         # feito); `enviar()` é a segunda trava, para os três tipos.
         .exclude(email__iendswith=TLD_QUE_NAO_ENTREGA)
+        # Só quem consentiu a versão VIGENTE dos legais (decisão do dono,
+        # 28/09/2026) — a mesma régua de `consentimento.deve_consentir`: quem
+        # está marcado para consentir, ou consentiu uma versão anterior, passa
+        # antes por `/conta/consentimento/`, e até lá o app não escreve.
+        .exclude(profile__precisa_consentir=True)
+        .exclude(~Q(profile__consentimento_versao="") & ~Q(profile__consentimento_versao=VERSAO_DOS_LEGAIS))
         .filter(
             Q(preferencia_de_aviso__isnull=True)
             | Q(**{f"preferencia_de_aviso__{campo_ligado}": True})
