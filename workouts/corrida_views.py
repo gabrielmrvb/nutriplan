@@ -14,7 +14,6 @@ import json
 import uuid
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -46,7 +45,7 @@ DURACAO_MAXIMA_S = 12 * 60 * 60
 DISTANCIA_MAXIMA_M = 300_000
 
 
-class HistoricoDeCorridasView(LoginRequiredMixin, ListView):
+class HistoricoDeCorridasView(OnboardingRequiredMixin, ListView):
     model = Corrida
     template_name = "workouts/corridas.html"
     context_object_name = "corridas"
@@ -95,7 +94,7 @@ VELOCIDADE_MAXIMA_MS = 12.5
 PARCIAIS_MAXIMAS = 500
 
 
-class SalvarCorridaView(LoginRequiredMixin, View):
+class SalvarCorridaView(OnboardingRequiredMixin, View):
     """Recebe o RESULTADO de uma corrida, nunca o traçado.
 
     Idempotente por `op_id`: a fila offline reenvia o que ficou parado, e sem

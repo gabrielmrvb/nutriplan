@@ -154,7 +154,11 @@ class OQueFicaGuardadoEOQueEApagadoTests(SimpleTestCase):
     mais em lugar nenhum"."""
 
     def test_o_registro_so_e_apagado_depois_da_confirmacao(self):
-        corpo = corpo_da_funcao("salvar")
+        # SEM comentários: a partir de 28/09/2026 a opção `redirect: "manual"`
+        # do `fetch` vem comentada explicando POR QUE existe, e o comentário
+        # cita `esquecer()` — uma asserção sobre o texto CRU acharia essa
+        # menção e reprovaria um código correto.
+        corpo = sem_comentarios(corpo_da_funcao("salvar"))
         antes_da_resposta = corpo.split("then(function (r)", 1)[0]
 
         self.assertNotIn("esquecer()", antes_da_resposta)
@@ -292,9 +296,12 @@ class UmaSegundaCorridaNaMesmaPaginaTests(SimpleTestCase):
             "o botão reaparece antes de o script saber se vai salvar",
         )
 
-        # E ele volta quando a tentativa termina, nos dois ramos de falha.
+        # E ele volta quando a tentativa termina, nos TRÊS ramos que não
+        # terminam em sucesso — 28/09/2026: o redirecionamento de
+        # consentimento (achado 1 da revisão) virou um terceiro, ao lado da
+        # recusa de conteúdo e da falha de rede.
         salvar = corpo_da_funcao("salvar")
-        self.assertEqual(salvar.count("el.comecar.hidden = false"), 2)
+        self.assertEqual(salvar.count("el.comecar.hidden = false"), 3)
 
     def test_o_reenvio_na_abertura_tambem_esconde_o_botao(self):
         corpo = corpo_da_funcao("recuperar")

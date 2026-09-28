@@ -9,21 +9,6 @@
 #   python manage.py createsuperuser
 #   python manage.py check_exercise_videos
 
-databases:
-  - name: nutriplan-db
-    databaseName: nutriplan
-    user: nutriplan
-    plan: free
-    # PRAZO REAL, lido no painel em 31/08/2026: este banco EXPIRA EM
-    # 23/09/2026, e o texto do Render e "will be deleted unless you upgrade" —
-    # apagado, nao suspenso. Nao existe backup gerenciado no plano gratuito,
-    # entao o que nao tiver sido despejado ate la nao volta.
-    #
-    # Tamanho nunca foi o problema: o banco restaurado ocupa 12 MB, e o painel
-    # marca 7,18% de 1 GB. O problema e o relogio.
-    #
-    # `scripts/backup.sh` tira o dump e `scripts/restaurar.sh` prova que ele
-    # volta. Rode o primeiro ANTES de mexer em qualquer coisa aqui.
 services:
   - type: web
     name: nutriplan

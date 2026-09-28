@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import REDIRECT_FIELD_NAME, login, logout
 from django.db import transaction
 from django.forms.utils import ErrorDict
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -14,6 +14,7 @@ from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import formats, timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 
@@ -1115,7 +1116,12 @@ class ProfileSummaryView(LoginRequiredMixin, TemplateView):
                 # sessão gravando (decisão do dono, 28/09/2026).
                 sincronizar_sessao(request, perfil)
             if perfil is not None and perfil.onboarding_complete and consentimento.deve_consentir(perfil):
-                return redirect("accounts:consentimento")
+                # Mesmo `next` do `OnboardingRequiredMixin` (achado 2 da
+                # revisão de 28/09/2026): esta view duplica a guarda dele em
+                # vez de herdar, e duplicava o mesmo defeito.
+                return auth_views.redirect_to_login(
+                    request.get_full_path(), login_url=reverse("accounts:consentimento")
+                )
         return super().dispatch(request, *args, **kwargs)
 
     def _plano_em_vigor(self, profile):
@@ -1249,8 +1255,16 @@ class OnboardingRequiredMixin(LoginRequiredMixin):
             # Conta de antes dos consentimentos (ou de uma versão anterior dos
             # legais) passa UMA vez por `/conta/consentimento/` antes de
             # qualquer tela. Custa zero consultas: a versão está no perfil.
+            #
+            # COM VOLTA (achado 2 da revisão de 28/09/2026, Task F): sem o
+            # `next`, `ConsentimentoView` sempre mandava para `plans:today`
+            # depois de consentir — quem tentava `/treino/corridas/` acabava
+            # na Home. Mesmo `redirect_to_login` que `LoginRequiredMixin` já
+            # usa para o login (por isso o login já ganha `?next=` sozinho).
             if consentimento.deve_consentir(profile):
-                return redirect("accounts:consentimento")
+                return auth_views.redirect_to_login(
+                    request.get_full_path(), login_url=reverse("accounts:consentimento")
+                )
             self.perfil_do_dispatch = profile
         return super().dispatch(request, *args, **kwargs)
 
@@ -1556,18 +1570,51 @@ class ConsentimentoView(LoginRequiredMixin, TemplateView):
         tipos = [tipo for tipo in consentimento.TIPOS if str(tipo) in faltantes]
         return consentimento.ConsentimentoForm(dados, tipos=tipos)
 
+    def _next_seguro(self, request):
+        """O `next` só quando aponta para ESTE host — a mesma checagem que o
+        login do Django já faz em `RedirectURLMixin.get_redirect_url`. Um
+        `next` de outro domínio (ou esquema estranho, tipo `javascript:`) é
+        um convite malicioso disfarçado de link de volta; ignorado, e não
+        seguido — a régua cai no padrão (`plans:today`)."""
+        candidato = request.POST.get(REDIRECT_FIELD_NAME) or request.GET.get(REDIRECT_FIELD_NAME)
+        if candidato and url_has_allowed_host_and_scheme(
+            url=candidato,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return candidato
+        return None
+
+    def _de_volta(self, proximo):
+        """`redirect(proximo)` passa QUALQUER string por `resolve_url`, que
+        tenta `reverse()` quando ela não parece uma URL — um `next` relativo
+        sem `/` nem `.` (`"foo"`, `"?x=1"`, `"#topo"`; `_next_seguro` aceita
+        os três por serem do mesmo host) estoura `NoReverseMatch`, 500 depois
+        do consentimento já ter sido gravado (achado M1 da revisão de
+        28/09/2026). `HttpResponseRedirect` não interpreta nada — é a mesma
+        troca que o `LoginView` do Django já faz."""
+        if proximo:
+            return HttpResponseRedirect(proximo)
+        return redirect("plans:today")
+
     def get(self, request, *args, **kwargs):
         caixas = self.caixas()
+        proximo = self._next_seguro(request)
         if caixas.vazio:
-            return redirect("plans:today")
-        return self.render_to_response(self.get_context_data(caixas=caixas, sem_tabbar=True))
+            return self._de_volta(proximo)
+        return self.render_to_response(
+            self.get_context_data(caixas=caixas, sem_tabbar=True, next=proximo or "")
+        )
 
     def post(self, request, *args, **kwargs):
+        proximo = self._next_seguro(request)
         caixas = self.caixas(request.POST)
         if not caixas.is_valid():
-            return self.render_to_response(self.get_context_data(caixas=caixas, sem_tabbar=True))
+            return self.render_to_response(
+                self.get_context_data(caixas=caixas, sem_tabbar=True, next=proximo or "")
+            )
         caixas.registrar(request.user)
-        return redirect("plans:today")
+        return self._de_volta(proximo)
 
 
 class ExcluirContaView(LoginRequiredMixin, FormView):

@@ -11,9 +11,9 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
-from accounts.models import User
 from workouts.models import Corrida
 from workouts.templatetags.corrida import km, pace, relogio
+from workouts.tests import create_user
 
 
 class OsFiltrosDaCorridaTests(SimpleTestCase):
@@ -41,9 +41,11 @@ class OsFiltrosDaCorridaTests(SimpleTestCase):
 
 class OPaceApareceNoHistoricoTests(TestCase):
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="corre@exemplo.com", password="senha-bem-forte-123"
-        )
+        # `create_user` (onboarding completo) desde 28/09/2026:
+        # `HistoricoDeCorridasView` passou a exigir `OnboardingRequiredMixin`
+        # (LGPD parte 2, item 11) — ver a mesma nota em
+        # `workouts/test_corrida_registro.py`.
+        self.pessoa = create_user(email="corre@exemplo.com")
         self.client.force_login(self.pessoa)
 
     def _corrida(self, **campos):
@@ -101,9 +103,8 @@ class CorridaComLacunaNaoRecebePaceTests(TestCase):
     """
 
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="lacuna@exemplo.com", password="senha-bem-forte-123"
-        )
+        # Ver nota em `OPaceApareceNoHistoricoTests.setUp` (28/09/2026).
+        self.pessoa = create_user(email="lacuna@exemplo.com")
         self.client.force_login(self.pessoa)
         agora = timezone.now()
         self.base = dict(user=self.pessoa, comecou_em=agora - timedelta(hours=1),
