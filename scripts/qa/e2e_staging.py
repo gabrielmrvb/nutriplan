@@ -138,7 +138,7 @@ class Navegador:
         return self("eval", js, timeout=timeout)
 
     def marcar(self, seletor):
-        """`check`, CONFERIDO, com o plano B pelo DOM.
+        """Clique no `<input>` pelo DOM, CONFERIDO, com o plano B de forçar.
 
         `wait` antes: no runner (MEDIDO no primeiro run do Actions) o `check`
         chegava com a tela ainda carregando e o plano B achava `null`.
@@ -156,11 +156,23 @@ class Navegador:
         Vale para rádio e para caixa: nos dois o estado pedido é
         `checked = true`, e o `change` é o que o `pwa.js` escuta para revelar
         bloco (a divisão do treino, o bloco da academia)."""
+        # NÃO É `check` (28/09/2026): ele clica no CENTRO do elemento, e a
+        # caixa dos Termos virou um cartão com os links "Termos" e
+        # "Privacidade" dentro — o clique caía no link e a página ia para
+        # `/termos/`. `e.click()` no próprio `<input>` alterna a caixa,
+        # dispara `input`/`change` e não passa por link nenhum.
         try:
             self("wait", seletor, "--timeout", "30000")
-            self("check", seletor)
         except RuntimeError:
             pass
+        if self._marcado(seletor):
+            return
+        self.eval(
+            "(function(){var e = document.querySelector(%s);"
+            "if (!e) return 'sem elemento';"
+            "if (!e.checked) e.click();"
+            "return String(e.checked)})()" % json.dumps(seletor)
+        )
         if self._marcado(seletor):
             return
         self.eval(

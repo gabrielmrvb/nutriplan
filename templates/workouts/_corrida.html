@@ -18,12 +18,16 @@
   ainda não cadastrou os dias de treino não tem coluna lateral nenhuma, e
   ficaria sem porta de novo.
   Um include, e os dois estados recebem a mesma.
+
+  "OU À MÃO" (28/09/2026, caça-bugs BA17): a porta falava só de GPS, e a
+  pessoa que só corre registrava tudo à mão — o registro que ela usa não
+  aparecia na porta.
 {% endcomment %}
 <section class="card">
   <div class="card__head"><h2>Corrida</h2></div>
   <p class="hint">
-    Registrar corrida com GPS. O app precisa ficar aberto e a tela acesa —
-    guardar o telefone no bolso interrompe o registro.
+    Registrar corrida com GPS ou à mão. Com GPS, o app precisa ficar aberto e
+    a tela acesa — guardar o telefone no bolso interrompe o registro.
   </p>
   <a class="btn btn--ghost btn--block" href="{% url 'workouts:corridas' %}">
     Abrir corridas

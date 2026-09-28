@@ -12,12 +12,20 @@ um cardápio de exemplo —, e o texto tem de dizer isso com as palavras
 certas. "Plano" e "dieta" são as palavras do conselho para COMIDA; para o
 treino elas continuam livres, porque não há conselho privativo em jogo.
 
-Três réguas, cada uma com o que protege:
+Quatro réguas, cada uma com o que protege:
 
 1. o cadastro e a dieta AVISAM que o resultado não substitui nutricionista;
 2. nenhuma tela da alimentação chama o resultado de "plano";
 3. a landing e as descrições públicas (meta, manifesto) não prometem
    "dieta" — "anunciar que a exerce" está no tipo do art. 47.
+4. o cadastro, a última etapa e a Alimentação — as telas que ENTREGAM
+   número — dizem que a orientação de quem tem registro profissional (CRN
+   para nutrição, CREF para Educação Física) não é substituída (§4 do
+   Gate 1, mensagem do dono de 28/09/2026; `AVISO_CRN_CREF`). A ficha de
+   treino (`templates/workouts/`) e a tela de pagamento (que não existe)
+   ficam de fora deste lote — registrado no ledger. A cláusula 2 dos Termos
+   é de outro lote (Lote 4) e por isso continua com a frase antiga
+   (`AVISO`), coexistindo até lá.
 
 A régua mede o TEXTO VISÍVEL, sem `<script>`, `<style>`, comentário e tag:
 o `CLAUDE.md` registra o teste que passou por acidente porque o marcador
@@ -39,8 +47,22 @@ from accounts.test_tres_etapas import ETAPA1, ETAPA2, ETAPA3, etapa
 from config.seo import DESCRICAO_PADRAO
 from accounts import papeis
 
-#: A frase do aviso, a mesma no cadastro, na última etapa e junto do cardápio.
+#: A frase do aviso, a mesma no cadastro, na última etapa e junto do cardápio
+#: — hoje só nos Termos (Lote 4 ainda não a trocou). NÃO confundir com
+#: `AVISO_CRN_CREF`, abaixo: as duas frases coexistem até o Lote 4 levar a
+#: nova para a cláusula 2 dos Termos.
 AVISO = "não substitui nutricionista nem médico"
+
+#: O aviso regulatório do §4 do Gate 1 (LGPD, mensagem do dono de
+#: 28/09/2026): o app calcula e organiza, não prescreve, e a orientação de
+#: quem tem registro profissional — CRN para nutrição, CREF para Educação
+#: Física — não é substituída. Fica nas três telas que ENTREGAM número
+#: (cadastro, última etapa do onboarding, Alimentação); a ficha de treino e
+#: a tela de pagamento (que não existe) ficam de fora deste lote.
+AVISO_CRN_CREF = (
+    "não substitui a orientação de um nutricionista (registrado no CRN) "
+    "nem de um profissional de Educação Física (registrado no CREF)"
+)
 
 #: A palavra proibida na alimentação, como palavra inteira: "planos" e
 #: "plano" caem; "planejar" e "plano de fundo" não existem nessas telas, e
@@ -86,13 +108,13 @@ class ComCadastroCompleto(TestCase):
 class OCadastroEADietaAvisamTests(ComCadastroCompleto):
     def test_a_tela_de_criar_conta_avisa_que_nao_substitui_nutricionista(self):
         texto = texto_visivel(self.client.get(reverse("accounts:signup")).content.decode())
-        self.assertIn(AVISO, texto)
+        self.assertIn(AVISO_CRN_CREF, texto)
 
     def test_a_ultima_etapa_avisa_e_o_botao_calcula_uma_estimativa(self):
         self.pessoa()
         html = self.client.get(etapa(3)).content.decode()
         texto = texto_visivel(html)
-        self.assertIn(AVISO, texto)
+        self.assertIn(AVISO_CRN_CREF, texto)
         self.assertIn("Calcular minha estimativa", texto)
         self.assertNotIn("Criar meu plano", texto)
 
@@ -110,12 +132,38 @@ class OCadastroEADietaAvisamTests(ComCadastroCompleto):
         self.pessoa_completa()
         html = self.client.get(reverse("plans:alimentacao")).content.decode()
         cardapio = html.split("Seu cardápio de hoje", 1)[1]
-        self.assertIn(AVISO, texto_visivel(cardapio))
+        self.assertIn(AVISO_CRN_CREF, texto_visivel(cardapio))
 
     def test_os_termos_dizem_de_quem_e_a_prescricao(self):
+        """Os Termos continuam com a frase ANTIGA (`AVISO`): a cláusula 2 é
+        do Lote 4 (`templates/legal/`, fora do escopo deste lote), e as duas
+        frases coexistem até lá."""
         texto = texto_visivel(self.client.get(reverse("termos")).content.decode())
         self.assertIn(AVISO, texto)
         self.assertIn("Lei 8.234/1991", texto)
+
+
+class OAvisoCRNCREFApareceOndeOAppEntregaNumeroTests(ComCadastroCompleto):
+    """§4 do Gate 1 (mensagem do dono, 28/09/2026): o app entrega número em
+    cinco lugares, e o Lote 3 cobre três — o cadastro por e-mail, a última
+    etapa do onboarding e a Alimentação. A ficha de treino
+    (`templates/workouts/`) e a tela de pagamento (que não existe) ficam de
+    fora, registrado no ledger. A MESMA frase nas três telas é o que este
+    teste prende — sabotar qualquer uma das três a derruba."""
+
+    def test_o_mesmo_aviso_aparece_nas_tres_telas(self):
+        """`accounts:signup` redireciona quem já está logado — por isso a
+        leitura da tela de cadastro vem ANTES de `self.pessoa()`."""
+        signup = texto_visivel(self.client.get(reverse("accounts:signup")).content.decode())
+
+        self.pessoa()
+        etapa_3 = texto_visivel(self.client.get(etapa(3)).content.decode())
+        self.client.post(etapa(3), ETAPA3)
+        alimentacao = texto_visivel(self.client.get(reverse("plans:alimentacao")).content.decode())
+
+        for nome, texto in (("signup", signup), ("etapa 3", etapa_3), ("alimentação", alimentacao)):
+            with self.subTest(tela=nome):
+                self.assertIn(AVISO_CRN_CREF, texto)
 
 
 class NenhumaTelaDaAlimentacaoChamaDePlanoTests(ComCadastroCompleto):
