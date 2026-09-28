@@ -30,7 +30,10 @@ from .models import Consentimento, Profile
 #: A data dos textos vigentes de Termos e Política — a mesma que as duas
 #: páginas mostram em "Última atualização". Subir isto pede consentimento de
 #: novo a todo mundo; só se sobe quando o que se consente mudou.
-VERSAO_DOS_LEGAIS = "2026-09-21"
+#: [REVISAR] subiu em 28/09/2026 (Lote 1 da missão LGPD, mensagem do dono):
+#: o texto da caixa de saúde mudou (§3.3 do rascunho), então todo mundo
+#: consente de novo uma vez, depois do merge.
+VERSAO_DOS_LEGAIS = "2026-09-28"
 
 TIPOS = (
     Consentimento.Tipo.TERMOS,
@@ -43,12 +46,19 @@ TIPOS = (
 #: link no template, não aqui.
 ROTULOS = {
     Consentimento.Tipo.TERMOS: "Li e aceito os Termos de Uso e a Política de Privacidade.",
+    # [REVISAR] texto do dono, §3.3 do rascunho de 28/09/2026, verbatim
+    # (Lote 1 da missão LGPD). Divergência declarada no PR: o rascunho
+    # original termina em "o meu plano de dieta e de treino", e "plano" é
+    # palavra proibida nas telas da alimentação (config/test_linguagem.py,
+    # decisão de 21/09/2026); aqui virou "a minha estimativa de calorias, o
+    # cardápio de exemplo e a ficha de treino" — mesma frase de sempre do
+    # app, sem mudar o que se autoriza.
     Consentimento.Tipo.SAUDE: (
-        "Autorizo o NutriPlan a tratar meus dados de saúde — sexo, data de "
-        "nascimento, altura, peso, objetivo, refeições, cargas e corridas — "
-        "para calcular a estimativa de calorias, montar o cardápio de exemplo "
-        "e a ficha de treino e acompanhar o que eu registrar. Sem isso o app "
-        "não funciona."
+        "Autorizo o uso dos meus dados de saúde (peso, altura, idade, sexo, "
+        "objetivo, refeições, treinos e corridas) para calcular e ajustar a "
+        "minha estimativa de calorias, o cardápio de exemplo e a ficha de "
+        "treino. Sem isso o app não consegue calcular nada. Você pode "
+        "retirar esta permissão excluindo a conta, a qualquer momento."
     ),
     Consentimento.Tipo.TRANSFERENCIA: (
         "Estou ciente de que meus dados ficam em servidores nos Estados Unidos "

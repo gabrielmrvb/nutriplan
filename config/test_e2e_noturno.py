@@ -161,6 +161,8 @@ class ORoteiroTests(SimpleTestCase):
             if args[0] == "check":          # o `check` que sai 0 sem marcar
                 return ""
             if args[0] == "eval":
+                if "e.click()" in args[1]:  # o clique pelo DOM que não pega
+                    return "false"
                 if "e.checked = true" in args[1]:
                     estado["marcado"] = True
                     return "true"
@@ -174,6 +176,32 @@ class ORoteiroTests(SimpleTestCase):
         evals = [c[1] for c in gravados if c[0] == "eval"]
         self.assertTrue(any("e.checked = true" in js for js in evals),
                         "sem a força pelo DOM o roteiro segue com a caixa vazia")
+
+    def test_marcar_nao_clica_por_coordenada(self):
+        """O lote de 28/09/2026 (#196) reprovou em `cadastro` com "não
+        consegui marcar input[name=termos]" e o snapshot em `/termos/`. Desde
+        o lote 5 do sistema visual a caixa dos Termos é um CARTÃO de escolha
+        com os links "Termos" e "Privacidade" dentro, e o `check` do
+        agent-browser clica no CENTRO do elemento: o clique caía no link e a
+        página ia embora. `marcar` agora ativa o próprio `<input>` pelo DOM
+        (`e.click()`), que alterna a caixa, dispara `input`/`change` e não
+        passa por link nenhum."""
+        gravados = []
+        estado = {"marcado": False}
+
+        def falso(comando, timeout):
+            args = comando[3:]
+            gravados.append(args)
+            if args[0] == "eval":
+                if "e.click()" in args[1]:
+                    estado["marcado"] = True
+                return "true" if estado["marcado"] else "false"
+            return ""
+
+        e2e.Navegador("s", executar=falso).marcar("input[name=termos]")
+        self.assertTrue(estado["marcado"])
+        self.assertNotIn("check", [c[0] for c in gravados],
+                         "o `check` clica por coordenada e pode cair no link do cartão")
 
     def test_marcar_falha_alto_quando_nem_o_dom_marca(self):
         """Controle positivo: caixa que não marca de jeito nenhum precisa

@@ -77,9 +77,11 @@ class OHistoricoMostraCadaSerieTests(TestCase):
         ).content.decode()
         historico = html.split('class="data-list historico"', 1)[1].split("</dl>", 1)[0]
         self.assertIn("60", historico)
-        self.assertIn("62,50", historico)
+        # Formato único (28/09/2026): o zero à direita era ruído — "62,5",
+        # não mais "62,50" (item 5 da parte 2, filtro `carga`).
+        self.assertIn("62,5", historico)
         # A carga máxima NÃO pode aparecer três vezes: era o defeito.
-        self.assertEqual(historico.count("62,50"), 2, historico)
+        self.assertEqual(historico.count("62,5"), 2, historico)
 
     def test_sabotagem_mudar_a_carga_da_primeira_serie_muda_a_tela(self):
         """A prova de que a tela LÊ o banco: altero a série 1 no banco e a
@@ -97,7 +99,9 @@ class OHistoricoMostraCadaSerieTests(TestCase):
         ).update(weight_kg=Decimal("47.50"))
         depois = linha()
         self.assertNotEqual(antes, depois, "a tela não acompanhou o banco")
-        self.assertIn("47,50", depois)
+        # Formato único (28/09/2026): "47,5", não "47,50" — o zero à direita
+        # era ruído (item 5 da parte 2, filtro `carga`).
+        self.assertIn("47,5", depois)
 
     def test_exercicio_sem_carga_continua_mostrando_so_repeticoes(self):
         """Peso do corpo grava ZERO (`weight_kg` é NOT NULL), e "0,00 × 8"

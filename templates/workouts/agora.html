@@ -449,7 +449,7 @@
                 <span class="series__n num">{{ linha.number }}</span>
                 {% if linha.weight != None %}
                   <span class="series__carga num">
-                    {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|floatformat:'-2' }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
+                    {% if atual.measure == 'seconds' %}{{ linha.reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.reps|default:"—" }}{% else %}{{ linha.weight|carga }}{% if linha.reps %}×{{ linha.reps }}{% endif %}{% endif %}
                   </span>
                   {% if linha.recorde %}
                     {# A palavra, e não só a cor: a série que SUPEROU a maior carga já registrada. #}
@@ -461,7 +461,7 @@
                   {% endif %}
                 {% elif linha.antes_peso != None %}
                   <span class="series__antes num">
-                    <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|floatformat:'-2' }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
+                    <span class="vis-oculto">última vez: </span>{% if atual.measure == 'seconds' %}{{ linha.antes_reps|default:"—" }}s{% elif atual.exercise.sem_carga %}×{{ linha.antes_reps|default:"—" }}{% else %}{{ linha.antes_peso|carga }}{% if linha.antes_reps %}×{{ linha.antes_reps }}{% endif %}{% endif %}
                   </span>
                 {% else %}
                   <span class="series__carga num">—</span>
@@ -595,7 +595,7 @@
           <p class="registro__ultima">
             <span class="vis-oculto">Na última vez você fez </span>última:
             {% if atual.ultima_vez.peso %}
-              <b class="num">{{ atual.ultima_vez.peso|floatformat:'-2' }}&nbsp;kg</b>{% if atual.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span>&nbsp;<b class="num">{{ atual.ultima_vez.reps }}</b>{% endif %}
+              <b class="num">{{ atual.ultima_vez.peso|carga }}&nbsp;kg</b>{% if atual.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span>&nbsp;<b class="num">{{ atual.ultima_vez.reps }}</b>{% endif %}
             {% else %}
               <b class="num">{{ atual.ultima_vez.reps }}</b>&nbsp;reps
             {% endif %}
@@ -624,7 +624,7 @@
           {% endcomment %}
           <input class="registro__carga num" type="text" name="weight_kg"
                  maxlength="6" inputmode="decimal"{% if not atual.exercise.sem_carga %} required{% endif %}
-                 value="{% if atual.sugestao_carga != None and not atual.exercise.sem_carga %}{{ atual.sugestao_carga|floatformat:'-2' }}{% endif %}"
+                 value="{% if atual.sugestao_carga != None and not atual.exercise.sem_carga %}{{ atual.sugestao_carga|carga }}{% endif %}"
                  placeholder="{% if atual.exercise.sem_carga %}peso do corpo{% else %}kg{% endif %}"
                  aria-label="Carga da série {{ atual.serie_prevista }} de {{ atual.exercise.name }}">
         </label>
@@ -800,7 +800,7 @@
           <span class="agora__anterior-fato">
             Primeira vez neste. Na última {{ movimento_anterior.padrao }}
             ({{ movimento_anterior.exercicio.name|lower }}, {{ movimento_anterior.data|date:"d/m" }}):
-            <b class="num">{{ movimento_anterior.peso|floatformat:'-2' }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
+            <b class="num">{{ movimento_anterior.peso|carga }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
           </span>
         </p>
       {% endif %}
@@ -808,7 +808,7 @@
         <p class="agora__anterior">
           <span class="agora__anterior-fato">
             Última carga ({{ atual.load.data_anterior|date:"d/m" }}):
-            <b class="num">{{ atual.load.melhor_anterior|floatformat:'-2' }} kg</b>
+            <b class="num">{{ atual.load.melhor_anterior|carga }} kg</b>
           </span>
           {% comment %}
             O RECORDE É FATO, com o contrato de `achievements.regras._recorde`:
@@ -817,7 +817,7 @@
           {% endcomment %}
           {% if atual.load.recorde_anterior %}
           <span class="agora__recorde">
-            Recorde: <b class="num">{{ atual.load.recorde_anterior|floatformat:'-2' }} kg</b>
+            Recorde: <b class="num">{{ atual.load.recorde_anterior|carga }} kg</b>
           </span>
           {% endif %}
           {% comment %}
@@ -827,7 +827,7 @@
           {% endcomment %}
           {% if atual.load.melhor_serie_anterior %}
           <span class="agora__recorde">
-            Melhor série: <b class="num">{{ atual.load.melhor_serie_peso|floatformat:'-2' }} kg × {{ atual.load.melhor_serie_reps }}</b>
+            Melhor série: <b class="num">{{ atual.load.melhor_serie_peso|carga }} kg × {{ atual.load.melhor_serie_reps }}</b>
           </span>
           {% endif %}
           {% comment %}
@@ -847,21 +847,21 @@
           {% endcomment %}
           {% if atual.progressao %}
           <span class="agora__anterior-sugestao">
-            Sugestão: {{ atual.progressao.rotulo }} <b class="num">{{ atual.progressao.valor|floatformat:'-2' }} kg</b>
+            Sugestão: {{ atual.progressao.rotulo }} <b class="num">{{ atual.progressao.valor|carga }} kg</b>
             — {{ atual.progressao.razao }}
           </span>
           {% elif atual.sugestao_carga != None %}
           <span class="agora__anterior-sugestao">
-            Sugestão: manter <b class="num">{{ atual.sugestao_carga|floatformat:'-2' }} kg</b>
+            Sugestão: manter <b class="num">{{ atual.sugestao_carga|carga }} kg</b>
           </span>
           {% endif %}
           {% if atual.load.melhor_hoje %}
             <span class="agora__comparacao">
               Hoje:
               {% if atual.load.delta > 0 %}
-                <b class="agora__delta agora__delta--up">▲ +{{ atual.load.delta|floatformat:'-2' }} kg</b>
+                <b class="agora__delta agora__delta--up">▲ +{{ atual.load.delta|carga }} kg</b>
               {% elif atual.load.delta < 0 %}
-                <b class="agora__delta agora__delta--down">▼ {{ atual.load.delta|floatformat:'-2' }} kg</b>
+                <b class="agora__delta agora__delta--down">▼ {{ atual.load.delta|carga }} kg</b>
               {% else %}
                 <b class="agora__delta">= mesma carga</b>
               {% endif %}
