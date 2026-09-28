@@ -1,9 +1,15 @@
 """Bloco 4 — privacidade.
 
-A propriedade que atravessa tudo: recusar o rastreio NÃO apaga o evento — ele
-continua contando no agregado ANÔNIMO —; o que para é a atribuição à pessoa.
-Duas fontes de recusa (DNT e o opt-out do perfil), as duas lidas SEM consulta.
-"""
+Duas recusas, dois efeitos — decisão 2 do plano de 28/09/2026 (Lote 1 da
+missão LGPD) separou o que era uma propriedade só:
+
+- DNT recusa só a ATRIBUIÇÃO: o evento continua contando no agregado
+  ANÔNIMO;
+- o opt-out do perfil (`Profile.rastrear_uso == False`, escrito na sessão)
+  recusa o evento INTEIRO de quem está logado — nem anônimo é gravado
+  (`analytics/test_optout_bloqueia.py` é a régua nova, ponto a ponto).
+
+As duas fontes são lidas SEM consulta."""
 from django.test import TestCase
 from django.urls import reverse
 
@@ -29,13 +35,15 @@ class OptOutTests(CatalogFixture):
     def test_por_padrao_o_evento_e_atribuido(self):
         self.assertEqual(self._agua().user, self.pessoa)
 
-    def test_opt_out_mantem_o_evento_anonimo_mas_conta(self):
+    def test_opt_out_do_perfil_bloqueia_o_evento_inteiro(self):
+        """Desde 28/09/2026 (Lote 1 da missão LGPD): desligar o rastreio no
+        perfil não anonimiza mais — não grava NENHUMA linha, nem anônima.
+        Era o `test_opt_out_mantem_o_evento_anonimo_mas_conta` até aqui."""
         self.client.post(reverse("accounts:rastreio"), {})  # checkbox desmarcado
         self.pessoa.profile.refresh_from_db()
         self.assertFalse(self.pessoa.profile.rastrear_uso)
-        evento = self._agua()
-        self.assertIsNone(evento.user)              # não é da pessoa
-        self.assertEqual(evento.anon_id, "anon-teste")  # anônimo, mas conta no agregado
+        self.client.post("/agua/", {"ml": "250"})
+        self.assertFalse(Event.objects.filter(name="agua.registrada").exists())
 
     def test_permitir_de_novo_volta_a_atribuir(self):
         self.client.post(reverse("accounts:rastreio"), {})
@@ -45,6 +53,17 @@ class OptOutTests(CatalogFixture):
     def test_dnt_tambem_mantem_anonimo(self):
         self.client.post("/agua/", {"ml": "250"}, HTTP_DNT="1")
         self.assertIsNone(Event.objects.get(name="agua.registrada").user)
+
+    def test_a_mensagem_de_desligar_diz_a_verdade(self):
+        """I2 (revisão de 28/09/2026): a mensagem dizia 'conta só de forma
+        anônima', que deixou de ser verdade quando o opt-out passou a
+        bloquear o evento inteiro. A página seguinte (o Perfil, por
+        `AcaoDeTela`) é onde a mensagem aparece de verdade — não uma
+        string isolada."""
+        r = self.client.post(reverse("accounts:rastreio"), {}, follow=True)
+        texto = r.content.decode()
+        self.assertIn("Nenhum registro do seu uso é feito agora, nem anônimo.", texto)
+        self.assertNotIn("conta só de forma anônima", texto)
 
 
 class LoginCarregaOptOutTests(TestCase):
@@ -73,6 +92,22 @@ class PaginaTests(TestCase):
         self.assertIn("leg", html.lower())  # legítimo interesse
         self.assertIn("13.709", html)  # a LGPD citada
         self.assertIn("Do-Not-Track", html)
+
+    def test_o_cartao_do_perfil_diz_que_desligar_nao_registra_nada(self):
+        """I2 (revisão de 28/09/2026): o cartão ao lado do interruptor dizia
+        'o uso continua contando só de forma anônima', que passou a ser
+        falso quando o opt-out virou bloqueio total. Ancorado no texto
+        VISÍVEL da página (espaço normalizado — o template quebra a frase
+        em várias linhas), não numa string que também mora em comentário."""
+        user = create_complete_user(email="cartao-perfil@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+        texto = " ".join(html.split())
+        self.assertIn(
+            "Com a análise desligada, nenhum registro do seu uso é feito, nem anônimo.",
+            texto,
+        )
+        self.assertNotIn("continua contando só de forma anônima", texto)
 
 
 def create_complete_user_min(User):
