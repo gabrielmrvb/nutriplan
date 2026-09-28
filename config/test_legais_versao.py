@@ -105,12 +105,21 @@ class ARevogacaoDeSaudeEAExclusaoTests(TestCase):
     def setUp(self):
         self.html = _sem_quebra_de_linha(self.client.get(reverse("privacidade")).content.decode())
 
+    FRASE = (
+        "Retirar o consentimento para dados de saúde é excluir a conta: "
+        "sem esses dados o app não calcula nada."
+    )
+
     def test_a_frase_do_dono_esta_la(self):
-        self.assertIn(
-            "Retirar o consentimento para dados de saúde é excluir a conta: "
-            "sem esses dados o app não calcula nada.",
-            self.html,
-        )
+        self.assertIn(self.FRASE, self.html)
+
+    def test_e_so_essa_frase_uma_so_nao_duas(self):
+        """§3.4 a pede UMA frase, não duas dizendo a mesma coisa — o <dd> de
+        "Revogar o consentimento" precisa ser exatamente ela, sem nada extra
+        colado (a versão antiga tinha duas frases aqui)."""
+        dd = self.html.split("<dt>Revogar o consentimento</dt>", 1)[1]
+        dd = dd.split("<dd>", 1)[1].split("</dd>", 1)[0].strip()
+        self.assertEqual(dd, self.FRASE)
 
 
 class OsTermosCitamACrefTests(TestCase):
