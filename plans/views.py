@@ -25,6 +25,7 @@ from accounts.models import (
     ACTIVITY_FACTORS,
     CAMPO_DO_PILAR,
     Goal,
+    Musculacao,
     Pilar,
     SyncedOperation,
 )
@@ -424,7 +425,14 @@ CARTOES_DO_PAINEL = ("dieta", "treino", "hidratacao", "corrida", "progresso")
 CARTOES_DECLARADOS = ("corrida", "progresso")
 
 
-def cartoes_do_painel(prioridade, *, declarados=()) -> list:
+#: A ordem de quem NÃO faz musculação (#138, decisão do dono, 28/09/2026):
+#: sem treino, e com a corrida ao lado da alimentação — as duas são o dia
+#: dessa pessoa. A corrida entra mesmo sem ter sido declarada: sem ficha,
+#: ela é o que o app tem de movimento para oferecer.
+CARTOES_SEM_MUSCULACAO = ("dieta", "corrida", "hidratacao", "progresso")
+
+
+def cartoes_do_painel(prioridade, *, declarados=(), faz_musculacao=True) -> list:
     """Os cartões do painel: qual, em que ordem, e qual ocupa a linha inteira
     no celular.
 
@@ -451,10 +459,16 @@ def cartoes_do_painel(prioridade, *, declarados=()) -> list:
     SÓ os dois opcionais (`CARTOES_DECLARADOS`) — interesse organiza e não
     restringe, então não declarar Alimentação não tira o cartão do cardápio.
     """
-    chaves = [
-        c for c in CARTOES_DO_PAINEL
-        if c not in CARTOES_DECLARADOS or c in declarados
-    ]
+    if faz_musculacao:
+        chaves = [
+            c for c in CARTOES_DO_PAINEL
+            if c not in CARTOES_DECLARADOS or c in declarados
+        ]
+    else:
+        chaves = [
+            c for c in CARTOES_SEM_MUSCULACAO
+            if c != "progresso" or c in declarados
+        ]
     if prioridade in chaves:
         chaves.remove(prioridade)
         chaves.insert(0, prioridade)
@@ -618,7 +632,8 @@ class TodayView(PlanRequiredMixin, TemplateView):
         # não a única.
         ultima_corrida = None
         ultimo_peso = None
-        if Pilar.CORRIDA in declarados:
+        faz_musculacao = getattr(perfil, "musculacao", "") != Musculacao.NAO
+        if Pilar.CORRIDA in declarados or not faz_musculacao:
             ultima_corrida = (
                 Corrida.objects.filter(user=self.request.user)
                 .order_by("-comecou_em")
@@ -783,7 +798,9 @@ class TodayView(PlanRequiredMixin, TemplateView):
                 #
                 # Corrida e Progresso só entram para quem declarou a área;
                 # Alimentação, Treino e Hidratação são o dia de qualquer um.
-                "painel": cartoes_do_painel(prioridade, declarados=declarados),
+                "painel": cartoes_do_painel(
+                    prioridade, declarados=declarados, faz_musculacao=faz_musculacao
+                ),
                 # O selo "sua área" do cartão de água, que é um `{% include %}`
                 # e não enxerga `area_promovida` do contexto pai.
                 "agua_principal": prioridade == Pilar.HIDRATACAO,
