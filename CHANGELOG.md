@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-28
+
+- **"Exportar meus dados" agora leva tudo, não só uma parte.** O arquivo que você baixa no Perfil passou a incluir corrida, consentimento, água registrada gole a gole, lista de compras marcada, e-mails enviados e todo o resto que o app guarda sobre você — antes faltavam essas partes, sem aviso. Continua sem senha, sem token e sem nada de outra pessoa.
+
 ## 2026-09-27
 
 - **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".
