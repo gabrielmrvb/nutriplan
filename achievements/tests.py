@@ -378,11 +378,13 @@ class CatalogoTests(TestCase):
                 self.assertTrue(regra.emoji)
 
     def test_nao_ha_conquista_de_dado_que_o_app_nao_tem(self):
-        """Corrida, passos, medida corporal, sono e desafio não existem no
-        NutriPlan. Uma conquista sobre eles seria uma promessa quebrada."""
+        """Passos, medida corporal, sono e desafio não existem no NutriPlan.
+        Uma conquista sobre eles seria uma promessa quebrada. Corrida e
+        refeição registrada entraram em 28/09/2026 (#138): `Corrida` e
+        `MealLog` são dado que o banco tem."""
         familias = {regra.familia for regra in POR_SLUG.values()}
 
-        self.assertEqual(familias, {"treino", "ofensiva", "meta", "recorde"})
+        self.assertEqual(familias, {"treino", "ofensiva", "meta", "recorde", "corrida", "dieta"})
 
 
 class AcessoTests(BaseDeConquistas):

@@ -23,13 +23,18 @@ custo apareceria em toda visita para um ganho que a escrita já entrega.
 from dataclasses import replace
 from datetime import timedelta
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Max, Min, Q
+from django.db.models import (
+    Count, DecimalField, Exists, ExpressionWrapper, F, IntegerField, Max, Min, OuterRef, Q, Subquery,
+)
+from django.db.models.functions import Coalesce
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from accounts.models import TrainingDay
+from accounts.models import Musculacao, TrainingDay
 from plans import services as plan_services
 from plans import streaks
-from workouts.models import ExerciseLog, TrainingPlan
+from plans.models import MealLog, MealStatus
+from workouts.models import Corrida, ExerciseLog, TrainingPlan
 
 from .models import UserAchievement
 from .regras import CATALOGO, Dados
@@ -67,8 +72,38 @@ def reunir(user, hoje=None) -> Dados:
     # enquanto a Home dizia 0 — a régua dependia de o chamador lembrar. O
     # plano é lido uma vez aqui e emprestado às duas coisas
     # (`_streak_tem_plano` e `plano=`), então o custo não muda.
+    perfil = getattr(user, "profile", None)
     plano = plan_services.get_active_plan(user)
     user._streak_tem_plano = plano is not None
+
+    # TRÊS PERGUNTAS NUMA CONSULTA (28/09/2026): "tem ficha ativa?" já era
+    # uma; corridas e dias com refeição (#138) viraram subconsultas da MESMA
+    # linha, e o custo do Progresso e das Conquistas não mudou.
+    def _contar(qs):
+        return Subquery(
+            qs.order_by().values("user").annotate(n=Count("*")).values("n")[:1],
+            output_field=IntegerField(),
+        )
+
+    contagens = (
+        get_user_model().objects.filter(pk=user.pk)
+        .annotate(
+            tem_plano=Exists(TrainingPlan.objects.filter(user=OuterRef("pk"), is_active=True)),
+            n_corridas=Coalesce(_contar(Corrida.objects.filter(user=OuterRef("pk"))), 0),
+            n_dias_refeicao=Coalesce(
+                Subquery(
+                    MealLog.objects.filter(
+                        user=OuterRef("pk"), status__in=(MealStatus.DONE, MealStatus.OFF_PLAN)
+                    ).order_by().values("user")
+                    .annotate(n=Count("date", distinct=True)).values("n")[:1],
+                    output_field=IntegerField(),
+                ),
+                0,
+            ),
+        )
+        .values("tem_plano", "n_corridas", "n_dias_refeicao")
+        .get()
+    )
 
     dados = Dados(
         hoje=hoje,
@@ -78,7 +113,11 @@ def reunir(user, hoje=None) -> Dados:
         # enquanto o resto do cálculo usa a data recebida, e o teste que
         # controla a data mediria duas coisas diferentes ao mesmo tempo.
         ofensiva=streaks.para_a_tela(user, hoje=hoje, plano=plano).dias,
-        tem_plano=TrainingPlan.objects.filter(user=user, is_active=True).exists(),
+        tem_plano=contagens["tem_plano"],
+        faz_musculacao=getattr(perfil, "musculacao", "") != Musculacao.NAO,
+        corre=bool(getattr(perfil, "interesse_corrida", False)),
+        corridas=contagens["n_corridas"],
+        dias_com_refeicao=contagens["n_dias_refeicao"],
     )
 
     # ------------------------------------------------------ semana completa
@@ -314,13 +353,21 @@ def a_caminho(dados, conquistados) -> list:
     uma. As duas leem esta lista, e não uma cópia da regra: duas cópias
     divergem na primeira mudança.
     """
-    from .regras import CATALOGO
+    from .regras import CATALOGO, FAMILIAS_DE_MUSCULACAO, Familia
 
     candidatas = []
     for regra in CATALOGO:
         if regra.slug in conquistados:
             continue
         if not (regra.alvo and regra.progresso):
+            continue
+        if not dados.faz_musculacao and regra.familia in FAMILIAS_DE_MUSCULACAO:
+            continue
+        # Corrida só para quem corre: "Primeira corrida 0/1" na tela de quem
+        # só treina seria a medalha cinzenta que esta função existe para evitar.
+        if regra.familia == Familia.CORRIDA and not (
+            dados.corre or dados.corridas or not dados.faz_musculacao
+        ):
             continue
         atual = regra.progresso(dados)
         candidatas.append(
@@ -332,7 +379,9 @@ def a_caminho(dados, conquistados) -> list:
             }
         )
     # A mais perto primeiro: é a que a pessoa consegue fechar hoje.
-    candidatas.sort(key=lambda item: -item["pct"])
+    # No empate, o alvo menor: sem isso, no dia 1 (tudo a 0 %) a ordem era a
+    # do catálogo e as quatro vagas iam para uma família só.
+    candidatas.sort(key=lambda item: (-item["pct"], item["alvo"]))
     return candidatas
 
 

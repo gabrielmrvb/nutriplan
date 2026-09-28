@@ -457,6 +457,28 @@ compras é feita deles).
   cartão AGORA com a receita (271) — somam ~1.400 px sozinhos. Chegar a 1.500
   exige desfazer um deles, e isso é decisão de produto.
 
+**QUEM NÃO FAZ MUSCULAÇÃO VÊ O DIA DELA, E NÃO A FICHA QUE NÃO TEM
+(decisão do dono, #138, 28/09/2026).** `Profile.musculacao == "nao"` muda
+três telas, e só essas: a **Home** monta o painel com
+`CARTOES_SEM_MUSCULACAO` — Alimentação e Corrida primeiro, SEM cartão de
+treino e sem "Montar treino"; a corrida entra mesmo sem ter sido declarada,
+porque sem ficha ela é o movimento que o app tem a oferecer (a área
+principal continua primeiro). As **Conquistas** só oferecem "a caminho" de
+corrida e alimentação (`regras.FAMILIAS_DE_MUSCULACAO` sai: treino,
+ofensiva — que exige um dia treinado e nunca fecharia —, semana e
+recorde); conquista já GANHA continua na tela, porque registra o que
+aconteceu. E o **Progresso** troca a área e o tile de treino pela corrida,
+com o estado vazio levando a registrar a primeira. `/treino/` já é a porta
+para ativar a musculação ("Mudei de ideia"). Em branco ("não perguntado")
+continua sendo quem treina. As conquistas de corrida (`Corrida`) e de
+refeição registrada (`MealLog` feita ou "comi outra coisa", por DIA
+distinto) valem para todo mundo — a de corrida só para quem corre ou
+declarou corrida, senão "Primeira corrida 0/1" seria medalha cinzenta na
+tela de quem só treina. `reunir` lê "tem ficha?", corridas e dias com
+refeição numa consulta só: o custo das Conquistas e do Progresso não mudou.
+`plans/test_sem_musculacao.py`, `achievements/test_sem_musculacao.py`,
+`plans/test_progresso_dia_1.py`.
+
 **Quem não declarou nada vê a Home de antes da campanha** — sem selo, sem cartão
 de área, na ordem canônica. E ela não infere área de histórico, peso, treino,
 água ou frequência: há teste com uma pessoa de histórico cheio provando que ela
