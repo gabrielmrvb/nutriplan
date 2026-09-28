@@ -18,6 +18,8 @@ E a data no topo das duas páginas era escrita à mão duas vezes (aqui e em
 pede consentimento de novo). Este teste lê a CONSTANTE, nunca uma data
 literal — subir a versão numa outra branch não pode derrubar este teste.
 """
+from unittest import mock
+
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
@@ -60,8 +62,13 @@ class AVersaoVemDaConstanteTests(TestCase):
 
 
 class ADataPorExtensoTests(SimpleTestCase):
+    """A data vem da constante, e o teste fixa a constante: escrever aqui a
+    data vigente quebrou este teste no dia em que o #184 subiu a versão
+    (28/09/2026) — exatamente a data escrita à mão que a regra proíbe."""
+
     def test_formata_sem_zero_a_esquerda_no_dia(self):
-        self.assertEqual(data_dos_legais_por_extenso(), "21 de setembro de 2026")
+        with mock.patch("config.legal.VERSAO_DOS_LEGAIS", "2026-09-05"):
+            self.assertEqual(data_dos_legais_por_extenso(), "5 de setembro de 2026")
 
 
 @override_settings(LEGAL_PUBLICADO=True, LEGAL_RESPONSAVEL="Fulana de Tal", LEGAL_CONTATO="contato@exemplo.com")
