@@ -24,14 +24,12 @@ import json
 from datetime import timedelta
 
 from django.contrib import admin
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
 from push.test_cache_privado import sem_comentarios
 from workouts.models import Corrida, TracoDaCorrida
-
-User = get_user_model()
+from workouts.tests import create_user
 
 
 class OCaminhoDaWebNaoColetaCoordenadaTests(TestCase):
@@ -39,9 +37,10 @@ class OCaminhoDaWebNaoColetaCoordenadaTests(TestCase):
     percurso — e é assim que tem de continuar até alguém decidir o contrário."""
 
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="corredora.web@exemplo.com", password="senha-bem-forte-123"
-        )
+        # `create_user` (onboarding completo) desde 28/09/2026: `SalvarCorridaView`
+        # passou a exigir `OnboardingRequiredMixin` (LGPD parte 2, item 11) —
+        # ver a mesma nota em `workouts/test_corrida_registro.py`.
+        self.pessoa = create_user(email="corredora.web@exemplo.com")
         self.client.force_login(self.pessoa)
         self.comecou = timezone.now() - timedelta(minutes=50)
         self.terminou = timezone.now()

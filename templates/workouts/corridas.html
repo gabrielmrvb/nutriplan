@@ -59,6 +59,24 @@
 
     <p class="corrida-estado" role="status" aria-live="polite" data-corrida-estado></p>
 
+    {% comment %}
+      Achado 1 da revisão de 28/09/2026 (LGPD parte 2, Task F): `salvar()`
+      seguia o 302 que `OnboardingRequiredMixin` manda quando o consentimento
+      está vencido, chegava a um 200 e apagava a ÚNICA cópia local da corrida
+      como se tivesse salvo. Este link fica ESCONDIDO — `corrida.js` só o
+      mostra quando o envio bate nesse redirecionamento, e nunca some a
+      corrida guardada nesse caso.
+
+      M2 da revisão (mesma data): o `?next=` volta a pessoa para ESTA tela
+      depois de consentir — é aqui, e só aqui, que `recuperar()` reenvia a
+      corrida pendente. Sem ele a régua do achado 2 (consentimento "com
+      volta") mandava para a Home, e a corrida só subiria na próxima vez que
+      alguém abrisse Corridas.
+    {% endcomment %}
+    <a href="{% url 'accounts:consentimento' %}?next={% url 'workouts:corridas' %}" class="btn btn--ghost" hidden data-corrida-consentir>
+      Confirmar os termos
+    </a>
+
     <div class="corrida-acoes">
       <button type="button" class="btn btn--primary btn--block" data-corrida-comecar>
         Começar corrida

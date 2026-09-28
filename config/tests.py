@@ -2295,18 +2295,21 @@ class BancoDoBlueprintTests(TestCase):
         self.assertNotIn("fromDatabase", bloco)
         self.assertIn("sync: false", bloco)
 
-    def test_o_banco_antigo_continua_declarado(self):
-        """Ele é o rollback, e some do Render se sair daqui.
-
-        Apagar a declaração faria o Render remover o banco na próxima
-        sincronização — junto com a única volta possível se o Neon der
-        problema. Ele expira sozinho em 23/09/2026; até lá, fica.
-        """
+    def test_o_banco_antigo_saiu_do_blueprint(self):
+        """ALTERADO em 28/09/2026 (LGPD parte 2, item 13): o prazo do
+        docstring da classe acima ("expira em 23/09/2026") já passou. O
+        Render apaga, não suspende, e não há backup gerenciado no plano
+        gratuito — o que não tinha sido despejado até 23/09 não volta, e não
+        volta desde então. Manter o bloco `databases:` no Blueprint depois
+        disso é vestigial: a app já não lê `DATABASE_URL` dele (Neon, `sync:
+        false`), e o bloco só faz o Render continuar provisionando um banco
+        gratuito que não serve mais a nada. Aplicar esta remoção no painel
+        exige um Sync do Blueprint — mão do dono, não automático."""
         texto = (Path(settings.BASE_DIR) / "render.yaml").read_text(
             encoding="utf-8"
         )
-        self.assertRegex(texto, r"(?m)^databases:")
-        self.assertIn("name: nutriplan-db", texto)
+        self.assertNotRegex(texto, r"(?m)^databases:")
+        self.assertNotIn("name: nutriplan-db", texto)
 
 
 class PortaSmtpTests(TestCase):
