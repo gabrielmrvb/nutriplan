@@ -7,6 +7,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 ## 2026-09-28
 
 - **A Política e os Termos dizem quem responde pelos seus dados, e o que a exportação traz de verdade.** A Política ganhou o encarregado pelo tratamento (art. 41 da LGPD), a exportação passou a listar tudo o que o arquivo JSON contém, e os Termos passaram a citar também a Lei do profissional de Educação Física (CREF), ao lado da do nutricionista. Textos marcados como rascunho do dono, ainda para revisão.
+- **A dica do exercício sem vídeo volta a ser lida.** Na execução, quando o exercício não tem demonstração, a dica do movimento aparecia espremida ao lado do aviso, com uma sílaba por linha. Agora ela vem inteira, embaixo do aviso.
 - **A Ajuda explica a ofensiva como ela funciona hoje.** A resposta "O que conta para a ofensiva?" diz exatamente o que fecha o dia de treino e o de descanso. A legenda do Progresso passou a dizer "dia de treino, sem série" e "dia de descanso".
 - **O aviso sobre nutricionista e Educação Física ficou mais claro.** No cadastro, na última etapa e junto do cardápio, o app agora diz que a orientação de quem tem registro profissional (CRN ou CREF) não é substituída, e que gestante, lactante, menor de idade ou quem tem alguma condição de saúde deve procurar um profissional antes de seguir o que o app sugere.
 - **Desligar a análise de uso agora para tudo.** Antes, desligar "Análise de uso" no Perfil deixava de identificar você, mas o app ainda contava a ação sem o seu nome. Agora, desligado, nenhum registro sai — nem anônimo.
