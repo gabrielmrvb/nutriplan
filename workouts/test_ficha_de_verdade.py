@@ -2,7 +2,7 @@
 
 Intermediário, 5 dias, `abc2`, duração Padrão → a letra A ("Peito e
 tríceps") tem ≥ 6 exercícios (≥ 4 de peito, ≥ 2 de tríceps), 21–28 séries
-diretas e 55–65 minutos NAS DUAS OPÇÕES; com Completo, 60–80 minutos. O
+diretas e 55–65 minutos NA VARIANTE ÚNICA; com Completo, 60–80 minutos. O
 mesmo para 4 dias em ABC e 3 dias. Iniciante e avançado com os valores do
 `docs/briefs/treino/TREINO.md`.
 
@@ -19,6 +19,12 @@ catálogo no `BACKLOG.md` — até o catálogo fechar. Nunca afrouxado.
 
 ANTES desta missão (medido em 16/09/2026): 4 exercícios, 13 séries, ~36
 minutos por opção — metade de uma ficha.
+
+O CONTRATO MUDOU UMA VEZ, por decisão do dono (27/09/2026: "Fichas novas com
+uma variante só"; "teste dourado pode mudar de contrato ... não ajustar até
+passar"): era "a letra A tem DUAS opções e cada uma cumpre a régua"; é "a
+letra A tem UMA variante e ela cumpre a régua". Nenhum número da régua
+mudou.
 """
 from unittest import expectedFailure
 
@@ -90,7 +96,7 @@ class ConfereAFicha:
         minimo_total, minimo_peito, minimo_triceps = alvo["exercicios"]
         series_min, series_max = alvo["series"]
         minutos_min, minutos_max = alvo[chave_minutos]
-        self.assertGreaterEqual(len(a.opcoes), 2, "%s %s: a letra A saiu com uma opção só" % (nivel, nome))
+        self.assertEqual(a.opcoes, [1], "%s %s: a letra A de ficha nova tem de ter UMA variante" % (nivel, nome))
         for k in a.opcoes:
             itens = a.da_opcao(k)
             peito = [i for i in itens if i.exercise.muscle_group == MuscleGroup.CHEST]

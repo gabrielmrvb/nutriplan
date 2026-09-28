@@ -5,8 +5,11 @@ ficou INVÁLIDO — sessão apontando para exercício aposentado, dias de treino
 que mudaram, divisão que não corresponde mais à frequência. Quando só a
 PRESCRIÇÃO mudou (o catálogo cresceu, a faixa de séries mudou), a ficha
 fica como está — é retrato — e a Home mostra um aviso único e dispensável:
-"Seu treino pode ficar mais completo — regenerar?". Regenerar é pedido da
-pessoa; a dispensa fica gravada no plano, não no navegador.
+"Seu programa de treino foi atualizado. Quer montar a ficha nova?" (até
+27/09/2026: "Seu treino pode ficar mais completo — regenerar?"; o texto
+passou a dizer que o PROGRAMA mudou, sem sugerir que a pessoa errou —
+decisão do dono). Montar a ficha nova é pedido da pessoa; a dispensa fica
+gravada no plano, não no navegador.
 
 O que este arquivo impede: o deploy de 17/09 trocando a ficha de quem já
 tinha uma no meio da semana, sem ninguém pedir.
@@ -171,6 +174,116 @@ class PlanoAntigoTests(TestCase):
         plan.refresh_from_db()
         self.assertEqual(plan.catalogo, "catalogo-de-ontem")
 
+    def test_o_nao_bate_fica_lembrado_ate_o_catalogo_ou_a_entrada_mudar(self):
+        """A ficha antiga de UMA opção que o motor novo não reproduz nunca
+        recebe o carimbo, e pagava a conferência exata em TODA visita: Home
+        27 contra 19 (revisão B2, I1, 28/09/2026 — o atalho da rodada 4 só
+        via a de duas opções). O "não bate" fica lembrado por plano,
+        impressão digital de hoje e entradas da pessoa: a segunda pergunta
+        custa zero consultas e continua dizendo SIM. Outro catálogo ou outra
+        entrada perguntam de novo — e a resposta nova pode ser "não"."""
+        from unittest import mock
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        user = _pessoa("nao-bate@exemplo.com")
+        plan = services.create_routine(user)
+        _mudar_a_prescricao(plan)
+        self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        self.assertEqual(len(ctx.captured_queries), 0, [q["sql"][:80] for q in ctx.captured_queries])
+        plan.refresh_from_db()
+        self.assertEqual(plan.catalogo, "catalogo-de-ontem", "o não-bate não grava nada no plano")
+
+        # Outro catálogo (o deploy seguinte): a pergunta é refeita.
+        with mock.patch.object(services, "versao_do_catalogo", return_value="catalogo-de-amanha"):
+            with CaptureQueriesContext(connection) as ctx:
+                self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+            self.assertGreater(len(ctx.captured_queries), 0)
+
+        # Outra entrada da pessoa (o nível): a ficha ficou inválida, e a
+        # resposta lembrada NÃO vale — inválida não é desatualizada.
+        user.profile.experiencia = "avancado"
+        user.profile.save(update_fields=["experiencia"])
+        self.assertFalse(services.aviso_de_regenerar(user, plan=plan))
+
+    def test_a_ficha_que_bate_nunca_herda_o_nao_bate(self):
+        """Controle: a ficha nova da mesma pessoa, no mesmo catálogo, continua
+        sem aviso — a resposta lembrada é do PLANO, não da pessoa."""
+        user = _pessoa("herda@exemplo.com")
+        plan = services.create_routine(user)
+        _mudar_a_prescricao(plan)
+        self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        nova = services.create_routine(user)
+        self.assertFalse(services.aviso_de_regenerar(user, plan=nova))
+
+    def _lembrado(self, user, plan):
+        """O "não bate" de `plan` fica lembrado: a segunda pergunta diz SIM
+        sem nenhuma consulta."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertTrue(services.aviso_de_regenerar(user, plan=plan))
+        self.assertEqual(len(ctx.captured_queries), 0)
+
+    def _pergunta_de_novo(self, user, plan):
+        """A próxima pergunta refaz a conta (vai ao banco) e devolve a
+        resposta nova."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            resposta = services.aviso_de_regenerar(user, plan=plan)
+        self.assertGreater(len(ctx.captured_queries), 0, "a resposta lembrada valeu para outra entrada")
+        return resposta
+
+    def test_mudar_a_faixa_pergunta_de_novo(self):
+        """A faixa de duração está na chave do "não bate" (28/09/2026,
+        revisão R5): o motor lê a faixa, então outra faixa é outra pergunta.
+        Com a faixa gravada no plano, mudar torna a ficha inválida — e
+        inválida não é desatualizada."""
+        user = _pessoa("nao-bate-faixa@exemplo.com")
+        plan = services.create_routine(user)
+        _mudar_a_prescricao(plan)
+        self._lembrado(user, plan)
+        user.profile.duracao_treino = DuracaoTreino.PADRAO
+        user.profile.save(update_fields=["duracao_treino"])
+        self.assertFalse(self._pergunta_de_novo(user, plan))
+
+    def test_na_ficha_de_antes_de_17_09_mudar_a_faixa_tambem_pergunta_de_novo(self):
+        """O caso que só a chave cobre: a ficha de antes de 17/09/2026 tem
+        nível e faixa EM BRANCO, e o desconhecido não a invalida — mudar a
+        faixa não passa por `rotina_invalida`. Sem a faixa na chave, a
+        resposta lembrada da faixa antiga valeria para a nova sem conta
+        nenhuma."""
+        user = _pessoa("nao-bate-antes@exemplo.com")
+        plan = services.create_routine(user)
+        TrainingPlan.objects.filter(pk=plan.pk).update(nivel="", duracao="")
+        plan.refresh_from_db()
+        _mudar_a_prescricao(plan, catalogo="")
+        self._lembrado(user, plan)
+        user.profile.duracao_treino = DuracaoTreino.PADRAO
+        user.profile.save(update_fields=["duracao_treino"])
+        self.assertFalse(services.rotina_invalida(plan, user), "o desconhecido não invalida")
+        self._pergunta_de_novo(user, plan)
+
+    def test_mudar_o_equipamento_pergunta_de_novo(self):
+        """O equipamento está na chave do "não bate" (28/09/2026, revisão
+        R5): o motor substitui pelo perfil de equipamento, então outro
+        equipamento é outra pergunta — e a ficha, que o guarda, fica
+        inválida, não desatualizada."""
+        user = _pessoa("nao-bate-equipamento@exemplo.com")
+        plan = services.create_routine(user)
+        _mudar_a_prescricao(plan)
+        self._lembrado(user, plan)
+        user.profile.equipamento = "peso_corporal"
+        user.profile.save(update_fields=["equipamento"])
+        self.assertFalse(self._pergunta_de_novo(user, plan))
+
     def test_plano_invalido_continua_sendo_remontado(self):
         """Exercício aposentado na ficha é o caso de sempre: remonta."""
         user = _pessoa("invalido@exemplo.com")
@@ -214,13 +327,13 @@ class AvisoDeRegenerarTests(TestCase):
 
     def test_sem_divergencia_a_home_nao_avisa(self):
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertNotIn("regenerar?", html)
+        self.assertNotIn("Seu programa de treino foi atualizado", html)
 
     def test_com_divergencia_a_home_avisa_uma_vez_e_a_dispensa_fica_no_plano(self):
         _mudar_a_prescricao(self.plan)
 
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertIn("Seu treino pode ficar mais completo", html)
+        self.assertIn("Seu programa de treino foi atualizado", html)
         self.assertIn('class="card aviso-regenerar"', html)
 
         resposta = self.client.post(reverse("workouts:dispensar_aviso"))
@@ -228,7 +341,7 @@ class AvisoDeRegenerarTests(TestCase):
         self.plan.refresh_from_db()
         self.assertIsNotNone(self.plan.aviso_dispensado_em)
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertNotIn("Seu treino pode ficar mais completo", html)
+        self.assertNotIn("Seu programa de treino foi atualizado", html)
 
     def test_regenerar_cria_o_plano_novo_e_o_antigo_fica_como_retrato(self):
         _mudar_a_prescricao(self.plan)
@@ -241,7 +354,7 @@ class AvisoDeRegenerarTests(TestCase):
         self.assertTrue(TrainingPlan.objects.filter(pk=self.plan.pk, is_active=False).exists())
         self.assertFalse(services.rotina_desatualizada(novo, self.user))
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertNotIn("Seu treino pode ficar mais completo", html)
+        self.assertNotIn("Seu programa de treino foi atualizado", html)
 
     def test_ficha_ajustada_a_mao_nao_recebe_o_aviso(self):
         """Quem ajustou a ficha escolheu aqueles exercícios; o aviso de
@@ -252,7 +365,7 @@ class AvisoDeRegenerarTests(TestCase):
         TrainingPlan.objects.filter(pk=self.plan.pk).update(customized_at=timezone.now())
 
         html = self.client.get(reverse("plans:today")).content.decode()
-        self.assertNotIn("Seu treino pode ficar mais completo", html)
+        self.assertNotIn("Seu programa de treino foi atualizado", html)
 
 
 class DemoResemeadoTests(TestCase):

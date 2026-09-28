@@ -125,17 +125,19 @@ class OGrupoExisteTests(TestCase):
 
 class NenhumaFichaPerdeExercicioTests(TestCase):
     """A régua da missão, provada de dois jeitos: a ficha do teste dourado
-    (intermediário, 5 dias, abc2, Padrão) continua com DUAS opções em toda
-    letra e com a elevação pélvica numa versão e o stiff na outra; e uma
-    ficha nascida com os quatro como "posterior" não é julgada desatualizada
-    depois de eles virarem glúteo."""
+    (intermediário, 5 dias, abc2, Padrão) tem UMA variante por letra desde
+    27/09/2026 — e a letra de pernas leva o stiff E a elevação pélvica na
+    mesma lista, que era o que se perdia quando "a opção 1 vira a única"
+    (medido na T3: posterior 10 → 3,3); e uma ficha nascida com os quatro
+    como "posterior" não é julgada desatualizada depois de eles virarem
+    glúteo."""
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_catalog", verbosity=0)
         call_command("seed_workouts", verbosity=0)
 
-    def test_a_letra_de_pernas_do_teste_dourado_mantem_duas_opcoes_com_stiff_e_elevacao_pelvica_separados(self):
+    def test_a_letra_de_pernas_do_teste_dourado_leva_stiff_e_elevacao_pelvica_na_mesma_variante(self):
         user = _pessoa("dourado-gluteo@exemplo.com")
         plan = services.create_routine(user)
         pernas = plan.sessions.filter(label="C").first()
@@ -143,48 +145,59 @@ class NenhumaFichaPerdeExercicioTests(TestCase):
         por_opcao = {}
         for item in pernas.exercises.select_related("exercise"):
             por_opcao.setdefault(item.opcao, set()).add(item.exercise.name)
-        self.assertEqual(len(por_opcao), 2, "a letra C tem duas opções")
-        com_pelvica = [op for op, nomes in por_opcao.items() if "Elevação pélvica" in nomes]
-        com_stiff = [op for op, nomes in por_opcao.items() if "Stiff com barra" in nomes]
-        self.assertEqual(len(com_pelvica), 1)
-        self.assertEqual(len(com_stiff), 1)
-        self.assertNotEqual(com_pelvica, com_stiff, "um em cada versão da letra, como sempre")
-        for op, nomes in por_opcao.items():
-            with self.subTest(opcao=op):
-                self.assertGreaterEqual(len(nomes), 8)
+        self.assertEqual(list(por_opcao), [1], "ficha nova: uma variante só")
+        self.assertIn("Stiff com barra", por_opcao[1], "o principal do posterior")
+        self.assertIn("Elevação pélvica", por_opcao[1], "o glúteo anunciado")
+        self.assertGreaterEqual(len(por_opcao[1]), 8)
 
-    def test_o_inferior_de_dois_dias_em_rapido_mantem_duas_opcoes(self):
+    def test_o_inferior_de_dois_dias_em_rapido_tem_uma_variante_com_um_principal_por_familia(self):
         """Três principais de três séries são os 30 minutos inteiros: sem a
-        família no PRINCIPAL da sessão (`prioridades_da_sessao`), a versão
-        com a elevação pélvica ganhava o bom dia como segundo principal e a
-        letra caía para uma opção (medido em 21/09/2026)."""
+        família no PRINCIPAL da sessão (`prioridades_da_sessao`), a elevação
+        pélvica ganhava o bom dia como segundo principal (medido em
+        21/09/2026). Desde 27/09/2026 a letra tem uma variante só."""
         user = _pessoa("rapido-gluteo@exemplo.com", dias=2, duracao=DuracaoTreino.RAPIDO)
         plan = services.create_routine(user)
         inferior = plan.sessions.filter(label="B").first()
         opcoes = {item.opcao for item in inferior.exercises.all()}
-        self.assertEqual(opcoes, {1, 2})
+        self.assertEqual(opcoes, {1})
         graus = services.prioridades_da_sessao(list(inferior.exercises.filter(opcao=1).select_related("exercise").order_by("order")))
         self.assertLessEqual(graus.count(services.PRINCIPAL), 2, "um principal por família, e o quadríceps")
 
-    def test_toda_letra_com_duas_opcoes_em_producao_continua_com_duas(self):
-        from workouts.opcoes_em_producao import LETRAS_COM_OPCOES_EM_PRODUCAO, opcoes_por_letra
+    def test_nenhuma_letra_de_ficha_nova_tem_segunda_opcao(self):
+        """O gate de 16/09/2026 invertido (27/09/2026): era "toda letra de
+        `LETRAS_COM_OPCOES_EM_PRODUCAO` continua com duas"; o conjunto ficou
+        vazio e toda letra das seis divisões sai com UMA."""
+        from workouts.opcoes_em_producao import opcoes_por_letra
 
-        contagem = opcoes_por_letra()
-        for letra in LETRAS_COM_OPCOES_EM_PRODUCAO:
+        for letra, n in opcoes_por_letra().items():
             with self.subTest(letra=letra):
-                self.assertGreaterEqual(contagem[letra], 2)
+                self.assertEqual(n, 1)
 
-    def test_a_ficha_nascida_com_os_quatro_como_posterior_continua_igual_e_nao_e_desatualizada(self):
+    def test_a_ficha_nascida_com_os_quatro_como_posterior_continua_igual_e_nao_e_remontada(self):
         """Simula a ficha de antes: monta a rotina com os quatro em
-        `hamstrings` (o estado de produção até o deploy), devolve o grupo ao
-        catálogo de hoje e confere que as linhas são as mesmas e que a Home
-        não pede para regenerar."""
+        `hamstrings` (o estado de produção até o deploy de 21/09), devolve o
+        grupo ao catálogo de hoje e confere que as linhas são as mesmas e que
+        a ficha não é remontada à força.
+
+        A ficha de antes de 21/09 é LEGADA desde 27/09/2026 — duas opções,
+        `opcao=2` gravada (`test_opcoes.ficha_legada`) —, e é essa forma que
+        o fixture reproduz. Até 27/09 este teste também cobrava
+        `_prescricao_bate` verdadeiro; com a variante única nenhuma ficha de
+        duas opções bate com o motor (que só gera uma), então a conferência
+        exata diz "diferente" por decisão do dono ("fichas novas com uma
+        variante só; as ativas remontam naturalmente") — e ela só roda quando
+        a impressão digital do catálogo muda, para oferecer regenerar, nunca
+        para remontar."""
+        from workouts.test_opcoes import ficha_legada
+
         Exercise.objects.filter(name__in=GLUTEO).update(muscle_group=MuscleGroup.HAMSTRINGS)
         for e in Exercise.objects.filter(muscle_group__in=(MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS)):
             e.secondary_muscles = [g for g in (e.secondary_muscles or []) if g != "glutes"]
             e.save(update_fields=["secondary_muscles"])
         user = _pessoa("antes-do-gluteo@exemplo.com")
         plan = services.create_routine(user)
+        for letra in sorted({s.label for s in plan.sessions.all()}):
+            ficha_legada(plan, letra)
         linhas_antes = sorted(
             SessionExercise.objects.filter(session__plan=plan).values_list("session__label", "opcao", "order", "exercise__name", "sets")
         )
@@ -197,8 +210,7 @@ class NenhumaFichaPerdeExercicioTests(TestCase):
             SessionExercise.objects.filter(session__plan=plan).values_list("session__label", "opcao", "order", "exercise__name", "sets")
         )
         self.assertEqual(linhas_antes, linhas_depois, "nenhuma linha da ficha mudou")
-        self.assertFalse(services.rotina_invalida(plan, user))
-        self.assertTrue(services._prescricao_bate(plan, user), "a Home não pede para regenerar")
+        self.assertFalse(services.rotina_invalida(plan, user), "a ficha legada não é remontada à força")
 
 
 class OutrasFormasESubstituicaoTests(TestCase):

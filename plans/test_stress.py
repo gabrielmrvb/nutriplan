@@ -37,6 +37,18 @@ DIAS = 90
 
 
 class PopulatedAccountMixin:
+    #: A ficha LEGADA (28/09/2026, decisão do dono sobre o M1 da revisão B),
+    #: nas duas formas das 57 fichas ativas de 27/09 — as duas com a
+    #: impressão digital de um catálogo de antes, e nenhuma das duas é o que
+    #: o motor novo produz:
+    #: - `"duas_opcoes"` (12 fichas): `opcao=2` gravada em todas as letras e a
+    #:   escolha de hoje presa na opção 2;
+    #: - `"uma_opcao"` (as outras ~45; revisão B2, I1): só `opcao=1`, com uma
+    #:   linha que o motor de hoje não prescreve.
+    #: É o caminho em que a Home conferia a prescrição inteira a cada visita
+    #: (19 → 27 consultas), e o teto só o pega se o fixture o tiver.
+    FICHA_LEGADA = None
+
     @classmethod
     def setUpTestData(cls):
         CatalogFixture.setUpTestData()
@@ -46,8 +58,28 @@ class PopulatedAccountMixin:
         self.user = create_complete_user()
         self.plan = services.create_plan(self.user)
         self.rotina = create_routine(self.user)
+        if self.FICHA_LEGADA:
+            self._legar()
         self._povoar()
         self.client.force_login(self.user)
+
+    def _legar(self):
+        from django.db.models import F
+
+        from workouts import services as treino
+        from workouts.models import SessionExercise, TrainingPlan
+        from workouts.test_opcoes import ficha_legada
+
+        TrainingPlan.objects.filter(pk=self.rotina.pk).update(catalogo="catalogo-de-antes-de-27-09")
+        if self.FICHA_LEGADA == "uma_opcao":
+            # Duas repetições a mais no topo da faixa de uma linha: a ficha
+            # continua válida e deixa de ser a que o motor de hoje monta.
+            linha = SessionExercise.objects.filter(session__plan=self.rotina).order_by("pk").first()
+            SessionExercise.objects.filter(pk=linha.pk).update(rep_max=F("rep_max") + 2)
+            return
+        for letra in sorted({s.label for s in self.rotina.sessions.all()}):
+            ficha_legada(self.rotina, letra)
+        treino.registrar_escolha(self.user, treino.estado_do_treino(self.user).sessao, 2)
 
     def _povoar(self):
         hoje = timezone.localdate()
@@ -371,6 +403,62 @@ class ScreenQueryBudgetTests(PopulatedAccountMixin, TestCase):
                     f"{rota} fez {len(ctx.captured_queries)} consultas "
                     f"(teto {teto}) — provável consulta dentro de laço",
                 )
+
+
+@tag("lento")
+class ScreenQueryBudgetFichaLegadaTests(ScreenQueryBudgetTests):
+    """Os MESMOS tetos com a ficha LEGADA de duas opções (28/09/2026).
+
+    O caso real (revisão B, M1): o TREINO.md entra na impressão digital do
+    catálogo, então toda ficha antiga perde o carimbo no deploy. A legada de
+    duas opções nunca bate com o motor novo, e a Home pagava a conferência
+    exata — represcrever a semana, 8 consultas — em TODA visita, até a pessoa
+    regenerar ou dispensar o aviso: 19 → 27. O teto de 19 media só a ficha
+    nova e não via isso.
+    """
+
+    FICHA_LEGADA = "duas_opcoes"
+
+    def test_o_fixture_e_mesmo_a_ficha_legada(self):
+        """Controle positivo: a ficha tem opção 2, a escolha de hoje está nela
+        e a Home oferece "regenerar?" — senão o teto estaria medindo a ficha
+        nova de novo."""
+        from workouts import services as treino
+        from workouts.models import SessionExercise
+
+        self.assertTrue(SessionExercise.objects.filter(session__plan=self.rotina, opcao=2).exists())
+        estado = treino.estado_do_treino(self.user)
+        self.assertEqual(estado.opcao, 2)
+        self.assertTrue(treino.aviso_de_regenerar(self.user, plan=estado.plan))
+        self.assertContains(self.client.get(reverse("plans:today")), 'class="card aviso-regenerar"')
+
+
+@tag("lento")
+class ScreenQueryBudgetFichaLegadaDeUmaOpcaoTests(ScreenQueryBudgetTests):
+    """Os MESMOS tetos com a ficha legada de UMA opção (28/09/2026, revisão
+    B2, I1): impressão digital antiga, só `opcao=1`, e uma linha que o motor
+    de hoje não prescreve. É a forma da maioria das 57 fichas ativas de
+    27/09 (12 têm opção 2). Ela não é "legada de duas opções", então o
+    atalho da rodada 4 não a vê; a conferência exata diz "não bate" e não há
+    carimbo a gravar. Sem o "não bate" lembrado, a Home fazia 27 consultas
+    em TODA visita (e a Alimentação 28), medido duas vezes seguidas."""
+
+    FICHA_LEGADA = "uma_opcao"
+
+    def test_o_fixture_e_mesmo_a_ficha_legada(self):
+        """Controle positivo: só opção 1, o atalho de duas opções não a vê,
+        a conferência exata diz "não bate" e a Home oferece "regenerar?" —
+        senão o teto estaria medindo a ficha nova, ou a de duas opções."""
+        from workouts import services as treino
+        from workouts.models import SessionExercise
+
+        self.assertFalse(SessionExercise.objects.filter(session__plan=self.rotina, opcao__gt=1).exists())
+        plano = treino.get_active_routine(self.user)
+        self.assertNotEqual(plano.catalogo, treino.versao_do_catalogo())
+        self.assertFalse(treino._e_ficha_legada(plano))
+        self.assertFalse(treino.rotina_invalida(plano, self.user))
+        self.assertFalse(treino._prescricao_bate(plano, self.user))
+        self.assertContains(self.client.get(reverse("plans:today")), 'class="card aviso-regenerar"')
 
 
 @tag("lento")  # perf/estatística sobre um ano semeado; roda pós-merge e no cron (e no pre-push local)

@@ -1056,7 +1056,9 @@ corresponde à frequência, dias/horários diferentes — e nível ou faixa de
 duração diferentes dos que a ficha guarda, porque aí foi a pessoa que mexeu
 na própria entrada). Prescrição diferente é `rotina_desatualizada`, e a
 resposta é um aviso único e dispensável na Home, depois do AGORA: "Seu
-treino pode ficar mais completo — regenerar?". Regenerar é `POST
+programa de treino foi atualizado. Quer montar a ficha nova?" (27/09/2026:
+era "Seu treino pode ficar mais completo — regenerar?"; o texto diz que o
+PROGRAMA mudou, sem sugerir que a pessoa errou). Montar a ficha nova é `POST
 /treino/regenerar/`; "Agora não" grava `aviso_dispensado_em` NO PLANO, não
 no navegador. O plano virou retrato também das ENTRADAS (`catalogo`,
 `nivel`, `duracao`): `catalogo` é a impressão digital de `exercises.json` +
@@ -1109,11 +1111,11 @@ pessoa.
   escolhido); o futuro segue o ciclo a partir daí; dia de treino pulado fica
   marcado (`pulado`). Sem histórico, a semana 1 e a semana 2 são as duas
   A B C A B — o calendário não gira mais o ciclo sozinho.
-- **A OPÇÃO (1/2) DA LETRA também é por presença**: `opcoes[(nº de vezes que a
-  letra já foi feita) % nº de opções]` (`variacao_do_dia`). Coincide com o
-  antigo ciclo por posição quando nada é pulado — por isso o dourado, as
-  médias do `TREINO.md` (peito 25,0 no Padrão, alvo 24 ± 2, lido do documento)
-  e o teto por letra ficam INTACTOS; o golden não baixa.
+- **A OPÇÃO (1/2) DA LETRA — só em ficha LEGADA desde 27/09/2026.** Ficha
+  nova tem UMA variante por letra (`opcao=1`; "letra repetida faz sempre o
+  mesmo treino", decisão do dono). A ficha de 15 a 27/09 com `opcao=2`
+  continua lida por presença: `opcoes[(nº de vezes que a letra já foi feita)
+  % nº de opções]` (`variacao_do_dia`), até a última sumir.
 - **`inicio_do_ciclo` fica no banco como HISTÓRICO**, mas não decide mais a
   letra; `posicao_no_ciclo` saiu da resolução do dia. As linhas de `sessions`
   continuam UMA POR DIA DA SEMANA (o retrato de dias, horários e durações que
@@ -1491,7 +1493,10 @@ tratar o teto como garantia vai "consertar" as travas e esvaziar um treino.
 
 **O catálogo cobre o contrato de variedade, e `abc B` foi o último buraco.**
 Quatro peitos, quatro costas, três tríceps e três bíceps por semana é o que o
-produto pede para o intermediário de 45 a 60 minutos. O modelo `abc B` listava
+produto pede para o intermediário de 45 a 60 minutos — e, desde 28/09/2026
+(dono), letra repetida segue a tabela A; o contrato semanal só vale para a
+letra treinada uma vez por semana (no ABC de 4 a 7 dias a semana tem dois
+tríceps e dois bíceps). O modelo `abc B` listava
 TRÊS dorsais com quatro no catálogo; `Barra fixa assistida` entrou em
 10/09/2026, com a mesma dose que já abre `abcd B` e `abcde B`.
 `Remada curvada com barra` continua aposentada e não volta por essa porta.
@@ -1919,51 +1924,156 @@ SETE no tempo padrão e QUATRO no rápido. Doze só chega a quem escolheu
 "Completo" ou "sem limite rígido", em 88 minutos contra um teto de 90 — ali a
 pessoa pediu a ficha inteira.
 
-**UMA LETRA, ATÉ DUAS OPÇÕES — e "A1/A2" deixaram de ser dias obrigatórios
-(15/09/2026).** Medido em produção: intermediário, cinco dias, dois grupos
-por dia recebia A1 com 4 exercícios/13 séries/~36 min e A2 com 4/13/~29 — a
-mesma letra com conteúdos diferentes em dias diferentes, cada sessão curta, e
-o nome dizendo "dois treinos". `repartir_ocorrencia` já repartia o modelo
-entre as passagens; o que faltava era tratar as metades como VERSÕES da
-mesma letra. Hoje (`workouts/opcoes.py`, `services.prescrever_opcoes`):
+**UMA LETRA, UMA VARIANTE — montada por cota (27/09/2026, decisão do
+dono).** Literal: "Fichas novas com uma variante só; as 12 ativas remontam
+naturalmente; motor lê as duas formas até a última sumir, com teste. Nada
+forçado." e "Letra repetida faz sempre o mesmo treino — variação é troca por
+exercício na linha, escolha da pessoa; sem alternância automática." De 15 a
+27/09/2026 cada letra saía com até duas OPÇÕES equivalentes de meio modelo
+(`montar_opcoes`, `equivalentes`, `equilibrar`, o aparo em lockstep) e a
+pessoa alternava por presença; tudo isso foi APAGADO do motor. Hoje
+(`workouts/opcoes.py`, `services.prescrever_opcoes`):
 
-- o calendário só diz letras (A · B · C · A · B); a ocorrência de segunda e
-  a de quinta carregam EXATAMENTE as mesmas linhas (`SessionExercise.opcao`
-  1 e 2); `nomear_ocorrencias` só numera quando os conteúdos diferem de
-  verdade — plano antigo ajustado à mão, que continua legível;
-- as duas opções são equivalentes por construção: mesmos grupos anunciados,
-  volume DIRETO por grupo com diferença ≤ 1 série, duração ≤ 5 min de
-  diferença, metade dos exercícios próprios. A régua é o volume direto, e
-  não o efetivo: a flexão de braço tem três secundários e desequilibraria
-  ombro e core sem ser exercício de ombro;
-- o teto semanal vale para o PIOR CASO — cada ocorrência da letra fazendo a
-  opção mais pesada no grupo —, nunca para a soma das duas: ninguém faz os
-  dois treinos no mesmo dia. `services.volume_da_semana(plan)` é a conta
-  oficial; somar `session.exercises.all()` conta um treino que não existe;
-- sem catálogo para duas opções distintas, a letra sai com UMA — o modelo
-  inteiro, e não a metade que sobrou. É o caso do "Superior" de dois dias;
-- **tantas opções quantas ocorrências (mínimo duas)**: com a letra três
-  vezes na semana (7 dias em ABC), duas opções de meio modelo dariam, no
-  pior caso, 1,5 modelo por semana, e o teto esvaziava as duas até sobrar um
-  exercício de peito. Com três opções de um terço, repetir a preferida três
-  vezes é exatamente a dose do modelo. Preço medido: a 7 dias o peito fica
-  com TRÊS exercícios distintos na semana (o crucifixo compartilhado não
-  cabe no teto em nenhuma das três) — o contrato 4/4/3/3 vale de 3 a 6 dias;
-- a repartição por grupo COMEÇA PELA OUTRA OPÇÃO a cada grupo, e a
-  concessão num exercício compartilhado é ESPELHADA nas irmãs: sem as duas
-  regras, uma opção ficava com três compostos e a outra com um (doze minutos
-  de diferença) e o teto tirava o crucifixo de uma opção só;
-- a faixa de séries por sessão é do NÍVEL e do TIPO DE DIA (`TREINO.md`,
-  tabela A: 21–28 para "Peito e tríceps" do intermediário; 14–18 para o
-  iniciante), e o preenchimento vai até o topo dela — até 16/09/2026 era só
-  do nível (12–15 / 15–18 / 16–20) e parava no piso;
-- a pessoa escolhe qual faz (`EscolhaDeTreino`, uma por dia); a recomendada
-  é a menos usada recentemente e é um selo, nunca uma obrigação; a
-  primeira série grava a escolha; trocar depois da primeira série pede
-  confirmação e não apaga nada (`ExerciseLog` é por exercício e data);
-- Completo/Rápido é escolha da área de Treino, não do cadastro: a rápida é a
-  opção escolhida passando por `escolher_para_o_tempo` a 40 min — não é uma
-  terceira ficha, e a linha diz o que ficou de fora.
+- cada letra é UMA lista, gravada em `SessionExercise.opcao=1`, a mesma em
+  toda ocorrência da semana (A de segunda = A de quinta, linha por linha);
+- a lista sai da COTA do `TREINO.md` (`opcoes.cotas`/`variante_unica`):
+  `exercicios_grande`/`exercicios_pequeno` da tabela A repartidos como
+  "Tipos de dia" manda (quadríceps e posterior dividem o grande em dois e
+  três grupos; antebraço e trapézio dividem o segundo pequeno; panturrilha
+  e core no máximo dois), com três regras do dono (27/09/2026):
+  - **todo grupo do título tem pelo menos UM exercício** — nenhum bloco
+    menor que os grupos anunciados nele, e o glúteo anunciado nas pernas
+    tem a vaga DELE, fora da cota do grande (antes comia uma das quatro e
+    "Pernas e ombros" saía com um posterior só);
+  - **letra repetida segue a tabela A; o contrato semanal vale SÓ para a
+    letra treinada uma vez por semana** (27/09/2026, "3 de tríceps quando a
+    letra é 1× por semana"; escrito assim em 28/09/2026, dono): na letra que
+    cai UMA vez por semana, o contrato semanal de variedade (4/4/3/3), do
+    intermediário para cima, vence a tabela A na cota de exercícios
+    (`opcoes.cotas(..., vezes)`). Princípio: o teto por sessão da tabela A
+    existe para a letra que REPETE, cuja dose se soma na semana; a letra
+    que cai uma vez tem de carregar a dose da semana. No ABC de três dias
+    "Peito, tríceps e ombro" tem três tríceps e "Costas, bíceps…" três
+    bíceps (a tabela A diz dois); no ABC de quatro a sete dias essas letras
+    repetem e a semana tem dois (`test_reparticao_semanal.minimo_do_contrato`
+    é a régua dos testes de contrato);
+  - **duas regras de desempate** ao completar a cota de um grupo (depois
+    do composto PRINCIPAL de cada grupo e de um de cada anunciado ainda sem
+    exercício; no empate, a ordem do modelo): (1) PADRÃO NOVO PRIMEIRO — um
+    padrão de movimento (`Exercise.padrao`) que o grupo ainda não tem vem
+    antes de repetir um que ele tem, porque a variedade que as duas opções
+    davam alternando tem de caber dentro de uma lista; o segundo composto
+    do mesmo padrão existe no modelo porque cada antiga opção precisava de
+    um, então ele vem por último. Exceção: o grande de UM grupo só (peito,
+    costas), cujos primeiros itens do modelo já são a ficha curada; (2)
+    DEGRAU MAIS FÁCIL PARA O INICIANTE — o degrau mais baixo da escada do
+    peso do corpo primeiro ("O degrau do iniciante": os mesmos movimentos, a
+    partir do degrau em que ele consegue fazer);
+  e UM de cada complementar, o principal dele quando tem (a remada alta do
+  trapézio), com no máximo TRÊS séries quando o título não o anuncia
+  (27/09/2026, `services.SERIES_DO_COMPLEMENTAR`; TREINO.md, tabela A: "de
+  duas a três séries"): o complementar é o que o título NÃO promete, e a
+  dose dele é a de manter o grupo na semana — os quatro da panturrilha em pé
+  são de quem a anuncia ("Pernas completo");
+- **o corte por tempo tem duas regras novas** (27/09/2026, dono;
+  `services.escolher_para_o_tempo`), e as duas valem SÓ no ponto em que a
+  próxima concessão seria um PRINCIPAL do título perder série — antes
+  disso, isolador e acessório (do título e complementar) cedem até o piso
+  de sempre, como desde 10/09: (1) o complementar de fora do título desce a
+  UMA série antes de qualquer principal perder série (o isolador; o
+  composto complementar, a remada alta, desce só até três), uma série por
+  vez, só até caber — o título é a promessa do dia e o principal é o treino
+  do grupo; o complementar é presença, e uma série o mantém na semana; (2)
+  na sessão de academia (45 minutos ou mais), se ainda assim o principal
+  fosse perder série, sai antes um exercício de grupo do título acima do
+  que o contrato semanal protege — o caso do dono: "o supino mantém 4 e a
+  letra A perde o exercício de ombro" (reduzir o principal é a redução de
+  emergência que o perfil normal não sofre). No Rápido a ordem é a de
+  sempre. Medido em 27/09 (4 equipamentos × 3 níveis × Padrão/Completo × 1
+  a 7 dias), a (2) dispara no ABC de três dias (letra A, intermediário e
+  avançado, completa/básica/casa: sai a elevação lateral) e no abc2 C do
+  peso do corpo (sai o anjo invertido, 3 a 6 dias, para afundo e stiff
+  unilateral ficarem em quatro — APROVADO pelo dono em 28/09/2026, pelo
+  mesmo princípio: o principal é o treino do grupo). A devolução de série
+  é a ordem inversa: o complementar recebe por último. E o excedente do
+  título (camada 4) é contado por GRUPO do título, não por família — o
+  glúteo não é sobra do stiff; só quando nenhum grupo tem dois e um VAI
+  sair, a família decide (camada 4b, APROVADA pelo dono em 28/09/2026: o
+  glúteo sai antes da panturrilha anunciada). Princípio da 4b: um grupo do
+  título da letra nunca desaparece — o glúteo continua trabalhado pela
+  cadeia posterior (stiff) que fica, e a panturrilha não teria ninguém. O
+  grupo que o relógio tirou da SEMANA fica NOMEADO na nota da ficha
+  (medido a 30 min no ABC de três dias: "No tempo que você informou, glúteo
+  não coube em nenhuma sessão desta semana.");
+- **a catraca de exercícios por sessão** do abc2 no Padrão é NOVE, e DEZ
+  só para a letra com TRÊS ou mais grupos no título — os grupos de verdade
+  de `main_groups`, como a vaga do glúteo os conta ("Pernas e ombros":
+  quadríceps, posterior, glúteo e ombro) —, desde 27/09/2026 (dono: "o
+  limite é o tempo"; a letra que precisa de uma vaga por grupo carrega um
+  exercício a mais)
+  (`test_dois_grupos_por_dia::test_no_tempo_informado_a_sessao_nao_incha`);
+- as séries de SOBRA até a faixa (`preencher_ate_a_faixa`) vão em RODÍZIO
+  pelos grupos anunciados — uma para o peito, uma para o tríceps — e não
+  primeiro para o peito (27/09/2026, dono: o peito do dourado passava do
+  teto da média do ciclo, 26);
+- **corpo inteiro uma vez por semana EXIGE 75 minutos** (27/09/2026, dono:
+  "(b) EXIGIR 75 min … NÃO (a)"; `TREINO.md`, tabela A): os dez grupos não
+  cabem em 60 nem com panturrilha e core em UMA série (62,7 min medidos — a
+  saída "uma série" foi tentada primeiro e não coube). O gerador monta essa
+  ficha com `max(faixa, 75)` (`services.prescrever_opcoes`,
+  `opcoes.MINUTOS_DO_CORPO_INTEIRO`, `services.teto_da_ficha`), com os dez
+  grupos. Os dois caminhos (28/09/2026, dono): (ii) onde a duração se
+  escolhe — a área de Treino; o cadastro e o Perfil não perguntam desde
+  10/09 — essa pessoa não recebe oferta abaixo de 75 (`views.
+  opcoes_de_duracao(minimo)`, `services.minimo_da_ficha`; o envio aceita a
+  mesma lista), e a tela diz por quê: "Corpo inteiro uma vez por semana
+  precisa de pelo menos 75 minutos de tempo de treino para caber todos os
+  grupos." (`services.REGRA_DO_CORPO_INTEIRO`); (i) a conta que JÁ tinha
+  faixa menor fica com ela gravada e recebe a ficha de 75, e a nota diz "Sua
+  ficha tem 75 minutos: corpo inteiro uma vez por semana precisa desse tempo
+  para caber todos os grupos." Princípio: essa sessão é a semana inteira da
+  pessoa. Nos testes de doutrina o tempo informado EFETIVO desse caso é
+  max(escolha, 75) e a nota fala de "tempo"
+  (`test_nenhuma_sessao_estoura_o_tempo_informado`,
+  `test_tempo_curto.OTempoCurtoNaoMenteTests`). Ainda diz o número da faixa
+  (60): a linha "até N min" da Alimentação (`plans/views.py` fora do
+  escopo da ficha única);
+- por que cota, medido na T3 (27/09): o modelo inteiro chegava ao relógio
+  com 90–130 min e o relógio — que corta composto por último — escolhia a
+  ficha (2 peitos em "Peito e tríceps"; trapézio, antebraço e core fora da
+  semana); "a opção 1 de antes vira a única" tirava o stiff de toda divisão;
+- a cadeia depois da lista é a de sempre, com UMA lista por letra:
+  `preencher_ate_a_faixa`, `aparar_opcoes` (teto semanal, as três travas,
+  sem irmã), `escolher_para_o_tempo` (rede de segurança), realocação de
+  órfão e o teto conferido de novo. O teto vale para a semana REAL — cada
+  ocorrência faz a mesma lista —, e `services.volume_da_semana` continua a
+  conta oficial (o "pior caso das opções" só difere numa ficha legada);
+- a variação da semana é a TROCA POR EXERCÍCIO na linha ("outras formas"),
+  escolha da pessoa — não uma segunda ficha;
+- ficha LEGADA (linhas `opcao=2`, as 12 ativas em 27/09) continua LIDA:
+  `TrainingSession.opcoes`/`da_opcao`, `variacao_do_dia` por presença,
+  `opcao_do_dia`, a ficha e a execução (`test_opcoes.
+  FichaLegadaComDuasOpcoesTests`, fixture `ficha_legada`). Nada é migrado.
+  O motor não muda a impressão digital do catálogo (`versao_do_catalogo`
+  só lê os dois JSON e o `TREINO.md`), então ficha legada do catálogo de
+  hoje não é marcada; a de catálogo antigo cai em `rotina_desatualizada`
+  (uma lista nunca bate com duas) e a Home oferece regenerar — nunca força.
+  A resposta custa o mesmo que a de uma ficha nova (Home 19, Alimentação
+  20; `plans.test_stress.ScreenQueryBudgetFichaLegada*Tests`, nas duas
+  formas): a de duas opções responde pelas linhas que a Home já leu
+  (`_e_ficha_legada`), e o "não bate" de qualquer ficha antiga fica
+  lembrado no cache do processo por plano, impressão digital e entradas
+  (`_chave_do_nao_bate`; 28/09/2026, revisões B e B2). O SIM continua
+  carimbado no plano; o NÃO nunca vira dado — o processo que reinicia
+  pergunta de novo, e só a primeira visita de cada worker paga;
+- a nota da ficha diz o que o relógio TIROU (28/09/2026, dono): o grupo que
+  saiu da semana, pelo nome; o grupo do TÍTULO que saiu de uma letra e
+  segue em outro treino, pelo exercício e a letra ("Para caber no tempo,
+  saíram elevação pélvica (treino C) e stiff com halteres (treino D) —
+  glúteo e posterior continuam em outro treino da semana.");
+- Completo/Rápido é escolha da área de Treino, não do cadastro: a rápida é
+  a lista passando por `escolher_para_o_tempo` a 40 min — não é uma
+  segunda ficha, e a linha diz o que ficou de fora.
 
 **TODO EXERCÍCIO TEM `padrao`, E AS OPÇÕES COBREM OS MESMOS PADRÕES
 COMPOSTOS (16/09/2026).** `Padrao` são 22 valores de um nível só — ângulo e
@@ -1975,7 +2085,8 @@ compostos, e `is_compound` tem de concordar com ele (há teste).
 O banco recusa exercício sem padrão ou sem equipamento (`CheckConstraint`),
 e a `0022` preencheu os 36 pelo nome.
 
-A régua nova de `equivalentes`: em cada grupo ANUNCIADO, as opções cobrem
+HISTÓRIA (16 a 27/09/2026 — a variante única apagou `equivalentes`,
+`montar_opcoes` e `_partes_por_padrao`). A régua de `equivalentes`: em cada grupo ANUNCIADO, as opções cobrem
 os MESMOS padrões compostos; isolador pode diferir. Três supinos contra três
 crucifixos passavam nas réguas de volume e de minutos — e treze das
 dezesseis letras com duas opções eram assim (crucifixo numa, mergulho na
@@ -1988,7 +2099,10 @@ ativo de hoje: **16 letras com duas opções viram 12** — `ab B`, `abcd C`,
 modelo tiver uma segunda extensão de quadril, pressão vertical ou remada
 alta ATIVA.
 
-E `aparar_opcoes` cede EM LOCKSTEP, ensaiando numa cópia: a irmã acompanha
+HISTÓRIA (16 a 27/09/2026 — com uma lista por letra não há irmã: o
+lockstep, `_espelhar` e `FRACAO_DE_EXCESSO_QUE_DESTRAVA` saíram, e `_ceder`
+ganhou o degrau do composto ACESSÓRIO a 3 séries antes de tirar exercício).
+`aparar_opcoes` cedia EM LOCKSTEP, ensaiando numa cópia: a irmã acompanha
 pelo volume DIRETO (a régua de equivalência), não pelo efetivo (a régua do
 teto) — os dois divergem quando uma opção carrega mais secundário, e a
 flexão de braço tem três; a concessão que a irmã não consegue acompanhar
@@ -2009,20 +2123,20 @@ visível: "Pernas e ombros" tem OITO exercícios por opção (o único
 desenvolvimento é compartilhado), 24–26 séries em 54–58 minutos, dentro
 do teto de 60.
 
-**GATE PERMANENTE, POR LETRA: nenhuma letra que produção tem com duas opções
-pode perder a segunda.** `workouts/opcoes_em_producao.py` conta com o MOTOR
-e o catálogo ATIVO (uma pessoa transitória por divisão, desfeita ao sair), e
-`LETRAS_COM_OPCOES_EM_PRODUCAO` é o CONJUNTO de letras que produção tem com
-duas — 16 pares em 16/09/2026, TODAS as 18 desde o deploy de 17/09. Por
-letra, e não por contagem (17/09): `abcd C` perdendo a segunda enquanto
-`full A` ganha uma dá "16 = 16" e é regressão para quem treina quatro dias. O teste em
-`workouts/test_catalogo.py` fica VERMELHO enquanto o código local tirar a
-segunda opção de qualquer letra do conjunto, e o pre-push roda a suíte: para
-subir, ou o catálogo ativado devolve a letra, ou a decisão de reduzir é
-tomada em voz alta, tirando a letra do conjunto com a razão escrita. O
-conjunto só cresce depois do deploy que provou a letra nova. O relatório de
-deploy mostra "antes / depois" por letra: `manage.py opcoes_por_letra` no
-commit de produção e no candidato.
+**GATE POR LETRA, INVERTIDO EM 27/09/2026: nenhuma letra de ficha NOVA sai
+com duas opções.** Era a regra permanente de 16/09 ("nenhuma letra que
+produção tem com duas opções pode perder a segunda", as 18 letras de
+`LETRAS_COM_OPCOES_EM_PRODUCAO`); o dono decidiu "fichas novas com uma
+variante só", e a regra virou o contrário, pela mesma maquinaria:
+`workouts/opcoes_em_producao.py` conta com o MOTOR e o catálogo ATIVO (uma
+pessoa transitória por divisão, desfeita ao sair), o conjunto
+`LETRAS_COM_OPCOES_EM_PRODUCAO` ficou VAZIO, e `letras_a_mais` tem de voltar
+vazia. O teste em `workouts/test_catalogo.py` (e o par em
+`workouts/test_gluteo.py`) fica VERMELHO se o código local devolver uma
+segunda opção a qualquer letra das seis divisões, e o pre-push roda a suíte.
+`manage.py opcoes_por_letra` imprime a tabela e "letras com 2 opções: N (tem
+de ser 0)". As fichas ANTIGAS com opção 2 não são assunto do gate — são lidas
+(ver "UMA LETRA, UMA VARIANTE").
 
 **O CATÁLOGO CRESCEU INATIVO ATÉ SUSTENTAR DUAS OPÇÕES CHEIAS (16/09/2026),
 E FOI ATIVADO EM 17/09 COM FOTO CONFERIDA.** 28 exercícios novos (64 no
@@ -2169,7 +2283,8 @@ sendo dois compostos intocáveis — parecia o grupo mais magro da sessão e a f
 "Pernas e ombros" terminava com UM ombro.
 
 **O contrato de variedade 4/4/3/3 vale de TRÊS dias para cima, e o complementar
-NÃO entra às custas dele.** Houve uma versão, em 10/09/2026, que removia dois
+NÃO entra às custas dele.** Desde 28/09/2026 (dono): letra repetida segue a
+tabela A; o contrato semanal só vale para a letra treinada uma vez por semana. Houve uma versão, em 10/09/2026, que removia dois
 exercícios de bíceps do dia de puxar para caber trapézio e antebraço — a semana
 fechava com bíceps=1 —, e eu cheguei a escrever um teste que media essa
 concessão e a dava por boa. Estava congelando o defeito.
@@ -3247,7 +3362,7 @@ na primeira verde; `simular_falha` no `workflow_dispatch` é o controle
 positivo do alerta. O gate (`suite.yml`) NÃO liga o relógio real, e
 `config/test_relogio.py` prende as duas metades. O que o gate mede é um
 dia só, de propósito: os testes de paridade da ficha de outro dia
-(`workouts/test_ficha_unica.py`) escrevem a data dos DOIS ramos — bloco
+(`workouts/test_ficha_unica.py`, sobre ficha LEGADA desde 27/09/2026) escrevem a data dos DOIS ramos — bloco
 ímpar → opção 2, bloco par → opção 1 — e cada ramo fica vermelho sozinho
 quando `variacao_do_dia` ignora a paridade. E a semana foi VARRIDA antes
 de a noturna existir (`NUTRIPLAN_DATA_DA_SUITE` em quarta, segunda, sábado

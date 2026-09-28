@@ -267,12 +267,19 @@
       disputar a primeira dobra com o AGORA.
     {% endcomment %}
     {% if aviso_regenerar %}
+      {% comment %}
+        O AVISO DIZ QUE O PROGRAMA MUDOU (27/09/2026, decisão do dono). Era
+        "Seu treino pode ficar mais completo — regenerar?" e "O catálogo de
+        exercícios cresceu": a ficha única muda o motor, não o catálogo, e
+        "mais completo" dava a entender que a ficha da pessoa estava errada.
+        Ninguém fez nada errado — o programa foi atualizado.
+      {% endcomment %}
       <section class="card aviso-regenerar">
-        <h2 class="aviso-regenerar__titulo">Seu treino pode ficar mais completo — regenerar?</h2>
-        <p class="aviso-regenerar__texto">O catálogo de exercícios cresceu desde que sua ficha foi montada. Regenerar monta uma ficha nova com ele; a atual continua no histórico.</p>
+        <h2 class="aviso-regenerar__titulo">Seu programa de treino foi atualizado. Quer montar a ficha nova?</h2>
+        <p class="aviso-regenerar__texto">O programa mudou desde que sua ficha foi montada. A ficha nova segue o programa de hoje; a atual continua no histórico.</p>
         <div class="aviso-regenerar__acoes">
           <form method="post" action="{% url 'workouts:regenerar' %}">{% csrf_token %}
-            <button type="submit" class="btn btn--ghost">Regenerar treino</button>
+            <button type="submit" class="btn btn--ghost">Montar a ficha nova</button>
           </form>
           <form method="post" action="{% url 'workouts:dispensar_aviso' %}">{% csrf_token %}
             <button type="submit" class="btn btn--quiet">Agora não</button>

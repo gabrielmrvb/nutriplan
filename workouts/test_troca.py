@@ -191,7 +191,13 @@ class AAplicacaoDaTrocaTests(_ComFicha):
         da opção 2 por uma que já é linha CRUA da opção 1 da mesma letra —
         a leitura pegava a linha crua (que vem antes) e perdia o "No lugar
         de". Sabotagem medida: olhar só a primeira linha por sessão deixa
-        este teste vermelho."""
+        este teste vermelho. Sobre uma ficha LEGADA desde 27/09/2026 — a
+        ficha nova tem uma variante só, e a legada com opção 2 continua
+        lida (`test_opcoes.ficha_legada`)."""
+        from workouts.test_opcoes import ficha_legada
+
+        ficha_legada(self.plan, self.hoje.label)
+        self.hoje = services.sessao_do_dia(self.plan, SEGUNDA)
         outra = next(k for k in self.hoje.opcoes if k != self.opcao)
         de_hoje = {i.exercise_id for i in self.itens}
         original = next(
