@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **Desligar a análise de uso agora para tudo.** Antes, desligar "Análise de uso" no Perfil deixava de identificar você, mas o app ainda contava a ação sem o seu nome. Agora, desligado, nenhum registro sai — nem anônimo.
 - **Quem só corre vê a própria rotina.** Se você disse no cadastro que não faz musculação, a Home abre com Alimentação e Corrida e não mostra mais "Montar treino"; o Progresso mostra a corrida no lugar do treino, e as Conquistas passaram a ter metas de corrida e de refeições registradas.
 - **O primeiro dia não cobra o que ainda não aconteceu.** A Hidratação não lista mais os dias de antes da sua conta, e o Progresso não mostra seta de queda para o treino de hoje enquanto o dia não acabou.
 - **"Exportar meus dados" agora leva tudo, não só uma parte.** O arquivo que você baixa no Perfil passou a incluir corrida, consentimento, água registrada gole a gole, lista de compras marcada, e-mails enviados e todo o resto que o app guarda sobre você — antes faltavam essas partes, sem aviso. Continua sem senha, sem token e sem nada de outra pessoa.
