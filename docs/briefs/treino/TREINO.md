@@ -86,26 +86,29 @@ lista abaixo.
 | iniciante | tres_grupos | 3 | 2 | 2–3 | 16–20 | 40–55 |
 | iniciante | inferior | 3 | 2 | 2–3 | 14–18 | 50–65 |
 | iniciante | superior | 2 | 1 | 2–3 | 18–24 | 55–70 |
-| iniciante | full | 1 | 1 | 2–3 | 18–24 | 55–70 |
+| iniciante | full | 1 | 1 | 2–3 | 18–24 | 65–75 |
 | intermediario | um_grupo | 4 | 0 | 3–4 | 12–20 | 40–50 |
 | intermediario | dois_grupos | 4 | 3 | 3–4 | 21–28 | 55–75 |
 | intermediario | tres_grupos | 4 | 2 | 3–4 | 21–28 | 55–70 |
 | intermediario | inferior | 3 | 3 | 3–4 | 20–26 | 60–75 |
 | intermediario | superior | 2 | 1 | 3–4 | 24–30 | 70–80 |
-| intermediario | full | 1 | 1 | 3–4 | 20–26 | 65–75 |
+| intermediario | full | 1 | 1 | 3–4 | 20–26 | 75–80 |
 | avancado | um_grupo | 4 | 0 | 3–4 | 16–24 | 40–55 |
 | avancado | dois_grupos | 4 | 3 | 3–4 | 22–28 | 55–80 |
 | avancado | tres_grupos | 4 | 2 | 3–4 | 22–32 | 55–75 |
 | avancado | inferior | 3 | 3 | 3–4 | 20–26 | 60–75 |
 | avancado | superior | 2 | 1 | 3–4 | 24–30 | 70–80 |
-| avancado | full | 1 | 1 | 3–4 | 20–26 | 65–75 |
+| avancado | full | 1 | 1 | 3–4 | 20–26 | 75–80 |
 
 A linha de referência é o intermediário em `dois_grupos`: 4 exercícios do
 grande, 3 do pequeno, 3 a 4 séries, 21 a 28 diretas — sete exercícios que
 fecham a semana com peito=4 e tríceps=3, o contrato de variedade do
 `CLAUDE.md`. As outras dezessete derivam dela, e cada coluna fecha com as
 vizinhas: exercícios × piso não passa do piso de `series_diretas`, e
-exercícios × topo mais o complementar cobre o topo.
+exercícios × topo mais o complementar cobre o topo. Letra repetida segue a
+tabela A; o contrato semanal vale SÓ para a letra treinada uma vez por
+semana (28/09/2026, decisão do dono: o teto por sessão existe para a letra
+que repete, cuja dose se soma na semana).
 
 **O que mudou em relação à referência do dono, e por quê** — cada ajuste tem
 uma conta, escrita para poder ser desfeita:
@@ -131,6 +134,22 @@ uma conta, escrita para poder ser desfeita:
 - **`full` com 1 por grande em todos os níveis**: são quatro grandes; dois por
   grande dão onze exercícios e mais de 85 minutos para quem treina uma vez por
   semana. O nível muda a dose por exercício, não a lista.
+- **Corpo inteiro uma vez por semana EXIGE 75 minutos** (27/09/2026,
+  decisão do dono, com a ficha única): os dez grupos do título e do modelo —
+  quatro grandes, com posterior E glúteo, três pequenos, panturrilha e core
+  — não cabem em 60 nem no piso de série; medido, 66,0 minutos com o
+  complementar em duas séries e 62,7 com panturrilha e core em UMA. Então a
+  ficha do corpo inteiro de uma vez por semana é montada com `max(faixa,
+  75)` minutos, com os dez grupos, e a ficha e a tela da duração dizem por
+  quê. Não se aceita os dois grupos fora a 60 com aviso. Desde 28/09/2026
+  (decisão do dono), a área de Treino não OFERECE faixa abaixo de 75 a quem
+  treina o corpo inteiro uma vez por semana e diz por quê, com a palavra
+  "tempo"; a conta que já tinha faixa menor recebe a ficha de 75, e a nota
+  da ficha diz o tempo e o motivo. A `duracao_min` do `full` na tabela A
+  foi REMEDIDA em 28/09/2026, com Completo, nos quatro equipamentos:
+  iniciante 68–73 minutos (era 55–70; 68 é o peso do corpo, sem tríceps),
+  intermediário e avançado 77 (era 65–75) — os dez grupos e a vaga do
+  glúteo custam isso, e é por isso que a sessão exige 75.
 - **`superior` e `full` iniciante 18–24**: nove exercícios por opção, e os
   compostos principais (três em `superior`, quatro em `full`) ficam em 3 —
   medido, 21 nos dois.
@@ -231,16 +250,18 @@ A B C A B toda semana, peito e costas caíam 2× e "Pernas e ombros" 1× —
 quadríceps em 7 diretas, ombro em 9, para sempre. O desequilíbrio era do
 CALENDÁRIO, não do motor.
 
-Medido em 17/09/2026, média semanal de séries DIRETAS por grupo sobre 3
-semanas, no pior caso por dia (a opção mais pesada no grupo):
+Medido em 27/09/2026 (ficha única: uma variante por letra, decisão do
+dono — a medição de 17/09/2026 era o pior caso das duas opções da letra),
+média semanal de séries DIRETAS por grupo sobre 3 semanas, com a variante
+da letra em toda ocorrência:
 
 | perfil | peito | costas | tríceps | bíceps | ombro | quadríceps | posterior | glúteo | panturrilha | trapézio | antebraço | core |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| intermediário 5d abc2, Padrão | **25,0** | 21,7 | 16,7 | 11,7 | 15,0 | 11,7 | 10,0 | 5,0 | 5,0 | 5,0 | 3,3 | 5,0 |
-| intermediário 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 16,7 | 15,0 | 13,3 | 13,3 | 5,0 | 6,7 | 5,0 | 5,0 | 5,0 |
-| intermediário 4d ABC, Padrão | 17,3 | 18,7 | 8,0 | 6,7 | 8,0 | 10,7 | 10,7 | 4,0 | 10,7 | 4,0 | 4,0 | 4,0 |
-| intermediário 3d ABC, Padrão | 13,0 | 14,0 | 6,0 | 5,0 | 6,0 | 8,0 | 8,0 | 3,0 | 8,0 | 3,0 | 3,0 | 3,0 |
-| avançado 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 20,0 | 18,3 | 13,3 | 13,3 | 5,0 | 6,7 | 5,0 | 5,0 | 5,0 |
+| intermediário 5d abc2, Padrão | **25,0** | 21,7 | 16,7 | 10,0 | 11,7 | 10,0 | 10,0 | 5,0 | 1,7 | 5,0 | 1,7 | 3,3 |
+| intermediário 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 16,7 | 15,0 | 13,3 | 11,7 | 6,7 | 5,0 | 5,0 | 5,0 | 5,0 |
+| intermediário 4d ABC, Padrão | 17,3 | 20,0 | 6,7 | 5,3 | 6,7 | 9,3 | 9,3 | 4,0 | 9,3 | 4,0 | 4,0 | 4,0 |
+| intermediário 3d ABC, Padrão | 13,0 | 13,0 | 7,0 | 7,0 | 3,0 | 7,0 | 7,0 | 3,0 | 7,0 | 3,0 | 2,0 | 3,0 |
+| avançado 5d abc2, Completo | **26,7** | **26,7** | 18,3 | 20,0 | 15,0 | 13,3 | 11,7 | 6,7 | 5,0 | 5,0 | 5,0 | 5,0 |
 
 A coluna **glúteo** entrou em 21/09/2026, quando o glúteo virou grupo
 próprio (`MuscleGroup.GLUTES`): a elevação pélvica e as pontes de glúteo
@@ -259,11 +280,17 @@ QUAL variante de extensão de quadril substitui a de barra — o stiff troca
 por stiff e a elevação pélvica por elevação pélvica, e a família só
 responde quando o grupo esgotou.
 
-O que a tabela diz, sem enfeite: pernas e ombro entraram na faixa de 10–20
-(era 6–9 com o ciclo fixo); tríceps, bíceps e ombro, que só têm 2–3
-exercícios por sessão, ficam entre 5 e 18 diretas mais o secundário dos
-compostos; panturrilha, trapézio, antebraço e core são complementares (1–2
-exercícios, 3–7 por semana) por decisão de modelo. E **peito e costas do
+O que a tabela diz, sem enfeite (remedido em 27/09/2026, com a ficha
+única): no `abc2` de cinco dias pernas e ombro estão na faixa de 10–20 —
+quadríceps 10,0, posterior 10,0 e ombro 11,7 no Padrão (eram 6–9 com o
+ciclo fixo); no ABC de três e quatro dias eles ficam abaixo dela
+(quadríceps 7,0–9,3; ombro 3,0 com três dias — a letra A cai uma vez, leva
+três tríceps, e em Padrão o supino mantém as quatro séries e o segundo
+ombro sai — e 6,7 com quatro); tríceps e bíceps, que só têm 2–3 exercícios
+por sessão, ficam entre 5 e 20 diretas mais o secundário dos compostos;
+panturrilha, trapézio, antebraço e core são complementares (1–2 exercícios,
+1,7–9,3 por semana), e o complementar de fora do título desce a UMA série
+antes de qualquer principal perder série. E **peito e costas do
 `abc2` passam do topo de 24 por 1 a 3 séries** — 25 no Padrão, 26,7 no
 Completo —, porque a sessão de 4 exercícios do teste dourado a 5/3 por
 semana dá exatamente isso. É o preço escrito da decisão de não baixar a

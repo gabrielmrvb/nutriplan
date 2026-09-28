@@ -263,21 +263,32 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
                 # HOJE para esta pessoa (65 para quem nunca respondeu).
                 "duracao": {
                     "atual": services.duracao_de(user),
-                    "teto": services.teto_completo_de(user),
-                    "opcoes": opcoes_de_duracao(),
+                    # O teto que MONTOU a ficha: o corpo inteiro de uma vez
+                    # por semana nasce com pelo menos 75 (27/09/2026, dono).
+                    "teto": services.teto_da_ficha(user, plan),
+                    # Corpo inteiro de uma vez por semana: nenhuma faixa
+                    # abaixo de 75 é oferecida, e a regra se lê aqui
+                    # (28/09/2026, decisão do dono).
+                    "opcoes": opcoes_de_duracao(services.minimo_da_ficha(plan)),
+                    "regra": services.REGRA_DO_CORPO_INTEIRO if services.minimo_da_ficha(plan) else "",
                 },
             }
         )
         return context
 
 
-def opcoes_de_duracao() -> list:
+def opcoes_de_duracao(minimo=0) -> list:
     """As faixas que a área de Treino oferece: valor, nome curto e teto.
 
     Lê `DuracaoTreino.escolhas_visiveis` — sem "Sem limite", que continua no
     banco para quem já tem e não é oferecido em formulário nenhum — e o teto
     de `TETO_POR_DURACAO`, o mesmo que o motor obedece. O nome curto é a
     parte do rótulo antes do travessão: "Rápido", "Padrão", "Completo".
+
+    `minimo` tira as faixas de teto menor (28/09/2026, decisão do dono): o
+    corpo inteiro de uma vez por semana não recebe oferta abaixo de 75
+    (`services.minimo_da_ficha`), porque os dez grupos não cabem nela. É a
+    mesma lista que o envio aceita (`DuracaoDoTreinoView`).
     """
     return [
         {
@@ -286,6 +297,7 @@ def opcoes_de_duracao() -> list:
             "teto": TETO_POR_DURACAO[faixa],
         }
         for faixa in DuracaoTreino.escolhas_visiveis()
+        if TETO_POR_DURACAO[faixa] >= minimo
     ]
 
 
@@ -1024,6 +1036,13 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
             messages.error(request, "Escolha uma das três durações.")
             return redirect("workouts:routine")
         faixa = visiveis[pedido]
+        # A lista fechada é a da tela: o corpo inteiro de uma vez por semana
+        # não aceita faixa abaixo de 75 (28/09/2026, decisão do dono) — um
+        # formulário velho não grava o que a tela deixou de oferecer.
+        plano = services.get_active_routine(request.user)
+        if TETO_POR_DURACAO[faixa] < services.minimo_da_ficha(plano):
+            messages.error(request, services.REGRA_DO_CORPO_INTEIRO)
+            return redirect("workouts:routine")
         teto = TETO_POR_DURACAO[faixa]
 
         # O perfil pelo descritor, e não por `Profile.objects.filter(...)`:
@@ -1044,7 +1063,6 @@ class DuracaoDoTreinoView(OnboardingRequiredMixin, View):
         perfil.save(update_fields=["duracao_treino", "updated_at"])
         request.user.training_days.update(duration_min=MINUTOS_POR_DURACAO[faixa])
 
-        plano = services.get_active_routine(request.user)
         if plano is not None and plano.is_customized:
             messages.info(
                 request,

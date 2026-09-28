@@ -150,8 +150,9 @@ TETO_FONT_SIZE_CRU = 25
 #: 62 em 28/09/2026 (dívida de sistema visual, lote 1): o espaço cru de regra
 #: que não é de treino virou a escala da direção (`--e1`…`--e8`). Sobram as
 #: regras de treino, o que passa de 56 px (é layout, não ritmo), `em`, `%`
-#: e o `-1px` do `.vis-oculto`.
-TETO_ESPACO_CRU = 62
+#: e o `-1px` do `.vis-oculto`. 58 no lote 3 (cartão único): o `.auth .card`
+#: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram.
+TETO_ESPACO_CRU = 58
 
 
 def sem_comentarios(texto):
@@ -1255,3 +1256,187 @@ class OSistemaViraALeiTests(SimpleTestCase):
         com_style = sorted(p.relative_to(TEMPLATES).as_posix() for p in TEMPLATES.rglob("*.html")
                            if "<style" in p.read_text(encoding="utf-8") and "email" not in p.parts)
         self.assertEqual(com_style, ["500.html"])
+
+
+# ---------------------------------------------------------------------------
+# UM BOTÃO PRIMÁRIO SÓ (dívida de sistema visual, lote 2, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou três primários: o da NERVURA (display 22,4, inclinado), o
+# `btn--sm` dele (Archivo — a display nunca desce de 20 px, e é regra) e o
+# `.pesagem__salvar`, um verde cheio escrito à parte, sem inclinação, no
+# Progresso e na faixa de peso da Home. E o aviso de conquista punha um
+# SEGUNDO primário na execução, embaixo do CONCLUIR SÉRIE.
+
+#: O que pinta `--brand` cheio com texto `--on-brand` e NÃO é botão.
+PREENCHIDOS_QUE_NAO_SAO_BOTAO = {".choice-card__mark"}  # o visto do cartão escolhido
+
+
+def _sem_comentario_django(texto):
+    return re.sub(r"\{% comment %\}.*?\{% endcomment %\}", "", texto, flags=re.S)
+
+
+class UmBotaoPrimarioSoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_fora_do_treino_so_o_primario_pinta_a_marca_cheia(self):
+        fora, treino = _textos_de_template()
+        paralelos = [
+            sel for sel, corpo in _regras(self.css)
+            if not eh_root(sel) and not sel.startswith("@")
+            and re.search(r"background(-color)?:\s*var\(--brand\)", corpo) and "var(--on-brand)" in corpo
+            and sel not in PREENCHIDOS_QUE_NAO_SAO_BOTAO and not so_de_treino(sel, fora, treino)
+        ]
+        self.assertEqual(paralelos, [], "botão verde cheio fora do `.btn--primary`: use `btn btn--primary` (ou `--sm`)")
+
+    def test_a_pesagem_usa_o_primario_pequeno(self):
+        html = (TEMPLATES / "plans" / "_peso_campo.html").read_text(encoding="utf-8")
+        botao = re.search(r"<button\b[^>]*type=\"submit\"[^>]*>", html).group(0)
+        self.assertIn('class="btn btn--primary btn--sm"', botao)
+        self.assertNotIn(".pesagem__salvar", self.css)
+
+    def test_o_aviso_de_conquista_nao_traz_um_segundo_primario(self):
+        """Ele aparece EMBAIXO do CONCLUIR SÉRIE, na execução: o primário da
+        tela é concluir, e compartilhar é contorno — como na lista de
+        Conquistas, onde ele sempre foi."""
+        html = _sem_comentario_django((TEMPLATES / "partials" / "_conquista.html").read_text(encoding="utf-8"))
+        self.assertNotIn("btn--primary", html)
+        self.assertRegex(html, r'class="btn btn--ghost conquista__compartilhar"')
+
+    def test_a_home_so_tem_o_primario_do_agora(self):
+        """O aviso de regenerar a ficha aparece DEPOIS do AGORA, e com ele
+        a Home tinha dois primários. O primário é o do AGORA (`_agora.html`);
+        o aviso é uma oferta, e oferta é contorno."""
+        html = _sem_comentario_django((TEMPLATES / "plans" / "today.html").read_text(encoding="utf-8"))
+        self.assertNotIn("btn--primary", html)
+        self.assertIn("btn--primary", (TEMPLATES / "plans" / "_agora.html").read_text(encoding="utf-8"))
+
+    def test_o_selo_da_vez_nao_encolhe(self):
+        """"Agora" virava "Ag…" a 390 px (caixa de 46, texto de 50, medido na
+        auditoria). A regra de 25/09 que deixa o selo ceder antes do nome
+        continua valendo para os selos longos; o da vez tem cinco letras."""
+        self.assertRegex(self.css, r"\.meal__linha \.meal__marca--agora\s*\{[^}]*flex-shrink:\s*0")
+
+    def test_o_primario_pequeno_fica_nos_pesos_da_archivo(self):
+        """A display nunca desce de 20 px, então o `btn--sm` volta à Archivo —
+        e o 800 que ele herdava do primário é peso da display."""
+        regra = re.search(r"\.btn--primary\.btn--sm\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-family: var(--font)", regra)
+        self.assertRegex(regra, r"font-weight:\s*(400|500|600|700)\b")
+
+    def test_o_controle_positivo_acha_um_primario_paralelo(self):
+        falso = ".x { background: var(--brand); color: var(--on-brand); }"
+        achados = [sel for sel, corpo in _regras(falso)
+                   if re.search(r"background(-color)?:\s*var\(--brand\)", corpo) and "var(--on-brand)" in corpo]
+        self.assertEqual(achados, [".x"])
+
+
+# ---------------------------------------------------------------------------
+# UM CARTÃO SÓ (dívida de sistema visual, lote 3, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria mediu doze assinaturas de `.card` fora do treino: padding de 12,
+# 20 e 27,2 px; régua de 1 ou 2 px; fundo chapado, `--surface-focus` ou
+# `--surface` a 82 % com vidro. O DESIGN.md tem duas: a SEÇÃO (`.card`:
+# `--surface`, `--pad`, régua de `--traco` em `--fio` no topo) e o PRATO
+# (`.card--prato`: a superfície de foco, com a nervura no lugar da régua — um
+# por tela).
+
+#: O que desenha a CAIXA de um cartão.
+PROPRIEDADE_DA_CAIXA = re.compile(r"^(-webkit-)?(padding|background|border|box-shadow|backdrop-filter)")
+
+#: Quem ainda muda a caixa de um `.card` fora do treino, e por quê. Lista
+#: fechada: entrada nova precisa de razão escrita aqui.
+CAIXAS_DE_CARTAO_PERMITIDAS = {
+    ".card[data-dia]": "o fio da cor do dia; o único `.card` com `data-dia` é o de hoje, em templates/workouts/routine.html",
+    ".folha-receita__corpo .card": "a receita dentro da folha do celular: a folha já é a superfície, e o cartão some nela",
+    ".legal--rascunho": "a borda de perigo dos Termos e da Privacidade em rascunho, que só aparece antes de o legal ser publicado",
+}
+
+#: O cânone e os estados dele (`:focus-within`, `:hover`…).
+CANONE_DO_CARTAO = re.compile(r"\.card(--prato)?(:[\w-]+(\([^)]*\))?)*")
+
+
+def caixas_de_cartao_fora_do_canone(css, fora, treino):
+    """Partes de seletor que mudam a caixa de um elemento que é `.card` num
+    template fora do treino, sem ser o cânone nem uma exceção nomeada."""
+    achados = []
+    for sel, corpo in _regras(css):
+        if eh_root(sel) or sel.startswith("@") or "::" in sel:
+            continue
+        if not any(PROPRIEDADE_DA_CAIXA.match(p) for p, _v in _declaracoes(corpo)):
+            continue
+        for parte in (p.strip() for p in sel.split(",")):
+            if (not parte or parte in CAIXAS_DE_CARTAO_PERMITIDAS or CANONE_DO_CARTAO.fullmatch(parte)
+                    or so_de_treino(parte, fora, treino)):
+                continue
+            sujeito = re.split(r"[\s>+~]+", parte)[-1]
+            classes = set(re.findall(r"\.([a-zA-Z_][\w-]*)", sujeito))
+            if classes and _algum_elemento_com(classes | {"card"}, fora):
+                achados.append(parte)
+    return achados
+
+
+def pratos_por_template():
+    donos = {}
+    for p in TEMPLATES.rglob("*.html"):
+        if "workouts" in p.parts:
+            continue
+        n = sum("card--prato" in e for e in _elementos_de(p.read_text(encoding="utf-8")))
+        if n:
+            donos[p.relative_to(TEMPLATES).as_posix()] = n
+    return donos
+
+
+class UmCartaoSoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_fora_do_treino_so_o_canone_muda_a_caixa_do_cartao(self):
+        fora, treino = _textos_de_template()
+        self.assertEqual(
+            caixas_de_cartao_fora_do_canone(self.css, fora, treino), [],
+            "regra mudando padding/fundo/borda de um `.card`: use `.card` ou `.card--prato` "
+            "(ou nomeie a exceção em CAIXAS_DE_CARTAO_PERMITIDAS, com a razão)",
+        )
+
+    def test_toda_excecao_ainda_existe_no_css(self):
+        """Exceção que perdeu a regra vira porta aberta com nome de outra coisa."""
+        seletores = {p.strip() for sel, _c in _regras(self.css) for p in sel.split(",")}
+        for excecao in CAIXAS_DE_CARTAO_PERMITIDAS:
+            with self.subTest(excecao=excecao):
+                self.assertIn(excecao, seletores)
+
+    def test_o_prato_e_um_por_tela(self):
+        """O AGORA da Home e o topo da Alimentação — e a Alimentação não
+        inclui o AGORA, então nenhuma tela tem dois."""
+        self.assertEqual(pratos_por_template(), {"plans/_agora.html": 1, "plans/alimentacao.html": 1})
+        self.assertNotIn("_agora.html", (TEMPLATES / "plans" / "alimentacao.html").read_text(encoding="utf-8"))
+
+    def test_o_prato_e_a_superficie_de_foco_com_a_nervura_no_lugar_da_regua(self):
+        """DESIGN.md: "o prato (o AGORA) leva a nervura em vez da régua"."""
+        corpo = re.search(r"\n\.card--prato\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("background: var(--surface-focus)", corpo)
+        self.assertRegex(corpo, r"border:\s*1px solid var\(--brand")  # contorno, não régua de `--traco`
+        self.assertRegex(self.css, r"\.card--prato::after\s*\{[^}]*transform:\s*rotate\(var\(--nervura\)\)")
+
+    def test_o_miolo_do_anel_no_prato_e_a_superficie_do_prato(self):
+        """O `.ring::after` pinta o miolo com a superfície do cartão; no
+        prato a superfície é outra, e o disco do meio ficava de outra cor."""
+        self.assertRegex(self.css, r"\.card--prato \.ring::after\s*\{\s*background:\s*var\(--surface-focus\)")
+
+    def test_a_entrada_nao_tem_cartao(self):
+        """O login perdeu o painel em 2025 e o `.card` continuava lá, desfeito
+        por uma regra de dois níveis. Sem a classe, não há o que desfazer."""
+        for p in TEMPLATES.rglob("*.html"):
+            texto = p.read_text(encoding="utf-8")
+            if "auth--entrada" not in texto:
+                continue
+            with self.subTest(template=p.name):
+                self.assertFalse(any("card" in e for e in _elementos_de(texto)))
+
+    def test_o_controle_positivo_acha_uma_caixa_paralela(self):
+        fora = [{"card", "x"}]
+        falso = ".x { padding: 1rem; } .card { padding: var(--pad); } .auth .card { padding: 2rem; }"
+        self.assertEqual(caixas_de_cartao_fora_do_canone(falso, fora, []), [".x", ".auth .card"])

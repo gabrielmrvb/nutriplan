@@ -254,6 +254,13 @@ class AFichaDeOutraLetraSegueAPresencaTests(TestCase):
         self.addCleanup(relogio.stop)
         self.pessoa = create_user(email="ciclo-leitura@exemplo.com", weekdays=(0, 1, 2, 3, 4))
         self.plano = services.create_routine(self.pessoa)
+        # Ficha LEGADA (27/09/2026): a nova tem uma variante só; a leitura
+        # das duas formas continua até a última sumir, e é ela que se prende
+        # aqui (`test_opcoes.ficha_legada`).
+        from workouts.test_opcoes import ficha_legada
+
+        for letra in sorted({s.label for s in self.plano.sessions.all()}):
+            ficha_legada(self.plano, letra)
         self.client.force_login(self.pessoa)
         self.sessoes = list(self.plano.sessions.all())
         # Uma letra com DUAS opções cujos exercícios exclusivos deixam
