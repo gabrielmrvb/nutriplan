@@ -59,10 +59,11 @@ class MuscleGroup(models.TextChoices):
 #: dois: medido em 21/09, a letra C do abc2 em Padrão não fechava em 60
 #: minutos e caía para UMA opção de 6 exercícios e 20 séries (era 9/25 e
 #: 9/27); só no relógio, o "Inferior" de dois dias em Rápido perdia a
-#: segunda opção. A família vale em `workouts/opcoes.py` (repartir,
-#: equivalência, equilibrar) e em `services.escolher_para_o_tempo` — e para
-#: mais nada: teto de aparo, órfãos, alternativas e título são por grupo de
-#: verdade.
+#: segunda opção. A família vale no principal da sessão
+#: (`services.prioridades_da_sessao`, que a cota de `workouts/opcoes.py` lê
+#: desde 27/09/2026 — as réguas de repartir e equilibrar opções saíram com a
+#: variante única) e em `services.escolher_para_o_tempo` — e para mais nada:
+#: teto de aparo, órfãos, alternativas e título são por grupo de verdade.
 FAMILIA_DE_OPCOES = {"glutes": "hamstrings"}
 
 
@@ -119,11 +120,11 @@ class Padrao(models.TextChoices):
     "Peito e tríceps" sem duas opções com o catálogo de hoje, por um
     detalhe que nenhuma troca de exercício invalida.
 
-    Quem lê isto é a régua de equivalência das opções
-    (`workouts.opcoes.equivalentes`): duas opções da mesma letra precisam
-    dos MESMOS padrões COMPOSTOS em cada grupo anunciado — três supinos
-    contra três crucifixos não são intercambiáveis —, e podem diferir nos
-    isoladores. `PADROES_COMPOSTOS` diz quais são compostos; `is_compound`
+    Quem lê isto é a cota da variante única (`workouts.opcoes.
+    variante_unica`, 27/09/2026): fora do grande de um grupo só, um padrão
+    que o grupo ainda não tem entra antes do segundo exercício do mesmo
+    padrão. De 16 a 27/09/2026 lia também a régua de equivalência das duas
+    opções (mesmos padrões compostos em cada grupo anunciado), que saiu. `PADROES_COMPOSTOS` diz quais são compostos; `is_compound`
     continua decidindo série e descanso, e os dois têm de concordar (há
     teste).
     """
