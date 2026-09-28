@@ -77,44 +77,50 @@ A matriz completa (tela × persona × vista) está em §11.
 ## 1. Mapa de calor (pior caso por tela)
 
 | tela | Co | Hi | Ti | Cc | Es | Ev | Vo | Cs | média |
-|---|---|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Landing | 1 | 2 | 2 | 3 | 0 | – | 3 | 2 | 1,95 |
 | Cadastro | 2 | 3 | 2 | 3 | 2 | – | 3 | 3 | 2,57 |
 | Entrar | 2 | 3 | 2 | 3 | 2 | – | 3 | 3 | 2,57 |
-| Onboarding 1 | 1 | 3 | 1 | 3 | 1 | – | 2 | 2 | 1,95 |
-| **Onboarding 2** | 1 | 1 | 0 | 2 | 0 | – | 2 | 1 | **1,21** |
+| Onboarding 1 | 1 | 3 | 1 | 3 | 1 | – | 2 | 2 | 2,00 |
+| **Onboarding 2** | 1 | 1 | 0 | 2 | 0 | – | 2 | 1 | **1,27** |
 | **Onboarding 3** | 1 | 2 | 1 | 3 | 0 | – | 2 | 1 | **1,43** |
-| Home | 2 | 1 | 1 | 3 | 1 | 1 | 1 | 1 | 1,79 |
-| **Treino · dia de treino** | 0 | 1 | 0 | 1 | 1 | 1 | 2 | 1 | **1,38** |
+| Home | 2 | 1 | 1 | 3 | 1 | 1 | 1 | 1 | 1,83 |
+| **Treino · dia de treino** | 0 | 1 | 0 | 1 | 1 | 1 | 2 | 1 | **1,42** |
 | Treino · descanso | 2 | 2 | 1 | 3 | 1 | 3 | 3 | 2 | 2,12 |
-| Treino · sem musculação | 1 | 1 | 2 | 3 | 0 | 2 | 3 | 2 | 1,92 |
-| Ficha | 1 | 2 | 3 | 3 | 2 | – | 2 | 1 | 2,19 |
+| Treino · sem musculação | 1 | 1 | 2 | 3 | 1 | 2 | 3 | 2 | 2,04 |
+| Ficha | 1 | 2 | 3 | 3 | 2 | – | 2 | 1 | 2,26 |
 | Execução · série | 1 | 1 | 2 | 3 | 1 | – | 3 | 2 | 2,07 |
-| Execução · descanso | 1 | 1 | 2 | 3 | 1 | – | 3 | 1 | 1,79 |
-| Execução · fim | 1 | 1 | 3 | 3 | 1 | – | 1 | 2 | 2,05 |
-| Alimentação · fechada | 2 | 2 | 1 | 2 | 1 | 2 | 2 | 2 | 1,80 |
-| Alimentação · refeição aberta | 2 | 1 | 1 | 2 | 1 | – | 2 | 2 | 1,68 |
-| Alimentação · comi outra coisa | 2 | 2 | 1 | 2 | 1 | 1 | 2 | 1 | 1,60 |
-| Corrida | 2 | 2 | 1 | 3 | 0 | 2 | 1 | 2 | 2,03 |
-| Progresso | 1 | 2 | 2 | 2 | 1 | 2 | 1 | 1 | 1,75 |
-| Conquistas | 2 | 2 | 1 | 3 | 0 | 1 | 1 | 1 | 1,71 |
-| Histórico (exercícios que já fiz) | 2 | 2 | 2 | 3 | 0 | 2 | 2 | 2 | 2,28 |
-| **Conta · Mais** | 3 | 3 | 3 | 3 | 2 | 3 | 3 | 3 | **2,96** |
-| **Conta · Perfil** | 1 | 1 | 2 | 3 | 1 | – | 1 | 2 | **1,57** |
-| **Ajuda** | 1 | 2 | 0 | 3 | 0 | – | 3 | 1 | **1,48** |
-| /demo/ | 2 | 1 | 1 | 3 | 0 | – | 2 | 2 | 1,67 |
+| Execução · descanso | 1 | 1 | 2 | 3 | 1 | – | 3 | 1 | 1,83 |
+| Execução · fim | 1 | 1 | 3 | 3 | 2 | – | 1 | 2 | 2,08 |
+| Alimentação · fechada | 2 | 2 | 1 | 2 | 2 | 2 | 2 | 2 | 1,93 |
+| Alimentação · refeição aberta | 2 | 1 | 1 | 2 | 2 | – | 2 | 2 | 1,83 |
+| Alimentação · comi outra coisa | 2 | 2 | 1 | 2 | 2 | 1 | 2 | 1 | 1,72 |
+| Corrida | 2 | 2 | 1 | 3 | 0 | 2 | 1 | 2 | 2,13 |
+| Progresso | 1 | 2 | 2 | 2 | 2 | 2 | 1 | 1 | 1,87 |
+| Conquistas | 2 | 2 | 1 | 3 | 0 | 1 | 1 | 1 | 1,83 |
+| Histórico (exercícios que já fiz) | 2 | 2 | 2 | 3 | 0 | 2 | 2 | 2 | 2,36 |
+| **Conta · Mais** | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | **3,00** |
+| Conta · Perfil | 1 | 1 | 2 | 3 | 2 | – | 1 | 2 | 1,71 |
+| **Ajuda** | 1 | 2 | 0 | 3 | 0 | – | 3 | 1 | **1,60** |
+| **/demo/** | 2 | 1 | 1 | 3 | 0 | – | 2 | 2 | **1,67** |
 
-Leitura de colunas: **Es é a pior coluna do app** (21 das 25 telas com 0
-ou 1 — metade dos espaçamentos fora da escala, §6); **Cc é a melhor** (só um
+Leitura de colunas: **Es é a pior coluna do app** (15 das 25 telas com 0
+ou 1 — quase metade dos espaçamentos fora da escala, §6); **Cc é a melhor** (só um
 componente abaixo de AA em 206 capturas, §7). **Nenhuma tela rola na
 horizontal e nenhum texto está abaixo de 11 px, em nenhuma das 206
 capturas** `[EXECUTADA]`. A única tela no nível do mockup em quase tudo é a
-**Mais** (`/areas/`, 2,96) — ela é a referência interna de como as outras
+**Mais** (`/areas/`, 3,00) — ela é a referência interna de como as outras
 podem ficar.
 
 ## 2. As cinco telas mais distantes do mockup, e o porquê medido
 
-### 2.1 Onboarding · etapa 2 (1,21)
+> **Correção (27/09, depois da primeira versão):** a medição de espaçamento
+> contava `--pad` (1,25rem = 20 px, o padding do cartão) como valor cru. Ele é
+> token. Com ele: **46 % dos espaçamentos fora da escala, não 52 %**, e a nota
+> Es sobe em nove telas — o que tira o Perfil (agora 1,71) do quinto lugar e põe
+> o `/demo/` (1,67). E `--brand` aparece em **15** porcentagens, não 17.
+
+### 2.1 Onboarding · etapa 2 (1,27)
 
 - **3.067 px de altura a 390** (P1; 3,6 telas) para uma etapa. O CONTINUAR
   fica a ~3.000 px. `[EXECUTADA]`
@@ -134,7 +140,7 @@ podem ficar.
   vocabulário de quem já treina, na etapa em que duas das três personas de
   21/09 desistiam.
 
-### 2.2 Treino · dia de treino (1,38)
+### 2.2 Treino · dia de treino (1,42)
 
 - **A 1280 a grade quebra**: o botão "Ver ficha do Treino A" fica sozinho
   na coluna da esquerda e a lista de sessões começa **~280 px abaixo**, com o
@@ -164,7 +170,7 @@ podem ficar.
   nem descrição — é o único do grupo assim. `[OBSERVADA]`
 - **68 % dos espaçamentos fora da escala** e 52 % dos textos `[EXECUTADA]`.
 
-### 2.4 Ajuda (1,48)
+### 2.4 Ajuda (1,60)
 
 - **82 % dos blocos de texto fora da escala** (as perguntas em 13,x px e os
   títulos de bloco em 20,8 px, que não é degrau) e **73 % dos espaçamentos
@@ -176,7 +182,18 @@ podem ficar.
   sanfona do app com essa cara (as outras são "título · abrir").
 - A 1280 a página é uma coluna de ~440 px numa janela de 1.265.
 
-### 2.5 Conta · Perfil (1,57)
+### 2.5 /demo/ (1,67)
+
+- **Nenhuma ação primária na capa** — a vitrine do produto abre sem dizer o
+  que fazer; "Sobre o demo" é o único link da barra. `[OBSERVADA]`
+- **46 % dos textos fora da escala** (os `dt` a 11,8 px, o título "As telas do
+  aplicativo" a 16,8) e **58 % dos espaçamentos fora** `[EXECUTADA]`.
+- "Quem está usando": o valor de DIVISÃO quebra em cinco linhas numa coluna de
+  ~150 px. `[OBSERVADA]`
+- Voz: "Hoje: o **orquestrador** do dia" — a palavra do `CLAUDE.md`, não do
+  produto.
+
+### 2.6 Logo atrás: Conta · Perfil (1,71)
 
 - **3.672 px a 390** (4,4 telas), doze blocos `[EXECUTADA]`.
 - O único primário da tela é **"RECALCULAR METAS"**, no topo de uma tela de
@@ -220,7 +237,7 @@ A média esconde isto: são poucas linhas cada, e estão nas telas mais usadas.
 |---|---|---|---|
 | `static/css/app.css` | `font-size` cru | **108 declarações, 27 valores** | `.82rem` ×17 · `.72rem` ×14 · `.78rem` ×11 · `.76rem` ×8 · `.85rem`/`.88rem` ×7 · `1.05rem`/`.92rem`/`.95rem` ×5 · `.74rem` ×4 · … (a catraca do repositório diz 107) |
 | `static/css/app.css` | espaçamento cru | **192 declarações, 50 valores** | `.75rem` ×25 · `.6rem` ×20 · `.85rem` ×18 · `.4rem` ×16 · `.3rem` ×14 · `.2rem`/`.8rem` ×12 · `.55rem` ×11 · … |
-| `static/css/app.css` | **tinta `color-mix()` sem token** | **63 usos** | `--brand` em **17 porcentagens** (6, 9, 12, 13, 20, 22, 24, 26, 28, 30, 32, 34, 42, 45, 60 %…), `--terra` em 8, `--danger`/`--chama`/`--agua` em 3 cada. O `DESIGN.md` diz "um verde só age"; o app tem um verde em dezessete intensidades escritas à mão |
+| `static/css/app.css` | **tinta `color-mix()` sem token** | **63 usos** | `--brand` em **15 porcentagens** (6, 9, 12, 13, 20, 22, 24, 26, 28, 30, 32, 34, 42, 45, 60 %), `--terra` em 8, `--danger`/`--chama`/`--agua` em 3 cada. O `DESIGN.md` diz "um verde só age"; o app tem um verde em quinze intensidades escritas à mão |
 | `static/css/app.css` | cor literal | 10 | `.demo__rotulo`/`.demo__fechar` (`rgba(0,0,0,.62)`, `#fff`), `.demo--aberta` (`#000`), `::backdrop` das duas folhas (`rgb(0 0 0/.55)`), `.macro-bar` (sombra `rgba(0,0,0,.28)`), `.conquista` (sombra `rgba(0,0,0,.45)`), `.auth--entrada::before` (gradiente) |
 | `static/css/app.css` | sombra literal | 3 | `.conquista { box-shadow: 0 12px 32px rgba(0,0,0,.45) }` — o `DESIGN.md` diz "sem cartão com sombra"; `.entrada__logo .marca` (brilho); `.macro-bar` (inset) |
 | `static/css/app.css` | token local com literal | 2 | `.tela-ficha { --max: 58rem }`, `.agora--com-descanso { --exec-descanso: 4rem }` |
@@ -278,9 +295,9 @@ em todas as telas `[EXECUTADA]`:
   (**18,4 px**), o CTA "COMEÇAR TREINO" da aba Treino (**16 px**) e o "%" do
   anel do treino (**14,4 px**, e em peso 700). A Archivo aparece a 800 em
   dois lugares (a lista fechada é 400–700).
-- **Espaçamento: 52 % dos valores em uso estão fora da escala do `:root`**,
+- **Espaçamento: 46 % dos valores em uso estão fora da escala do `:root`**,
   e **só 28 % caem na grade da direção** (4·8·12·16·24·32·48). Os mais
-  frequentes fora: 20 px (padding da barra de cima e do cartão), 6,4 px (gap
+  frequentes fora: 6,4 px (gap
   do botão), 12 px, 12,8, 13,6, 8,8, 18,4, 3,2, 4,8, 7,2, 9,6 px. O
   `DESIGN.md` já sabe disso ("o remap move pixel em toda tela e é lote
   próprio", decisão de 16/09) — a medição dá o tamanho do lote.
@@ -355,7 +372,7 @@ app, e a decisão de qual dos dois muda é do dono.
    nem herói, nem degrau da escala. Ou ele entra na spec com um token, ou
    sai das telas.
 3. **Rádio quadrado** na spec, **rádio redondo** no onboarding.
-4. **"Um verde só age"** na spec, dezessete tintas de `--brand` no CSS.
+4. **"Um verde só age"** na spec, quinze tintas de `--brand` no CSS.
 5. **"Sem cartão com sombra"** na spec, sombra de 32 px no aviso de conquista.
 6. **Aba ativa sem preenchimento** na spec (e na barra de baixo); a barra
    de cima do desktop preenche.
@@ -387,7 +404,7 @@ esperado, não a implementação.
    a) o `h2` de 20,8 px vira degrau (ou rótulo) — 119 ocorrências;
    b) as tintas de `--brand` viram três ou quatro tokens nomeados;
    c) o remap de espaçamento para a grade da direção (já decidido como lote
-      próprio em 16/09; a medição dá o tamanho: 52 % fora);
+      próprio em 16/09; a medição dá o tamanho: 46 % fora);
    d) um primário, um contorno, uma sanfona — as versões de §5 colapsam no
       componente que já existe.
 7. **P2 — Onboarding 2 e 3** (as duas piores notas): uma forma de escolha só
@@ -404,7 +421,7 @@ esperado, não a implementação.
     anônima que quebra palavra a 390, e a voz (§8).
 
 **NÃO MUDAR** — o que está no nível e corre risco numa rodada de refinamento:
-a **Mais** (`/areas/`, 2,96 — identidade, cartões onde há número, lista onde
+a **Mais** (`/areas/`, 3,00 — identidade, cartões onde há número, lista onde
 não há; é o modelo para Perfil e Ajuda); **Cadastro e Entrar** (2,57);
 a **tipografia da ficha e do histórico** (13 % e 7 % fora da escala, 49 % e
 52 % na grade — as mais próximas da direção); o **Ferro forçado na execução**
@@ -421,64 +438,64 @@ se aplica).
 | Landing | anon | `landing` | `22230–32` | `22230–32` | `12230–32` |
 | Cadastro | anon | `cadastro` | `23232–33` | `23232–33` | `23232–33` |
 | Entrar | anon | `entrar` | `23232–33` | `23232–33` | `23232–33` |
-| Onboarding 1 | p1 | `onboarding-1` | `23131–22` | `23131–22` | `13131–22` |
-| Onboarding 1 | p2 | `onboarding-1` | `23131–22` | `23131–22` | `13131–22` |
-| Onboarding 1 | p3 | `onboarding-1` | `23131–22` | `23131–22` | `13131–22` |
-| Onboarding 2 | p1 | `onboarding-2` | `11020–21` | `11020–21` | `11120–21` |
+| Onboarding 1 | p1 | `onboarding-1` | `23131–22` | `23132–22` | `13131–22` |
+| Onboarding 1 | p2 | `onboarding-1` | `23131–22` | `23132–22` | `13131–22` |
+| Onboarding 1 | p3 | `onboarding-1` | `23131–22` | `23132–22` | `13131–22` |
+| Onboarding 2 | p1 | `onboarding-2` | `11021–21` | `11021–21` | `11120–21` |
 | Onboarding 2 | p2 | `onboarding-2` | `22130–21` | `22130–21` | `12130–21` |
-| Onboarding 2 | p3 | `onboarding-2` | `11020–21` | `11020–21` | `11120–21` |
+| Onboarding 2 | p3 | `onboarding-2` | `11021–21` | `11021–21` | `11120–21` |
 | Onboarding 3 | p1 | `onboarding-3` | `12130–21` | `12130–21` | `12130–21` |
 | Onboarding 3 | p2 | `onboarding-3` | `12130–21` | `12130–21` | `12130–21` |
 | Onboarding 3 | p3 | `onboarding-3` | `12130–21` | `12130–21` | `12130–21` |
 | Home | p1 | `home` | `23132–22` | `23132–22` | `23131–22` |
 | Home | p2 | `home` | `22132111` | `22132111` | `22131111` |
 | Home | p2 | `home-depois-da-corrida` | `22132111` | `22132111` | `22131111` |
-| Home | p3 | `home` | `21131232` | `21131232` | `21131232` |
-| Home | p3 | `home-dia-de-treino` | `21131232` | `21131232` | `21131232` |
+| Home | p3 | `home` | `21132232` | `21132232` | `21131232` |
+| Home | p3 | `home-dia-de-treino` | `21132232` | `21132232` | `21131232` |
 | Treino · dia de treino | p1 | `treino` | `22031–22` | `22031–22` | `02031–22` |
-| Treino · dia de treino | p3 | `treino-dia-de-treino` | `21111121` | `21111121` | `01111121` |
+| Treino · dia de treino | p3 | `treino-dia-de-treino` | `21112121` | `21112121` | `01111121` |
 | Treino · descanso | p3 | `treino` | `22131332` | `22131332` | `22131332` |
-| Treino · sem musculação | p2 | `treino` | `11331232` | `11331232` | `11230232` |
-| Ficha | p1 | `ficha` | `22332–22` | `22332–22` | `22332–22` |
-| Ficha | p3 | `ficha` | `12333–21` | `12333–21` | `12332–21` |
+| Treino · sem musculação | p2 | `treino` | `11332232` | `11332232` | `11231232` |
+| Ficha | p1 | `ficha` | `22333–22` | `22333–22` | `22332–22` |
+| Ficha | p3 | `ficha` | `12333–21` | `12333–21` | `12333–21` |
 | Execução · série | p1 | `execucao-serie` | `11331–32` | `11331–32` | `22331–32` |
 | Execução · série | p3 | `execucao-serie` | `12231–32` | `12231–32` | `22231–32` |
 | Execução · descanso | p1 | `execucao-descanso` | `11331–31` | `11331–31` | `11331–31` |
-| Execução · descanso | p3 | `execucao-descanso` | `11231–31` | `11231–31` | `11231–31` |
-| Execução · fim | p1 | `execucao-fim` | `12332–22` | `12332–22` | `12331–22` |
-| Execução · fim | p1 | `execucao-fim-sem-serie` | `11332–12` | `11332–12` | `11331–12` |
+| Execução · descanso | p3 | `execucao-descanso` | `11232–31` | `11232–31` | `11231–31` |
+| Execução · fim | p1 | `execucao-fim` | `12332–22` | `12332–22` | `12332–22` |
+| Execução · fim | p1 | `execucao-fim-sem-serie` | `11332–12` | `11332–12` | `11332–12` |
 | Execução · fim | p3 | `execucao-fim` | `12333–22` | `12333–22` | `12332–22` |
-| Alimentação · fechada | p1 | `alimentacao-fechada` | `22121–22` | `22121–22` | `22121–22` |
-| Alimentação · fechada | p2 | `alimentacao-fechada` | `22131222` | `22131222` | `22121222` |
-| Alimentação · fechada | p3 | `alimentacao-fechada` | `22131222` | `22131222` | `22121222` |
-| Alimentação · refeição aberta | p1 | `alimentacao-refeicao-aberta` | `21121–22` | `21121–22` | `21221–22` |
-| Alimentação · refeição aberta | p2 | `alimentacao-refeicao-aberta` | `21131–22` | `21131–22` | `21221–22` |
-| Alimentação · refeição aberta | p3 | `alimentacao-refeicao-aberta` | `21131–22` | `21131–22` | `21221–22` |
-| Alimentação · comi outra coisa | p1 | `alimentacao-comi-outra-coisa` | `22121121` | `22121121` | `22221121` |
-| Alimentação · comi outra coisa | p2 | `alimentacao-comi-outra-coisa` | `22131121` | `22131121` | `22221121` |
-| Alimentação · comi outra coisa | p3 | `alimentacao-comi-outra-coisa` | `22131121` | `22131121` | `22221121` |
-| Corrida | p1 | `corrida` | `22331212` | `22331212` | `22330212` |
-| Corrida | p2 | `corrida` | `22331212` | `22331212` | `22330212` |
+| Alimentação · fechada | p1 | `alimentacao-fechada` | `22122–22` | `22122–22` | `22122–22` |
+| Alimentação · fechada | p2 | `alimentacao-fechada` | `22132222` | `22132222` | `22122222` |
+| Alimentação · fechada | p3 | `alimentacao-fechada` | `22132222` | `22132222` | `22122222` |
+| Alimentação · refeição aberta | p1 | `alimentacao-refeicao-aberta` | `21122–22` | `21122–22` | `21222–22` |
+| Alimentação · refeição aberta | p2 | `alimentacao-refeicao-aberta` | `21132–22` | `21132–22` | `21222–22` |
+| Alimentação · refeição aberta | p3 | `alimentacao-refeicao-aberta` | `21132–22` | `21132–22` | `21222–22` |
+| Alimentação · comi outra coisa | p1 | `alimentacao-comi-outra-coisa` | `22122121` | `22122121` | `22222121` |
+| Alimentação · comi outra coisa | p2 | `alimentacao-comi-outra-coisa` | `22132121` | `22132121` | `22222121` |
+| Alimentação · comi outra coisa | p3 | `alimentacao-comi-outra-coisa` | `22132121` | `22132121` | `22222121` |
+| Corrida | p1 | `corrida` | `22332212` | `22332212` | `22331212` |
+| Corrida | p2 | `corrida` | `22332212` | `22332212` | `22331212` |
 | Corrida | p2 | `corrida-nova` | `23231–32` | `23231–32` | `23130–32` |
-| Corrida | p2 | `corrida-com-registro` | `22331–22` | `22331–22` | `22330–22` |
-| Corrida | p3 | `corrida` | `22331212` | `22331212` | `22330212` |
-| Progresso | p1 | `progresso` | `22222–11` | `22222–11` | `12222–11` |
-| Progresso | p2 | `progresso` | `22232211` | `22232211` | `12231211` |
-| Progresso | p3 | `progresso` | `22232211` | `22232211` | `12231211` |
-| Conquistas | p1 | `conquistas` | `22130–31` | `22130–31` | `22130–31` |
-| Conquistas | p2 | `conquistas` | `22131111` | `22131111` | `22130111` |
-| Conquistas | p3 | `conquistas` | `22131331` | `22131331` | `22130331` |
-| Histórico (exercícios que já fiz) | p1 | `historico-exercicios` | `22333–32` | `22333–32` | `22332–32` |
-| Histórico (exercícios que já fiz) | p2 | `historico-exercicios` | `22331222` | `22331222` | `22230222` |
-| Histórico (exercícios que já fiz) | p3 | `historico-exercicios` | `22332232` | `22332232` | `22330232` |
-| Conta · Mais | p1 | `conta-areas` | `33333333` | `33333333` | `33332333` |
-| Conta · Mais | p2 | `conta-areas` | `33333333` | `33333333` | `33332333` |
-| Conta · Mais | p3 | `conta-areas` | `33333333` | `33333333` | `33332333` |
-| Conta · Perfil | p1 | `conta-perfil` | `11231–12` | `11231–12` | `11231–12` |
-| Conta · Perfil | p2 | `conta-perfil` | `11231–12` | `11231–12` | `11231–12` |
-| Conta · Perfil | p3 | `conta-perfil` | `11231–12` | `11231–12` | `11231–12` |
-| Ajuda | anon | `ajuda` | `12030–31` | `12030–31` | `12030–31` |
-| Ajuda | p1 | `ajuda-logado` | `22030–31` | `22030–31` | `12030–31` |
+| Corrida | p2 | `corrida-com-registro` | `22332–22` | `22332–22` | `22331–22` |
+| Corrida | p3 | `corrida` | `22332212` | `22332212` | `22331212` |
+| Progresso | p1 | `progresso` | `22223–11` | `22223–11` | `12222–11` |
+| Progresso | p2 | `progresso` | `22233211` | `22233211` | `12232211` |
+| Progresso | p3 | `progresso` | `22233211` | `22233211` | `12232211` |
+| Conquistas | p1 | `conquistas` | `22131–31` | `22131–31` | `22130–31` |
+| Conquistas | p2 | `conquistas` | `22132111` | `22132111` | `22131111` |
+| Conquistas | p3 | `conquistas` | `22132331` | `22132331` | `22131331` |
+| Histórico (exercícios que já fiz) | p1 | `historico-exercicios` | `22333–32` | `22333–32` | `22333–32` |
+| Histórico (exercícios que já fiz) | p2 | `historico-exercicios` | `22332222` | `22332222` | `22230222` |
+| Histórico (exercícios que já fiz) | p3 | `historico-exercicios` | `22333232` | `22333232` | `22331232` |
+| Conta · Mais | p1 | `conta-areas` | `33333333` | `33333333` | `33333333` |
+| Conta · Mais | p2 | `conta-areas` | `33333333` | `33333333` | `33333333` |
+| Conta · Mais | p3 | `conta-areas` | `33333333` | `33333333` | `33333333` |
+| Conta · Perfil | p1 | `conta-perfil` | `11232–12` | `11232–12` | `11232–12` |
+| Conta · Perfil | p2 | `conta-perfil` | `11232–12` | `11232–12` | `11232–12` |
+| Conta · Perfil | p3 | `conta-perfil` | `11232–12` | `11232–12` | `11232–12` |
+| Ajuda | anon | `ajuda` | `12031–31` | `12031–31` | `12031–31` |
+| Ajuda | p1 | `ajuda-logado` | `22031–31` | `22031–31` | `12030–31` |
 | /demo/ | anon | `demo` | `21131–22` | `21131–22` | `21130–22` |
 
 Duas leituras que a matriz dá e o mapa não: **claro e escuro tiram a mesma
