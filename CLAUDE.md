@@ -1089,7 +1089,10 @@ pessoa.
   registrada (`ExerciseLog`) num dia com escolha daquela letra —
   `services.sequencia_do_treino` lê tudo numa CONSULTA (`SequenciaDoTreino`,
   com `recomendada()` e `contagem(letra)`). Encerrar com zero série NÃO conta.
-  Sem histórico no plano, o recomendado é a PRIMEIRA letra do ciclo. Pular não
+  Sem histórico DA PESSOA, o recomendado é a PRIMEIRA letra do ciclo — a
+  sequência atravessa as fichas (28/09/2026, B4 do caça-bugs: remontar a ficha
+  zerava a sequência e a tira marcava como pulado o dia treinado); só a
+  `contagem` que escolhe a opção da ficha legada conta por plano. Pular não
   avança nada. `TrainingDay` continua dizendo QUAIS dias são de treino e a
   FREQUÊNCIA — deixou só de dizer a letra.
 - **A PESSOA ESCOLHE.** Painel e execução mostram o recomendado como "Treino
