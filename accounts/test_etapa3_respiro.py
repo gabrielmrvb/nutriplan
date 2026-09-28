@@ -34,7 +34,9 @@ class OCartaoSemDesenhoNaoTemCaixaTests(TestCase):
     def _cartao(self, valor):
         html = self.client.get(reverse("accounts:onboarding_step", args=[3])).content.decode()
         casou = re.search(
-            r'<label class="choice-card">\s*<input[^>]*value="%s".*?</label>' % re.escape(valor),
+            # O cartão da PRIORIDADE: desde 28/09/2026 os interesses, que vêm
+            # antes na mesma etapa, também são `choice-card` e têm "treino".
+            r'<label class="choice-card">\s*<input[^>]*name="prioridade"[^>]*value="%s".*?</label>' % re.escape(valor),
             html, re.S)
         self.assertIsNotNone(casou, "cartão %r não achado" % valor)
         return casou.group(0)

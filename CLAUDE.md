@@ -2868,6 +2868,49 @@ regra de dois níveis desfazê-lo — hoje é `.entrada__cartao`, só com o resp
 O `.painel__cartao` da Home NÃO é `.card` e fica: é a célula da grade, e o
 padding de 16 foi medido para três alvos de 44 px caberem em 169 px.
 
+**UM H2 SÓ (28/09/2026, dívida visual, lote 4).** O `h2` estava em cinco
+tamanhos, e o mais usado era o 20,8 px do `h2 { font-size: 1.3rem }`, que
+nem é degrau. Gate do dono ("R"): fora do treino, todo `<h2>` é o RÓTULO da
+tela Mais (`class="sobretitulo"`); a prosa longa (`.legal`, `.card--prosa`)
+usa `--texto-lg` 700; e quem tem papel próprio está numa lista fechada com a
+razão (`H2_COM_PAPEL`: o nome da vez no AGORA, o nome da receita, a pergunta
+do aviso de regenerar, a chamada do fim da landing, o título da folha, o
+oculto) e declara o tamanho. O
+`h2` base é LEGADO datado do treino. Toda tela migrada continua com um `h1`
+acima dos rótulos (medido nas 43 telas capturadas; gestão e analytics, no
+template): nenhum título foi inventado.
+
+**UMA ESCOLHA SÓ (28/09/2026, dívida visual, lote 5).** Eram cinco desenhos
+para "escolha uma opção": cartão com ícone, cartão largo com visto, rádio
+redondo em `choice-list`, `segmented` e chips de dia. Fora do treino, hoje
+é o `choice-card` (`partials/choice_cards.html` e a mesma marcação à mão nos
+consentimentos, nos Termos do cadastro, na análise de uso e na conta do
+Google). `partials/field.html` desenha o cartão com o input do Django dentro
+(`{{ subwidget.tag }}`, que traz o `aria-label` de cada dia), e o CSS alcança
+esse input pelo filho direto (`.choice-card > input`). Modificadores:
+`--lista` (opção sem ícone nem dica, 3,1rem — a altura da lista antiga, para
+o cadastro não crescer), `--par` (duas curtas lado a lado: o sexo), `--dias`
+(fila que QUEBRA: sete colunas a 390 px dariam 42 px, abaixo do alvo) e o
+`--duas` de sempre, para cartão com ícone. O foco virou ANEL COM VÃO, a
+decisão de 16/09 do dono para o chip de dia e o segmented, que viraram este
+cartão. `segmented` saiu do CSS; `choice-list` é LEGADO datado do treino
+(a duração da sessão). Caixas que não são escolha ficam nomeadas
+(`CAIXAS_QUE_NAO_SAO_ESCOLHA`: o item da lista de compras e o som das
+conquistas). `UmControleDeEscolhaSoTests`.
+
+**O CROMO NA ESCALA (28/09/2026, dívida visual, lote 6).** A barra de cima
+aparece em toda tela e era a última peça fora da escala: a marca a 16,8 px
+(149 blocos na auditoria), os links do desktop a 14 px e nove espaços crus.
+Hoje é `--texto-base`, `--texto-md` e `--e*`, e `OCromoNaEscalaTests` recusa
+tamanho escrito à mão em regra `.app-bar*`. E ela não parte palavra: o
+`overflow-wrap: anywhere` do corpo alcançava a marca e os links ("NutriPla /
+n", "Entra / r" abaixo de 390 px). Sem partir, a barra com AÇÕES — anônima
+("Entrar", "Criar conta") e demo (selo, "Sobre o demo") — não cabe a 320:
+374 px para 305. Abaixo de 24rem ela mostra só o SÍMBOLO, e o nome continua
+no documento para leitor de tela; `app-bar--acoes` é classe do servidor
+(`base.html`), e a barra de quem está logado, sem ação no celular, fica com o
+nome.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de

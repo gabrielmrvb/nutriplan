@@ -317,7 +317,7 @@
           um bloco que não existe.)
         {% endcomment %}
         <div class="card__head">
-          <h2>
+          <h2 class="sobretitulo">
             Seu cardápio de hoje{% if area_promovida == 'dieta' %}
             <span class="pill pill--brand secao__selo">sua área</span>{% endif %}
           </h2>
@@ -815,7 +815,7 @@
       {% endcomment %}
       {% if compras.total %}
         <section class="card compras-previa">
-          <div class="card__head"><h2>Lista de compras</h2></div>
+          <div class="card__head"><h2 class="sobretitulo">Lista de compras</h2></div>
           <p class="compras-previa__resumo">
             {{ compras.total }} itens para a semana
           </p>
@@ -848,7 +848,7 @@
       {% endcomment %}
       <details class="card explicacao" id="entender-metas">
         <summary class="explicacao__head">
-          <h2>Entender minhas metas</h2>
+          <h2 class="sobretitulo">Entender minhas metas</h2>
           <span class="explicacao__dica" aria-hidden="true">abrir</span>
         </summary>
 
@@ -1027,7 +1027,7 @@
 
       <details class="card explicacao">
         <summary class="explicacao__head">
-          <h2>Dados do cálculo</h2>
+          <h2 class="sobretitulo">Dados do cálculo</h2>
           <span class="explicacao__dica" aria-hidden="true">abrir</span>
         </summary>
         <dl class="data-list">
@@ -1083,7 +1083,7 @@
       {% endcomment %}
       <details class="card explicacao" id="lembretes">
         <summary class="explicacao__head">
-          <h2>Lembretes</h2>
+          <h2 class="sobretitulo">Lembretes</h2>
           <span class="explicacao__dica" aria-hidden="true">abrir</span>
         </summary>
         <p class="muted nota-do-botao" data-push-status>
@@ -1107,7 +1107,7 @@
           pessoa mandou importar.
         {% endcomment %}
         <section class="card">
-          <div class="card__head"><h2>{% if plataforma_nativa == "ios" %}Apple Saúde{% else %}Health Connect{% endif %}</h2></div>
+          <div class="card__head"><h2 class="sobretitulo">{% if plataforma_nativa == "ios" %}Apple Saúde{% else %}Health Connect{% endif %}</h2></div>
           <p class="muted nota-do-botao">
             Traga as suas corridas e pesagens dos últimos 30 dias. O app só lê o
             que você autorizar, e nunca sobrescreve um peso que você digitou.

@@ -811,7 +811,8 @@ class AuthScreenTests(TestCase):
         """
         for nome, html in (("entrar", self.login), ("cadastro", self.cadastro)):
             with self.subTest(tela=nome):
-                self.assertNotIn('<header class="app-bar"', html)
+                # Por prefixo: desde 28/09/2026 a barra pode levar `app-bar--acoes`.
+                self.assertNotIn('<header class="app-bar', html)
                 # A marca está lá, e é a do bloco de entrada.
                 self.assertIn("entrada__marca", html)
                 self.assertIn("entrada__wordmark", html)
@@ -2210,7 +2211,7 @@ class OnboardingV21Tests(TestCase):
         """
         html = self.client.get(step_url(2)).content.decode()
 
-        self.assertIn("segmented--envolve", html)
+        self.assertIn("choice-cards--dias", html)
         self.assertIn(">Qua<", html)
         self.assertIn('aria-label="Quarta-feira"', html)
         # E o nome completo continua sendo o do model, para o resto do app.

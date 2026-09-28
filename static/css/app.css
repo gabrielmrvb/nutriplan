@@ -907,7 +907,7 @@ button { font-family: inherit; color: inherit; }
   justify-content: space-between;
   gap: var(--e4);
   min-height: 3.6rem;
-  padding: .5rem var(--pad);
+  padding: var(--e2) var(--pad);
   padding-top: max(var(--e2), env(safe-area-inset-top));
   /* Translúcida de verdade: o conteúdo passa por baixo desfocado em vez de
      sumir atrás de uma faixa opaca. O prefixo `-webkit-` continua aí porque o
@@ -937,10 +937,10 @@ button { font-family: inherit; color: inherit; }
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
-  gap: .55rem;
+  gap: var(--e2);
   min-width: 0;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--texto-base);
   letter-spacing: -.03em;
   color: var(--text);
   text-decoration: none;
@@ -983,7 +983,7 @@ button { font-family: inherit; color: inherit; }
 }
 .auth__logo .marca { border-radius: var(--quina); }
 
-.app-bar__nav { display: flex; align-items: center; gap: .3rem; }
+.app-bar__nav { display: flex; align-items: center; gap: var(--e1); }
 .app-bar__nav .app-bar__link { display: none; }
 
 /* O que só existe na largura em que a barra de cima é a navegação. No celular
@@ -995,15 +995,44 @@ button { font-family: inherit; color: inherit; }
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
-  padding: .45rem .75rem;
+  padding: var(--e2) var(--e3);
   border: 0;
   border-radius: var(--quina-p);
   background: none;
   color: var(--text-dim);
-  font-size: .875rem;
+  font-size: var(--texto-md);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* A barra não parte palavra. O `overflow-wrap: anywhere` do corpo (que
+   existe para nome longo de exercício e de alimento) alcançava a marca e
+   os links: abaixo de 390 px a barra anônima dizia "NutriPla / n" e
+   "Entra / r" (auditoria visual de 27/09/2026). */
+.app-bar__brand,
+.app-bar__link,
+.app-bar__quiet,
+.app-bar .btn {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Sem partir palavra, a barra com AÇÕES (anônima: "Entrar" e "Criar
+   conta"; demo: o selo e "Sobre o demo") não cabe na tela estreita: a
+   320 px a marca inteira e as duas ações somam 374 px para 305, e a página
+   rolaria na horizontal. Abaixo de 24rem essa barra mostra só o símbolo; o
+   nome continua no documento, para leitor de tela. A barra de quem está
+   logado não tem ação no celular, e fica com o nome. */
+@media (max-width: 23.99rem) {
+  .app-bar--acoes .app-bar__word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .app-bar__link,
@@ -1171,6 +1200,10 @@ h1 {
   line-height: var(--entrelinha-numero);
   text-transform: uppercase;
 }
+/* LEGADO (28/09/2026): o `h2` de 20,8 px só vale para o treino (a Fase A
+   mora em templates/workouts/). Fora dele o título de seção é o RÓTULO
+   (`.sobretitulo`), a prosa usa `--texto-lg` e o que tem papel próprio
+   declara o tamanho (`UmH2SoTests`). */
 h2 {
   font-size: 1.3rem;
   font-weight: 700;
@@ -2760,6 +2793,9 @@ a.chip { min-height: 2.75rem; padding: var(--e1) var(--e4); }
   font-size: var(--texto-sm);
 }
 
+/* LEGADO (28/09/2026): a lista de escolha só vale para o treino (a duração
+   da sessão, em templates/workouts/routine.html). Fora dele a escolha é o
+   `choice-card` (`UmControleDeEscolhaSoTests`). */
 .choice-list { display: grid; gap: var(--e2); margin: 0; padding: 0; border: 0; list-style: none; }
 
 .choice-list label {
@@ -2790,86 +2826,6 @@ a.chip { min-height: 2.75rem; padding: var(--e1) var(--e4); }
 }
 
 .choice-list--inline { grid-template-columns: 1fr 1fr; }
-
-/* Os sete dias da semana, em chips.
- *
- * Eram sete cartões de largura inteira: 404px medidos a 390px de viewport, com
- * o "Continuar" caindo abaixo da dobra. Nenhum daqueles cartões precisava de
- * uma linha inteira — "Seg" é três letras.
- *
- * O estado marcado é pintado por `input:checked ~ .segmented__fundo`, seletor
- * IRMÃO e não `:has()`. A diferença importa: `:has()` é permitido em cima do
- * `.choice-list` comum porque lá é só realce e o `accent-color` da caixa
- * nativa continua mostrando a escolha. Aqui a caixa está fora do fluxo, então
- * o preenchimento é a ÚNICA pista — e uma regra que o navegador descarta
- * inteira deixaria a pessoa sem saber quais dias marcou.
- *
- * O input não é escondido, é recortado: continua no fluxo de foco, recebe Tab,
- * alterna com espaço e é anunciado com o nome completo do dia pelo `aria-label`
- * que `DiasDaSemanaWidget` escreve.
- *
- * Chamava-se `.choice-list--dias` até a CORTE (T3.5, 16/09/2026): o nome
- * dizia de onde veio (a lista de caixas), não o que é — um segmented que
- * ENVOLVE, quebrando em linhas, em vez de dividir uma largura fixa. */
-.segmented--envolve {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--e2);
-}
-
-/* `1 1 3.8rem`: os chips esticam para preencher a linha em vez de deixarem um
-   vão à direita, e a base é medida, não escolhida — a 360px a lista tem 274px
-   úteis, e quatro por linha com 6.4px de vão exigem no máximo 63px de base.
-   4.2rem (67px) cabia só três e virava uma terceira linha; 3.8rem (61px) fecha
-   4+3 tanto a 360 quanto a 390. */
-.segmented--envolve li { flex: 1 1 3.8rem; min-width: 0; }
-
-.segmented--envolve label {
-  position: relative;
-  justify-content: center;
-  gap: 0;
-  min-height: 2.75rem;
-  padding: var(--e2) var(--e1);
-  border-radius: var(--quina-p);
-  font-size: var(--texto-sm);
-  /* Sempre 650, marcado ou não: deixar o peso mudar na seleção faria o chip
-     crescer e a linha inteira reposicionar debaixo do dedo. */
-  font-weight: 600;
-}
-
-.segmented--envolve input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  clip-path: inset(50%);
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.segmented--envolve .segmented__fundo {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.segmented--envolve .segmented__texto { position: relative; }
-
-.segmented--envolve input:checked ~ .segmented__fundo { background: var(--brand); }
-.segmented--envolve input:checked ~ .segmented__texto { color: var(--on-brand); }
-.segmented--envolve label:hover .segmented__fundo { background: var(--surface-3); }
-.segmented--envolve label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-/* Foco é `--brand`; `--agua` é cor de pilar. E é ANEL COM VÃO (decisão do
-   dono, 16/09/2026): a opção MARCADA já tem o fundo em `--brand`, e um anel
-   colado só engordava a pílula — em rádio, a seta move foco e marcação
-   juntos, então esse era o caso mais comum de teclado. `outline-offset: 2px`
-   abre um vão que mostra a superfície, e o anel se vê nos dois estados;
-   `outline` acompanha o raio. */
-.segmented--envolve input:focus-visible ~ .segmented__fundo { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e3); }
 
@@ -4527,7 +4483,8 @@ html { scrollbar-gutter: stable; }
 
 /* Fora da vista, dentro do documento: sem isto o cartão vira um `div` bonito
    que não navega por teclado nem existe para leitor de tela. */
-.choice-card__input {
+.choice-card__input,
+.choice-card > input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -4672,7 +4629,8 @@ html { scrollbar-gutter: stable; }
 
 /* ---- estado escolhido, tudo por combinador de irmão ---- */
 
-.choice-card__input:checked ~ .choice-card__frame {
+.choice-card__input:checked ~ .choice-card__frame,
+.choice-card > input:checked ~ .choice-card__frame {
   border-color: var(--brand);
   background: var(--brand-tinta-fraca);
   /* Brilho contido: marca a escolha sem transformar o formulário em painel
@@ -4683,12 +4641,14 @@ html { scrollbar-gutter: stable; }
   box-shadow: var(--halo);
 }
 
-.choice-card__input:checked ~ .choice-card__icon {
+.choice-card__input:checked ~ .choice-card__icon,
+.choice-card > input:checked ~ .choice-card__icon {
   background: var(--brand-soft);
   color: var(--brand);
 }
 
-.choice-card__input:checked ~ .choice-card__mark {
+.choice-card__input:checked ~ .choice-card__mark,
+.choice-card > input:checked ~ .choice-card__mark {
   opacity: 1;
   transform: scale(1);
 }
@@ -4696,9 +4656,15 @@ html { scrollbar-gutter: stable; }
 /* Foco visível para quem navega por teclado: o anel vai na moldura, que é
    exatamente o contorno do cartão. Foco é `--brand`; `--agua` é cor de
    pilar. */
-.choice-card__input:focus-visible ~ .choice-card__frame {
+/* ANEL COM VÃO (decisão do dono, 16/09/2026, para o chip de dia e o
+   segmented — que viraram este cartão no lote 5 da dívida visual): a opção
+   marcada já tem a moldura em `--brand`, e um anel colado se confundia com
+   ela. `outline-offset` abre o vão, e o anel se vê nos dois estados. */
+.choice-card__input:focus-visible ~ .choice-card__frame,
+.choice-card > input:focus-visible ~ .choice-card__frame {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5344,7 +5310,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
   .app-bar__so-desktop { display: block; }
-  .app-bar { padding-inline: 1.9rem; }
+  .app-bar { padding-inline: var(--e7); }
 }
 
 @media (max-width: 22rem) {
@@ -5555,98 +5521,56 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 }
 .choice-cards--duas .choice-card__mark svg { width: .7rem; height: .7rem; }
 
-/* ==========================================================================
-   30. Segmented control e unidade dentro do campo
-   ========================================================================== */
+/* Os sete dias da semana, em cartões de escolha pequenos (dívida visual,
+   lote 5, 28/09/2026). Eram um segmented próprio; hoje é o `choice-card`,
+   com a mesma moldura e o mesmo visto, só que compacto.
 
-/* Duas opções curtas dividindo uma moldura, com a escolhida preenchida.
- *
- * O rádio nativo põe o estado num círculo de 19px na lateral e o texto ao
- * lado: dois lugares para uma informação. Aqui o estado É o botão.
- *
- * Nada de `:has()` — e a primeira versão desta regra usava um, o que era
- * exatamente o erro que este arquivo documenta em outros três lugares.
- *
- * O `<input>` fica dentro do `<label>`, então só `:has()` alcançaria o pai
- * para pintá-lo. A saída é a mesma do cartão de escolha: o preenchimento é um
- * `<span>` IRMÃO do input, alcançável por `~`, deitado atrás do texto. Onde
- * `:has()` não existe, aquela versão deixava o escolhido sem preenchimento
- * nenhum — indistinguível do não escolhido, num controle cuja única função é
- * mostrar qual está escolhido. */
-.segmented {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 0;
-  /* 6 px, e não o degrau de 4: o foco da opção marcada é anel de 2 px com
-     vão de 2 px (`outline-offset`), e com 4 de padding o anel encostava na
-     borda do contêiner (decisão do dono, 16/09/2026). `calc` sobre o token
-     em vez de `6px` cru: a catraca de espaçamento não sobe. */
-  padding: calc(var(--e1) * 1.5);
-  border: 1px solid var(--fio);
-  border-radius: var(--quina-p);
-  background: var(--surface-2);
-}
-
-.segmented li { min-width: 0; }
-
-.segmented label {
-  position: relative;
-  display: flex;
+   SETE COLUNAS NÃO CABEM: a 390 px a coluna do cadastro tem 318 px, e sete
+   células com vão de 4 px dariam 42 — abaixo do alvo de 44. A fila quebra,
+   como antes, com base de 3,8rem. */
+.choice-cards--dias { display: flex; flex-wrap: wrap; gap: var(--e2); }
+.choice-cards--dias > li { flex: 1 1 3.8rem; min-width: 0; }
+.choice-cards--dias .choice-card {
   align-items: center;
   justify-content: center;
   min-height: 2.75rem;
-  padding: var(--e2) var(--e2);
-  border: 0;
-  border-radius: var(--quina-p);
-  background: none;
-  color: var(--text-dim);
-  font-size: var(--texto-md);
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  padding: var(--e2) var(--e1);
 }
+.choice-cards--dias .choice-card__text { align-items: center; padding-right: 0; }
+.choice-cards--dias .choice-card__mark { top: var(--e1); right: var(--e1); width: .8rem; height: .8rem; }
+.choice-cards--dias .choice-card__mark svg { width: .55rem; height: .55rem; }
 
-/* O rádio sai da tela e continua no documento: é ele que recebe o foco, muda
-   com as setas e envia com o formulário. */
-.segmented input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+/* A lista: opção de uma palavra ou de uma frase, sem ícone nem dica
+   (restrições, interesses, consentimentos). O cartão com ícone pede 4,25rem;
+   aqui a altura é a da lista antiga, e o cadastro não cresce. */
+.choice-cards--lista .choice-card { align-items: center; min-height: 3.1rem; }
+
+/* CAIXA DE VERDADE na lista: a opção de marcar (consentimento, restrição,
+   interesse) mostra o quadrado VAZIO antes de ser marcada. Sem ele, "Li e
+   aceito os Termos" lia como texto numa moldura (captura do lote 5), e
+   consentimento tem de parecer uma coisa que se marca. O rádio não precisa:
+   a escolha única já é dita pelo grupo. */
+.choice-cards--lista .choice-card > input[type="checkbox"] ~ .choice-card__mark {
+  opacity: 1;
+  transform: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--traco) var(--fio-forte);
 }
-
-/* O preenchimento: deitado atrás do texto, sem interceptar toque. */
-.segmented__fundo {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+.choice-cards--lista .choice-card > input[type="checkbox"] ~ .choice-card__mark svg { opacity: 0; }
+.choice-cards--lista .choice-card > input[type="checkbox"]:checked ~ .choice-card__mark {
+  background: var(--brand);
+  box-shadow: none;
 }
+.choice-cards--lista .choice-card > input[type="checkbox"]:checked ~ .choice-card__mark svg { opacity: 1; }
 
-.segmented__texto { position: relative; }
+/* Duas opções curtas lado a lado, sem ícone (o sexo do cadastro). O
+   `--duas` empilha ícone e texto e põe o visto sobre o ícone; sem ícone o
+   visto caía em cima da palavra (captura do lote 5). */
+.choice-cards--par { grid-template-columns: 1fr 1fr; }
 
-.segmented input:checked ~ .segmented__fundo { background: var(--brand); }
-.segmented input:checked ~ .segmented__texto { color: var(--on-brand); }
-
-.segmented label:hover .segmented__fundo { background: var(--surface-3); }
-.segmented input:checked ~ .segmented__fundo:hover,
-.segmented label:hover input:checked ~ .segmented__fundo { background: var(--brand-strong); }
-
-/* Foco é `--brand`; `--agua` é cor de pilar. Anel COM VÃO, pelo mesmo motivo
-   do chip de dia (decisão do dono, 16/09/2026): a opção marcada é `--brand`
-   cheio, e sem o vão o foco sumia dentro dela. */
-.segmented input:focus-visible ~ .segmented__fundo {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
+/* ==========================================================================
+   30. Unidade dentro do campo
+   ========================================================================== */
 
 /* A unidade encostada à direita, dentro do campo.
  *
@@ -5682,8 +5606,8 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * único lugar que a pessoa olha ao chegar em qualquer tela, e depois sai do
  * caminho — que é o que "discreto" quer dizer. */
 .app-bar__demo {
-  margin-left: .4rem;
-  padding: .1rem .38rem;
+  margin-left: var(--e2);
+  padding: var(--traco) var(--e2);
   border: 1px solid var(--terra-linha-forte);
   border-radius: var(--quina-p);
   background: var(--terra-tinta);
@@ -5736,7 +5660,6 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   line-height: var(--entrelinha);
 }
 
-.demo-titulo { margin: 0 0 var(--e3); font-size: var(--texto-base); }
 
 .demo-areas {
   display: grid;
@@ -8046,8 +7969,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Texto longo, e a única coisa que ele precisa é ser lido. Nada de coluna
    estreita decorativa: o `.card` já limita a largura, e a medida de linha do
    corpo do app vale aqui como vale no resto. */
-.legal h2 {
-  font-size: var(--texto-base);
+.legal h2,
+.card--prosa h2 {
+  font-size: var(--texto-lg);
   margin-bottom: var(--e2);
 }
 
@@ -9344,6 +9268,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .landing__hero .stack { margin-top: var(--e4); }
 
+/* A frase que chama para a demonstração, no fim da landing: em rótulo de
+   11 px ela virava legenda (revisão do lote 4, 28/09/2026). */
+.landing__cta-titulo { font-size: var(--texto-lg); }
+
 /* ACIMA DE 900px A LANDING DEIXA DE SER UM CELULAR CENTRALIZADO (22/09/2026).
 
    `.container.auth` é estreito de propósito — formulário de entrada se lê
@@ -10171,6 +10099,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Dentro da folha o nome da receita já é o título da barra de cima — duas
    vezes o mesmo nome, um embaixo do outro, é o que a régua de repetição
    existe para impedir. No painel e na tela ele fica. */
+/* O nome da receita abre a tela dela: título a `--texto-lg`, como a pergunta
+   do aviso de regenerar e o título da folha. */
+.receita-folha__nome { font-size: var(--texto-lg); }
 .folha-receita__corpo .receita-folha__nome { display: none; }
 
 .receita-folha__feita {

@@ -28,7 +28,7 @@
     <a href="{% url 'gestao:vitrine' %}?regime=ferro">Ferro</a> (forçado, como na execução)</p>
 
   <section class="card">
-    <div class="card__head"><h2>Marca</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Marca</h2></div>
     {% include "partials/marca_de_entrada.html" %}
     <div class="chip-row chip-row--conteudo">
       <span class="chip">Sem restrições</span>
@@ -40,7 +40,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Botões</h2><span class="card__subtitulo">um primário por tela; aqui é catálogo</span></div>
+    <div class="card__head"><h2 class="sobretitulo">Botões</h2><span class="card__subtitulo">um primário por tela; aqui é catálogo</span></div>
     <div class="acoes-empilhadas">
       <button type="button" class="btn btn--primary">Concluir série</button>
       <button type="button" class="btn btn--ghost">Cancelar</button>
@@ -54,7 +54,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Campos</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Campos</h2></div>
     <form method="post" action="{% url 'gestao:vitrine' %}">
       {% csrf_token %}
       {% include "partials/field.html" with field=form_limpo.nome %}
@@ -80,7 +80,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Números</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Números</h2></div>
     <div class="tiles">
       <div class="tile"><strong class="tile__value" data-conta>87%</strong><span class="tile__label">Aderência</span><span class="tile__meta">refeições do plano</span></div>
       <div class="tile"><strong class="tile__value" data-conta>2.140</strong><span class="tile__label">kcal/dia</span><span class="tile__meta">meta: 2.200</span></div>
@@ -102,7 +102,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Vazio e dica</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Vazio e dica</h2></div>
     <div class="empty-state">
       <p>Nenhum dia de treino cadastrado ainda.</p>
       <a class="btn btn--ghost btn--sm" href="{% url 'gestao:vitrine' %}">Cadastrar dias de treino</a>
@@ -126,7 +126,7 @@
     `CoberturaDaVitrineTests` para esta parcial.
   {% endcomment %}
   <section class="card">
-    <div class="card__head"><h2>Ilustrações de receita</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Ilustrações de receita</h2></div>
     {% include "partials/ilustracoes_de_receita.html" %}
     <ul class="vitrine-ilustracoes">
       {% for familia, rotulo in familias_de_ilustracao %}
@@ -162,7 +162,7 @@
     estados que importam — a aba da vez (com `aria-current`) e as outras.
   {% endcomment %}
   <section class="card">
-    <div class="card__head"><h2>Navegação</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Navegação</h2></div>
     <nav class="app-bar__nav">
       {% include "partials/abas.html" with abas=abas_da_vitrine onde="app-bar" %}
     </nav>
