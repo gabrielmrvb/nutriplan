@@ -1063,9 +1063,11 @@ class OnboardingEntryView(LoginRequiredMixin, TemplateView):
 class RastreioAnalyticsView(AcaoDeTela, LoginRequiredMixin, View):
     """Liga ou desliga a análise de uso do app.
 
-    Desligar NÃO apaga evento: o uso continua contando no agregado ANÔNIMO — o
-    que para é a atribuição à pessoa. O flag vai para a SESSÃO no mesmo instante
-    (`marcar_sessao`), para a régua da rota da série o ler sem consulta. Ver
+    [REVISAR I2, Lote 1, 28/09/2026] Desligar BLOQUEIA o evento inteiro —
+    nenhum registro do uso é feito, nem anônimo (decisão 2 do plano de
+    28/09/2026; era "o uso continua contando no agregado ANÔNIMO" até
+    então). O flag vai para a SESSÃO no mesmo instante (`marcar_sessao`),
+    para a régua da rota da série o ler sem consulta. Ver
     `analytics/privacidade.py`.
     """
 
@@ -1086,7 +1088,7 @@ class RastreioAnalyticsView(AcaoDeTela, LoginRequiredMixin, View):
             % (
                 "Você permite a análise de uso."
                 if rastrear
-                else "Seu uso conta só de forma anônima agora."
+                else "Nenhum registro do seu uso é feito agora, nem anônimo."
             ),
         )
         return redirect(self.tela_da_acao)

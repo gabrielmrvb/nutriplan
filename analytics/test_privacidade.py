@@ -54,6 +54,17 @@ class OptOutTests(CatalogFixture):
         self.client.post("/agua/", {"ml": "250"}, HTTP_DNT="1")
         self.assertIsNone(Event.objects.get(name="agua.registrada").user)
 
+    def test_a_mensagem_de_desligar_diz_a_verdade(self):
+        """I2 (revisão de 28/09/2026): a mensagem dizia 'conta só de forma
+        anônima', que deixou de ser verdade quando o opt-out passou a
+        bloquear o evento inteiro. A página seguinte (o Perfil, por
+        `AcaoDeTela`) é onde a mensagem aparece de verdade — não uma
+        string isolada."""
+        r = self.client.post(reverse("accounts:rastreio"), {}, follow=True)
+        texto = r.content.decode()
+        self.assertIn("Nenhum registro do seu uso é feito agora, nem anônimo.", texto)
+        self.assertNotIn("conta só de forma anônima", texto)
+
 
 class LoginCarregaOptOutTests(TestCase):
     def test_o_login_leva_o_opt_out_para_a_sessao(self):
@@ -81,6 +92,22 @@ class PaginaTests(TestCase):
         self.assertIn("leg", html.lower())  # legítimo interesse
         self.assertIn("13.709", html)  # a LGPD citada
         self.assertIn("Do-Not-Track", html)
+
+    def test_o_cartao_do_perfil_diz_que_desligar_nao_registra_nada(self):
+        """I2 (revisão de 28/09/2026): o cartão ao lado do interruptor dizia
+        'o uso continua contando só de forma anônima', que passou a ser
+        falso quando o opt-out virou bloqueio total. Ancorado no texto
+        VISÍVEL da página (espaço normalizado — o template quebra a frase
+        em várias linhas), não numa string que também mora em comentário."""
+        user = create_complete_user(email="cartao-perfil@exemplo.com")
+        self.client.force_login(user)
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+        texto = " ".join(html.split())
+        self.assertIn(
+            "Com a análise desligada, nenhum registro do seu uso é feito, nem anônimo.",
+            texto,
+        )
+        self.assertNotIn("continua contando só de forma anônima", texto)
 
 
 def create_complete_user_min(User):
