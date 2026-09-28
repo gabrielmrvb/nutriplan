@@ -514,7 +514,11 @@ class TouchTargetTests(TestCase):
         # A pesagem rápida. O campo e o botão nascem já dentro da régua, e a
         # faixa do painel é tocada com a mesma mão que marca a refeição.
         (".pesagem__valor {", "min-height: 2.75rem"),
-        (".pesagem__salvar {", "min-height: 2.75rem"),
+        # "Buscar no YouTube", na execução do exercício sem vídeo: 21 px de
+        # altura na auditoria de 27/09/2026. O salvar da pesagem virou
+        # `btn btn--primary btn--sm` (dívida visual, lote 2) e mora na régua
+        # do `.btn--sm`.
+        (".agora__sem-media a {", "min-height: 2.75rem"),
         (".pesar__topo {", "min-height: 2.75rem"),
         # "desfazer" media 20px, e é o link procurado no segundo seguinte a
         # errar o toque em "Não comi".
