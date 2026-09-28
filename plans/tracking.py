@@ -573,6 +573,15 @@ def agua_dos_ultimos_dias(user, meta_ml, hoje=None, dias=7) -> dict:
     """
     hoje = hoje or timezone.localdate()
     primeiro = hoje - timedelta(days=dias - 1)
+    # A JANELA COMEÇA NA CONTA (28/09/2026): no dia 1 a tela listava seis
+    # dias de antes do cadastro e cobrava "0/7". Antes do cadastro não havia
+    # app para registrar — o mesmo limite da ofensiva.
+    from .streaks import primeiro_dia_da_conta
+
+    nasceu = primeiro_dia_da_conta(user)
+    if nasceu and nasceu > primeiro:
+        primeiro = min(nasceu, hoje)
+        dias = (hoje - primeiro).days + 1
 
     # `date__gte` limita a CONSULTA, não o resultado: quem garante que nada de
     # fora da janela aparece é o laço abaixo, que só procura as sete datas que

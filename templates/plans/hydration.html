@@ -247,6 +247,8 @@
       </section>
 
       {# ---------------- A semana ---------------- #}
+      {# No dia 1 a "semana" é o próprio Hoje repetido: o bloco nasce no dia 2. #}
+      {% if semana.dias > 1 %}
       <section class="card">
         <div class="card__head"><h2 class="sobretitulo">Últimos {{ semana.dias }} dias</h2></div>
 
@@ -292,6 +294,7 @@
           aconteceu.
         </p>
       </section>
+      {% endif %}
 
       {# ---------------- O que a meta é, e o que ela não é ---------------- #}
       <section class="card">

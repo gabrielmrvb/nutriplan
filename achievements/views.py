@@ -96,6 +96,9 @@ class ConquistasView(OnboardingRequiredMixin, TemplateView):
                 "total": len(ganhas),
                 "ofensiva": dados.ofensiva,
                 "dias_treinados": dados.dias_treinados,
+                "faz_musculacao": dados.faz_musculacao,
+                "corridas": dados.corridas,
+                "dias_com_refeicao": dados.dias_com_refeicao,
                 # As DUAS espécies da família RECORDE contam aqui — não só
                 # `novo-recorde`. Filtrar pela família no catálogo (e não por
                 # uma lista de slugs escrita à mão) é o que mantém a régua
