@@ -29,18 +29,42 @@ que a pessoa pediu de e-mail, o rastro de analytics dela. `EXPORTADOS` e
 silêncio: `test_todo_model_com_fk_para_o_usuario_e_exportado_ou_justificado`
 lê `get_user_model()._meta.related_objects` — a verdade do banco, não uma
 lista escrita à mão — e reprova se um model novo não estiver em nenhum dos
-dois. Os nove de sempre continuam com a seção escrita à mão (os testes
-antigos leem essas chaves, e alguns merecem o nome resolvido — exercício,
-alimento — que o helper genérico não traz); o resto passa por `_linhas`,
-um helper que lê os campos escalares do model e pula relação e segredo.
+dois. Os de sempre continuam com a seção escrita à mão (os testes antigos
+leem essas chaves, e alguns merecem o nome resolvido — exercício, alimento —
+que o helper genérico não traz); o resto passa por `_linhas`, um helper que
+lê os campos escalares do model e pula relação e segredo.
+
+A VARREDURA SÓ ENXERGA RELAÇÃO DIRETA COM O USUÁRIO (achado I3 da revisão,
+28/09/2026). `TracoDaCorrida` (o percurso GPS) é O2O para `Corrida`, não
+para `User` — `get_user_model()._meta.related_objects` não o vê, e o dado
+de localização, o mais sensível que o app guarda depois de saúde, ficava
+fora do arquivo em silêncio. Por isso `Corrida` SAIU do registro genérico e
+virou seção à mão (como `trocas_de_exercicio`), com `select_related("traco")`
+trazendo os pontos junto de cada corrida — o mesmo padrão de "resolver a
+relação que o genérico descartaria".
+
+Duas outras relações de segundo grau foram conferidas e ficam de fora, pela
+MESMA razão que o catálogo fica de fora (acima): `plans.MealSlot` (filho de
+`NutritionPlan`) é o horário e o ALVO calórico que o motor calcula — a
+ESTRUTURA do cardápio, não o que a pessoa comeu (isso já está em
+`refeicoes_marcadas`, via `MealLog`); `workouts.SessionExercise` (filho de
+`TrainingSession`, filho de `TrainingPlan`) é a prescrição que o motor
+montou — o que a pessoa FEZ de verdade já está em `series_registradas`, via
+`ExerciseLog`. As duas são o cardápio/a ficha, geradas pelo motor a partir
+das mesmas entradas que `metas_calculadas`/`treinos` já resumem; exportar a
+estrutura inteira duplicaria o motor no arquivo sem acrescentar dado que a
+pessoa produziu.
 """
 import json
+import re
 from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.utils import timezone
 from django.views import View
+
+from config.observabilidade import redigir as _redigir_padroes_conhecidos
 
 
 def _data(valor):
@@ -66,6 +90,26 @@ def _valor_json(valor):
     return valor
 
 
+#: A chave de descadastro de e-mail (`avisos.Preferencia.chave`) anda na
+#: PRÓPRIA URL (`avisos/urls.py`: `sair/<str:chave>/`), e essa URL pode ter
+#: sido gravada em `analytics.Event.route`/`referrer` — quem clica o link do
+#: rodapé do e-mail com o navegador logado grava um evento comum, e
+#: `static/js/analytics.js` manda `location.pathname` inteiro. `SEGREDOS`
+#: filtra `chave` pelo NOME do campo; aqui o problema é outro — o valor de
+#: um campo que não é segredo (`route`) carrega um que é. Achado I1 da
+#: revisão, 28/09/2026.
+_PADRAO_DESCADASTRO = re.compile(r"(/avisos/sair/)[^/?#]+")
+
+
+def _sem_segredo_na_rota(texto):
+    """`route`/`referrer` do analytics, sem o que `config.observabilidade`
+    já sabe redigir (token de senha, `?code=`/`?token=`...) e sem a chave de
+    descadastro, que é específica deste app e não mora lá."""
+    if not texto:
+        return texto
+    return _PADRAO_DESCADASTRO.sub(r"\1[REDIGIDO]", _redigir_padroes_conhecidos(texto))
+
+
 #: Nomes de campo que NUNCA saem no arquivo, em model nenhum — credencial,
 #: identificador técnico de reenvio ou chave de link. Os nomes são os REAIS
 #: (lidos em `push/models.py`, `avisos/models.py` e `accounts/models.py`
@@ -83,6 +127,24 @@ SEGREDOS = {
     "token",  # push.DispositivoNativo — o token do FCM
     "op_id",  # workouts.Corrida — identificador da fila offline
 }
+
+#: Um NOME de campo que bate aqui e NÃO está em `SEGREDOS` reprova a
+#: varredura de nomes (`accounts/test_exportacao_completa.py`,
+#: `VarreduraDeNomesDeSegredoTests`) — a guarda contra o campo que alguém
+#: acrescenta amanhã a um dos 15 models do registro genérico (um
+#: `refresh_token`, `api_key`, `senha_hash`...) e que `SEGREDOS`, por ser uma
+#: lista fechada de nomes de HOJE, não filtraria sozinha (achado I2 da
+#: revisão, 28/09/2026).
+PADRAO_NOME_DE_SEGREDO = re.compile(
+    r"token|secret|segredo|senha|password|chave|key|endpoint|hash|op_id", re.I
+)
+
+#: Campo que BATE em `PADRAO_NOME_DE_SEGREDO` e não é segredo de verdade —
+#: `{"model.Label": {"campo": "razão"}}`. Vazio hoje: nenhum dos 15 models
+#: do registro genérico tem um campo assim fora de `SEGREDOS`. Existe para o
+#: dia em que um bater por acidente (ex.: um campo chamado `chave_pix`) sem
+#: precisar reabrir `SEGREDOS` para exceção.
+CAMPO_NAO_E_SEGREDO = {}
 
 
 def _linhas(model, user, ordenar_por=()):
@@ -104,10 +166,22 @@ def _linhas(model, user, ordenar_por=()):
 
 
 def _registro_generico():
-    """(label do model, chave no JSON, model, ordenação) — montado só na
-    chamada para não forçar o import de toda `models.py` do projeto na
-    importação deste módulo (o mesmo motivo dos imports dentro de
-    `reunir_dados`)."""
+    """(label do model, chave no JSON, model, ordenação).
+
+    Função e não uma tupla de módulo porque os imports moram AQUI DENTRO,
+    como os de `reunir_dados` — a app registry pode não estar pronta ainda
+    quando `accounts.exportacao` é importado (settings, checks). Isso não
+    evita o custo: `EXPORTADOS`, logo abaixo, chama esta função na
+    importação do módulo para derivar os labels, então os 15 models SÃO
+    importados nesse momento de qualquer forma — só não import de `models.py`
+    inteiro de cada app, e sim dos nomes usados aqui.
+
+    `workouts.Corrida` NÃO está mais aqui (saiu em 28/09/2026, achado I3 da
+    revisão): o traçado GPS (`TracoDaCorrida`) é filho DELA, não do usuário,
+    e o helper genérico descarta relação — então `select_related("traco")`
+    só é possível numa seção escrita à mão, como a de `reunir_dados` faz
+    agora.
+    """
     from accounts.models import Consentimento
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
@@ -115,7 +189,7 @@ def _registro_generico():
     from avisos.models import EmailEnviado, Preferencia
     from plans.models import GoleDeAgua, ItemAvulsoDaLista
     from push.models import DispositivoNativo, NotificationLog, PushSubscription
-    from workouts.models import Corrida, EscolhaDeTreino, EventoDeProduto, PlanoDeCorrida
+    from workouts.models import EscolhaDeTreino, EventoDeProduto, PlanoDeCorrida
 
     return (
         ("accounts.Consentimento", "consentimentos", Consentimento, ("dado_em",)),
@@ -128,7 +202,6 @@ def _registro_generico():
         ),
         ("workouts.EventoDeProduto", "eventos_de_produto", EventoDeProduto, ("date",)),
         ("workouts.EscolhaDeTreino", "escolhas_de_treino", EscolhaDeTreino, ("date",)),
-        ("workouts.Corrida", "corridas", Corrida, ("comecou_em",)),
         ("workouts.PlanoDeCorrida", "planos_de_corrida", PlanoDeCorrida, ("criado_em",)),
         ("push.PushSubscription", "assinaturas_push", PushSubscription, ("created_at",)),
         ("push.NotificationLog", "notificacoes_enviadas", NotificationLog, ("sent_at",)),
@@ -157,6 +230,7 @@ EXPORTADOS = {
     "workouts.TrainingPlan",
     "workouts.ExerciseLog",
     "workouts.TrocaDeExercicio",
+    "workouts.Corrida",
     "achievements.UserAchievement",
 } | {label for label, _, _, _ in _registro_generico()}
 
@@ -186,7 +260,7 @@ def reunir_dados(user) -> dict:
     from accounts.models import Profile, TrainingDay, WeightEntry
     from achievements.models import UserAchievement
     from plans.models import HydrationLog, ItemDaListaMarcado, MealLog, NutritionPlan
-    from workouts.models import ExerciseLog, TrainingPlan, TrocaDeExercicio
+    from workouts.models import Corrida, ExerciseLog, TrainingPlan, TrocaDeExercicio
 
     perfil = Profile.objects.filter(user=user).first()
 
@@ -324,8 +398,43 @@ def reunir_dados(user) -> dict:
         .order_by("original__name")
     ]
 
+    # -- corridas, com o traçado: `TracoDaCorrida` é O2O para `Corrida`, não
+    # para o usuário, então a varredura não a vê e o genérico não a puxaria
+    # — o `select_related` é o que traz o percurso junto sem consulta extra
+    # por corrida (achado I3 da revisão, 28/09/2026).
+    # `op_id` (SEGREDOS) fica de fora de propósito — é o identificador da
+    # fila offline, não dado da corrida.
+    dados["corridas"] = [
+        {
+            "comecou_em": _data(c.comecou_em),
+            "terminou_em": _data(c.terminou_em),
+            "distancia_m": c.distancia_m,
+            "duracao_s": c.duracao_s,
+            "teve_lacuna": c.teve_lacuna,
+            "parciais": c.parciais,
+            "criada_em": _data(c.criada_em),
+            "origem": c.origem,
+            "sensacao": c.sensacao,
+            "traco": (
+                {"pontos": c.traco.pontos, "leituras_descartadas": c.traco.descartadas}
+                if hasattr(c, "traco")
+                else None
+            ),
+        }
+        for c in Corrida.objects.filter(user=user)
+        .select_related("traco")
+        .order_by("comecou_em")
+    ]
+
     for _label, chave, model, ordenar_por in _registro_generico():
         dados[chave] = _linhas(model, user, ordenar_por)
+
+    # -- redação: a chave de descadastro (e qualquer padrão que
+    # `config.observabilidade` já conheça) não pode sobreviver dentro de uma
+    # rota ou de um referrer gravados pelo analytics.
+    for evento in dados["eventos_analytics"]:
+        evento["route"] = _sem_segredo_na_rota(evento["route"])
+        evento["referrer"] = _sem_segredo_na_rota(evento["referrer"])
 
     return dados
 

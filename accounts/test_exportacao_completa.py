@@ -32,6 +32,7 @@ from workouts.models import (
     Exercise,
     PlanoDeCorrida,
     Split,
+    TracoDaCorrida,
     TrainingPlan,
     TrainingSession,
     TrocaDeExercicio,
@@ -138,13 +139,24 @@ def _criar_uma_linha_por_model(user):
     EscolhaDeTreino.objects.create(
         user=user, date=timezone.localdate(), session=sessao, versao=VersaoDoTreino.COMPLETO
     )
-    Corrida.objects.create(
+    corrida = Corrida.objects.create(
         user=user,
         op_id="op-teste-1",
         comecou_em=timezone.now(),
         terminou_em=timezone.now(),
         distancia_m=3000,
         duracao_s=1200,
+    )
+    # O traçado é filho da CORRIDA, não do usuário — é o achado I3 da
+    # revisão: sem ele aqui, o teste de conteúdo não provaria que a seção à
+    # mão de `corridas` de fato lê `traco`.
+    TracoDaCorrida.objects.create(
+        corrida=corrida,
+        # `lat` distinta por `user.pk` — como os outros valores deste
+        # helper —, para o teste de isolamento medir um traço de A contra
+        # um de B de verdade, e não dois pontos idênticos por coincidência.
+        pontos=[{"lat": -23.5 - user.pk, "lon": -46.6, "t": 0.0, "acumulado_m": 0.0}],
+        descartadas=2,
     )
     PlanoDeCorrida.objects.create(
         user=user,
@@ -211,14 +223,31 @@ class ConteudoDaExportacaoTests(TestCase):
         self.assertTrue(troca["substituto"])
         self.assertNotEqual(troca["original"], troca["substituto"])
 
+    def test_o_traco_gps_viaja_dentro_da_corrida(self):
+        """I3 da revisão: `TracoDaCorrida` é filho de `Corrida`, não do
+        usuário — a varredura não o vê, e sem a seção à mão o traçado (dado
+        de localização) sumia do arquivo em silêncio."""
+        dados = exportacao.reunir_dados(self.user)
+
+        corrida = dados["corridas"][0]
+        self.assertIsNotNone(corrida["traco"])
+        self.assertEqual(corrida["traco"]["pontos"][0]["lat"], -23.5 - self.user.pk)
+        self.assertEqual(corrida["traco"]["leituras_descartadas"], 2)
+
     def test_nenhum_segredo_atravessa_o_generico(self):
         """`PushSubscription`, `DispositivoNativo`, `avisos.Preferencia` e
         `Corrida` têm campo de credencial no model — o helper genérico
         precisa filtrar pelo NOME REAL do campo, não por um rótulo
-        genérico."""
+        genérico.
+
+        `json.dumps` SEM `default=str` (M1 da revisão): é exatamente a
+        chamada que `ExportarDadosView.post` faz. Com `default=str` o teste
+        mediria um arquivo que a pessoa nunca recebe — um campo que
+        `_valor_json` não sabe converter passaria aqui e daria 500 no botão
+        de verdade."""
         import json
 
-        corpo = json.dumps(exportacao.reunir_dados(self.user), ensure_ascii=False, default=str)
+        corpo = json.dumps(exportacao.reunir_dados(self.user), ensure_ascii=False)
         for proibido in (
             "push.exemplo.invalid", "chave-p256dh", "chave-auth",
             "token-fcm-teste", "op-teste-1",
@@ -227,7 +256,7 @@ class ConteudoDaExportacaoTests(TestCase):
 
 
 class IsolamentoDaExportacaoTests(TestCase):
-    """O JSON de uma pessoa não contém e-mail nem id de linha de OUTRA."""
+    """O JSON de uma pessoa não contém e-mail nem dado de linha de OUTRA."""
 
     @classmethod
     def setUpTestData(cls):
@@ -242,7 +271,8 @@ class IsolamentoDaExportacaoTests(TestCase):
 
         import json
 
-        corpo_a = json.dumps(exportacao.reunir_dados(a), ensure_ascii=False, default=str)
+        dados_a = exportacao.reunir_dados(a)
+        corpo_a = json.dumps(dados_a, ensure_ascii=False)
 
         self.assertNotIn(b.email, corpo_a)
         # Valores que só existem na conta de B — distintos por `b.pk`, e não
@@ -254,11 +284,96 @@ class IsolamentoDaExportacaoTests(TestCase):
         self.assertNotIn("token-fcm-teste-%s" % b.pk, corpo_a)
         self.assertNotIn("push.exemplo.invalid/%s" % b.pk, corpo_a)
 
-        for label, chave, model, _ in exportacao._registro_generico():
-            ids_de_b = set(model.objects.filter(user=b).values_list("pk", flat=True))
-            ids_de_a = set(model.objects.filter(user=a).values_list("pk", flat=True))
-            self.assertTrue(ids_de_b, label)
-            self.assertFalse(ids_de_a & ids_de_b, label)
+        # M2 da revisão: comparar PKS no banco é tautológico (são sempre
+        # disjuntos, com ou sem vazamento — `id` nem sai no arquivo). A
+        # prova real é a CONTAGEM: se `_linhas` trocasse `filter(user=user)`
+        # por `.all()`, a lista de A passaria a ter as linhas de A E de B.
+        for _label, chave, model, _ordenar in exportacao._registro_generico():
+            self.assertEqual(
+                len(dados_a[chave]), model.objects.filter(user=a).count(), chave
+            )
+
+        self.assertEqual(len(dados_a["corridas"]), Corrida.objects.filter(user=a).count())
+
+    def test_o_traco_de_b_nao_aparece_na_exportacao_de_a(self):
+        """I3 da revisão: a seção à mão de `corridas` é nova, e o padrão de
+        vazamento de A/B vale para ela como vale para o resto."""
+        a = create_complete_user()
+        b = create_complete_user(email="outra.pessoa@exemplo.invalid")
+        _criar_uma_linha_por_model(a)
+        _criar_uma_linha_por_model(b)
+
+        traco_de_b = Corrida.objects.get(user=b).traco.pontos
+
+        import json
+
+        corpo_a = json.dumps(exportacao.reunir_dados(a), ensure_ascii=False)
+        self.assertNotIn(json.dumps(traco_de_b), corpo_a)
+
+
+class RedacaoDaRotaDeDescadastroTests(TestCase):
+    """I1 da revisão: a chave de descadastro (`avisos.Preferencia.chave`)
+    anda na própria URL, e essa URL pode ter sido gravada em
+    `analytics.Event.route`/`referrer` — quem clica o link do rodapé do
+    e-mail com o navegador logado grava um evento comum."""
+
+    @classmethod
+    def setUpTestData(cls):
+        CatalogFixture.setUpTestData()
+
+    def setUp(self):
+        self.user = create_complete_user()
+        self.chave = Preferencia.de(self.user).chave
+
+    def test_a_chave_de_descadastro_nao_sai_no_arquivo(self):
+        AnalyticsEvent.objects.create(
+            user=self.user,
+            name="tela.vista",
+            route="/avisos/sair/%s/" % self.chave,
+            referrer="https://nutriplan.invalid/avisos/sair/%s/" % self.chave,
+        )
+
+        import json
+
+        corpo = json.dumps(exportacao.reunir_dados(self.user), ensure_ascii=False)
+        self.assertNotIn(self.chave, corpo)
+
+        evento = [
+            e for e in exportacao.reunir_dados(self.user)["eventos_analytics"]
+            if e["name"] == "tela.vista"
+        ][0]
+        self.assertIn("[REDIGIDO]", evento["route"])
+        self.assertIn("[REDIGIDO]", evento["referrer"])
+
+    def test_evento_sem_rota_nao_quebra(self):
+        AnalyticsEvent.objects.create(user=self.user, name="app.aberto")
+        dados = exportacao.reunir_dados(self.user)
+        self.assertEqual(dados["eventos_analytics"][0]["route"], "")
+
+
+class VarreduraDeNomesDeSegredoTests(TestCase):
+    """I2 da revisão: `SEGREDOS` é uma lista fechada de nomes conferidos
+    HOJE contra os models de HOJE. Esta varredura é o que pega o campo que
+    alguém acrescentar AMANHÃ com cara de segredo e esquecer de filtrar."""
+
+    def test_todo_campo_com_cara_de_segredo_esta_em_segredos_ou_na_allowlist(self):
+        faltando = []
+        for label, _chave, model, _ordenar in exportacao._registro_generico():
+            permitidos = exportacao.CAMPO_NAO_E_SEGREDO.get(label, {})
+            for campo in model._meta.concrete_fields:
+                if not exportacao.PADRAO_NOME_DE_SEGREDO.search(campo.name):
+                    continue
+                if campo.name in exportacao.SEGREDOS or campo.name in permitidos:
+                    continue
+                faltando.append("%s.%s" % (label, campo.name))
+
+        self.assertEqual(faltando, [])
+
+    def test_a_varredura_enxerga_um_campo_de_verdade(self):
+        """Controle positivo: `p256dh_key` bate no padrão — se um dia não
+        batesse mais, o teste acima passaria vazio sem estar provando nada."""
+        self.assertTrue(exportacao.PADRAO_NOME_DE_SEGREDO.search("p256dh_key"))
+        self.assertIn("p256dh_key", exportacao.SEGREDOS)
 
 
 @tag("lento")
