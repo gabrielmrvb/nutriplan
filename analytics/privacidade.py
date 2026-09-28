@@ -1,16 +1,20 @@
-"""Pode ligar este evento à pessoa?
+"""Pode ligar este evento à pessoa? E, desde 28/09/2026 (Lote 1 da missão
+LGPD), pode gravar o evento de jeito nenhum?
 
 Rastrear o USO agregado é legítimo por interesse legítimo (LGPD art. 7º, IX e
 art. 10) — é analytics de primeira parte, sem terceiros, sem venda, para
-melhorar o próprio produto. O que a pessoa pode recusar é ser IDENTIFICADA: o
-evento continua contando no agregado anônimo, mas não vira linha do tempo dela.
+melhorar o próprio produto. Duas perguntas diferentes, duas respostas:
 
-Duas fontes de recusa:
-- o cabeçalho `DNT: 1` (Do-Not-Track), que o navegador manda;
-- (bloco 4) o opt-out no perfil, `Profile.rastrear_uso == False`.
+- `pode_identificar`: o cabeçalho `DNT: 1` (Do-Not-Track) recusa só a
+  IDENTIFICAÇÃO — o evento continua contando no agregado anônimo;
+- `pode_registrar`: o opt-out do perfil (`Profile.rastrear_uso == False`,
+  guardado na sessão) recusa o evento INTEIRO de quem está logado — nem
+  anônimo. Antes o opt-out passava pelo mesmo caminho do DNT e a linha
+  continuava gravando com `anon_id`; a decisão de 28/09 é que quem desligou
+  o rastreio não quer NENHUM registro seu, nem sem nome.
 
-Enquanto o campo do perfil não existe, só o DNT vale — e já vale.
-"""
+O opt-out NÃO apaga o visitante anônimo: sem sessão autenticada (a landing,
+por exemplo) o evento sempre conta — não há perfil para desligar."""
 
 
 #: O opt-out do perfil vive na SESSÃO, não numa consulta: a rota da série é a
@@ -28,6 +32,20 @@ def pode_identificar(request):
     if request.session.get(CHAVE_SEM_RASTREIO):
         return False
     return True
+
+
+def pode_registrar(request):
+    """Com o rastreio desligado no perfil, NADA é gravado — nem anônimo.
+    DNT continua só anonimizando (decisão 2 do plano de 28/09/2026).
+
+    Zero consulta: lê a sessão, nunca o perfil — a mesma régua de
+    `pode_identificar`, para não pesar a rota mais quente do app."""
+    user = getattr(request, "user", None)
+    return not (
+        user is not None
+        and user.is_authenticated
+        and request.session.get(CHAVE_SEM_RASTREIO)
+    )
 
 
 def marcar_sessao(request, rastrear_uso):

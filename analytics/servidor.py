@@ -18,7 +18,7 @@ import os
 
 from .catalogo import existe
 from .identidade import COOKIE_ANON
-from .privacidade import pode_identificar
+from .privacidade import pode_identificar, pode_registrar
 
 logger = logging.getLogger("nutriplan.analytics")
 
@@ -49,7 +49,14 @@ def _gravar(request, nome, props, user):
 
 
 def evento(request, nome, props=None):
-    """Grava um evento atribuído à pessoa (quando logada e sem opt-out)."""
+    """Grava um evento atribuído à pessoa (quando logada e sem opt-out).
+
+    Quem desligou o rastreio (`pode_registrar` == False) não gera linha
+    NENHUMA — nem anônima (decisão 2 do plano de 28/09/2026, Lote 1 da
+    missão LGPD). `evento_anonimo` não passa por aqui: `conta.excluida`
+    continua sem essa guarda, de propósito."""
+    if not pode_registrar(request):
+        return None
     user = None
     if request.user.is_authenticated and pode_identificar(request):
         user = request.user

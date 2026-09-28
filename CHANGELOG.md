@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-28
+
+- **Desligar a análise de uso agora para tudo.** Antes, desligar "Análise de uso" no Perfil deixava de identificar você, mas o app ainda contava a ação sem o seu nome. Agora, desligado, nenhum registro sai — nem anônimo.
+
 ## 2026-09-27
 
 - **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".
