@@ -354,7 +354,20 @@ class AsOcorrenciasRepetidasSeDistinguemTests(TestCase):
 
         Número escrito à mão no template mente para o perfil que não foi o
         usado ao escrevê-lo. Aqui ele vem da contagem que o rótulo já fez.
+
+        NUMA SEGUNDA SEM HISTÓRICO (28/09/2026, BA4): o cartão passou a listar
+        os dias da TIRA, sem os `pulado`. Na quarta congelada da suíte a
+        segunda e a terça já passaram sem treino, e o cartão dizer "Segunda-
+        feira" ali era o mapa fixo dia↔letra que o BA4 fechou. Numa segunda
+        sem nada feito a tira de sete dias em ABC traz A três vezes (seg, qui,
+        dom) — a asserção é a mesma, no dia em que ela é verdade.
         """
+        from datetime import date
+
+        from config import relogio
+
+        segunda = relogio.Relogio(date(2026, 9, 14)).ligar()
+        self.addCleanup(segunda.desligar)
         # DESDE 15/09/2026 A FRASE SAIU DA FICHA, e quem diz quantas vezes a
         # letra cai é o cartão do painel — listando os DIAS, que vêm das
         # sessões e não de um número escrito à mão. A propriedade continua a

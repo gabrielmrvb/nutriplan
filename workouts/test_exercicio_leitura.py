@@ -315,6 +315,13 @@ class OsDiasDaLeituraSaoOsDaSemanaTests(TestCase):
     (`copy.copy`) compartilham as MESMAS linhas pré-carregadas, e a view
     gravava `item.session = sessao` na linha compartilhada: a última
     ocorrência vencia e a segunda-feira sumia da lista.
+
+    NUMA SEGUNDA (28/09/2026, BA4): "Quando" passou a ser a projeção DA
+    PESSOA, sem os dias `pulado`. Na quinta sem histórico a segunda já tinha
+    passado sem treino (`pulado`), e listar "Segunda-feira (A)" ali era o
+    mapa fixo dia↔letra que o BA4 fechou. Na segunda sem nada feito, A cai
+    na segunda (hoje) e na quinta — a mesma linha e uma cópia dela, o caso
+    que este teste guarda —, e a asserção continua a mesma.
     """
 
     @classmethod
@@ -329,9 +336,9 @@ class OsDiasDaLeituraSaoOsDaSemanaTests(TestCase):
         from accounts.models import DuracaoTreino, TrainingDay
         from plans.tests import create_complete_user
 
-        # Quinta 17/09/2026: em abc2 de segunda a sexta a letra A cai na
-        # segunda (posição 0) e na quinta (posição 3).
-        self.relogio = mock.patch("django.utils.timezone.localdate", return_value=date(2026, 9, 17))
+        # Segunda 14/09/2026, sem nada feito: em abc2 de segunda a sexta a
+        # letra A cai na segunda (hoje) e na quinta.
+        self.relogio = mock.patch("django.utils.timezone.localdate", return_value=date(2026, 9, 14))
         self.relogio.start()
         self.addCleanup(self.relogio.stop)
         self.pessoa = create_complete_user(

@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from functools import partial
 
 from django.contrib import messages
-from django.db.models import Count, Max
+from django.db.models import Count, Exists, Max, OuterRef
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -27,6 +27,8 @@ from . import curva as _curva
 from . import doutrina, health_export, services, telas
 from analytics import servidor as analytics
 from .models import (
+    EscolhaDeTreino,
+    ExerciseLog,
     EventoDeProduto,
     VersaoDoTreino,
     Exercise,
@@ -155,9 +157,16 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         # "séries por semana" e o volume têm de ser da semana inteira.
         sessions = sorted(linhas, key=lambda s: s.order)
         nomear_ocorrencias(sessions)
-        recomendada = services.letra_do_dia(
+        # O treino de HOJE é a letra RECOMENDADA (ou a escolhida) vestida em
+        # hoje. `anexar_historico` decide o balde "hoje" pelo weekday, e é por
+        # isso que ele recebe a sessão JÁ vestida no dia — o histórico de hoje
+        # cai na letra certa (o mesmo cuidado da ficha). A letra de hoje sai
+        # DELA, e não de `letra_do_dia`: é a mesma resposta, e no descanso com
+        # "treinar mesmo assim" (R4, 28/09/2026) só ela sabe da escolha.
+        hoje = services.sessao_do_dia(
             plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
         )
+        recomendada = hoje.label if hoje is not None else None
         # eh_hoje é por LETRA na presença (o cartão da letra recomendada, caia
         # ela em quantos dias for), mas por DIA no plano customizado à mão —
         # onde a mesma letra pode cair em dois dias com conteúdos diferentes.
@@ -170,13 +179,6 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
             )
         letras_cartoes = agrupar_por_letra(sessions)
 
-        # O treino de HOJE é a letra RECOMENDADA (ou a escolhida) vestida em
-        # hoje. `anexar_historico` decide o balde "hoje" pelo weekday, e é por
-        # isso que ele recebe a sessão JÁ vestida no dia — o histórico de hoje
-        # cai na letra certa (o mesmo cuidado da ficha).
-        hoje = services.sessao_do_dia(
-            plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
-        )
         if hoje is not None:
             anexar_historico(user, [hoje])
             preparar_dia(user, hoje, linhas, seq=seq, escolha=escolha_hoje)
@@ -199,6 +201,10 @@ class WorkoutView(OnboardingRequiredMixin, TemplateView):
         tira = services.sessoes_da_semana(
             plan, hoje_data, linhas, user=user, seq=seq, escolha_hoje=letra_escolhida
         )
+        # Os dias do cartão da letra saem DAQUI, depois dos cartões: a tira
+        # veste as linhas (`pulado` é a própria linha, com `eh_hoje=False`), e
+        # montá-los depois dela apagaria o "hoje" do cartão.
+        dias_da_tira(letras_cartoes, tira)
 
         context.update(
             {
@@ -319,7 +325,12 @@ def progresso_do_dia(session) -> None:
     itens = list(getattr(session, "itens_do_dia", None) or session.da_opcao(session.opcoes[0]))
     session.total_exercicios = len(itens)
     session.feitos_hoje = sum(1 for item in itens if item.feitas)
-    session.pct_hoje = round(session.feitos_hoje * 100 / len(itens)) if itens else 0
+    # A PORCENTAGEM É EM SÉRIES, pela função da execução (28/09/2026, M3): o
+    # anel dizia "14 %" (1 de 7 exercícios) ao lado de uma execução em "2/25
+    # séries". Na versão rápida a base é a dose cortada — a mesma de lá.
+    session.series_feitas, session.series_previstas, session.pct_hoje = services.progresso_em_series(
+        getattr(session, "pares_do_dia", None) or [(item, item.sets) for item in itens]
+    )
 
     # Onde a pessoa retoma: o primeiro com série FALTANDO — e não o primeiro
     # sem nenhuma.
@@ -348,6 +359,8 @@ def preparar_dia(user, sessao, linhas=None, seq=None, escolha=services._NAO_INFO
     if escolha is not None and escolha.session_id != sessao.pk:
         escolha = None
     sessao.escolha = escolha
+    # "Encerrar treino" hoje (BA22): o botão deixa de dizer "Continuar".
+    sessao.encerrado = escolha is not None and escolha.encerrado_em is not None
     dia = getattr(sessao, "data", None) or timezone.localdate()
     sessao.opcao_do_dia = services.opcao_do_dia(user, sessao, dia, linhas, escolha=escolha, seq=seq)
     sessao.versao_do_dia = escolha.versao if escolha else "completo"
@@ -369,6 +382,8 @@ def preparar_dia(user, sessao, linhas=None, seq=None, escolha=services._NAO_INFO
     sessao.minutos = sessao.minutos_da_opcao(sessao.opcao_do_dia)
     sessao.series_do_dia = sessao.series_da_opcao(sessao.opcao_do_dia)
     sessao.rapida_muda = bool(removidos) or sum(s for _, s in ficam) != sum(i.sets for i in itens)
+    # A base do progresso na rápida é a dose cortada, como na execução.
+    sessao.pares_do_dia = ficam if sessao.versao_do_dia == "rapido" else None
     sessao.rapida_minutos = round(
         services.segundos_da_sessao([(s, i.rest_seconds, i.exercise.is_compound) for i, s in ficam]) / 60
     )
@@ -418,6 +433,23 @@ def _cartao_da_letra(rotulo, sessoes) -> dict:
         "minutos": referencia.minutos_da_opcao(opcao),
         "ordem": min(s.order for s in sessoes),
     }
+
+
+def dias_da_tira(cartoes, tira) -> None:
+    """Os dias do cartão da LETRA são os da TIRA — feito, hoje e futuro —, e
+    não os das linhas (BA4, caça-bugs de 27/09; 28/09/2026). Com a sequência
+    por presença a letra muda de dia de semana para semana, e o cartão dizia
+    "A · Segunda · Quinta" ao lado de uma tira com A na segunda e na sexta. O
+    dia `pulado` não entra: ninguém treinou nada nele. Plano ajustado à mão
+    tem a tira igual às linhas, então nada muda ali; e o cartão numerado
+    (A1 ≠ A2, uma sessão cada) continua com o dia da própria sessão."""
+    dias = {}
+    for sessao in tira:
+        if sessao.projecao != "pulado":
+            dias.setdefault(sessao.label, []).append(sessao.weekday_display)
+    for cartao in cartoes:
+        if cartao["rotulo"] == cartao["label"]:
+            cartao["dias"] = dias.get(cartao["label"], [])
 
 
 #: "Duas versões disponíveis" — e "Três" quando a letra cai três vezes na
@@ -618,9 +650,13 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             and escolha_hoje.session.label in letras_ciclo
             else None
         )
-        letra_hoje = services.letra_do_dia(
+        # A letra de hoje sai da SESSÃO de hoje (a mesma resposta de
+        # `letra_do_dia`), porque só ela conhece a escolha feita num dia de
+        # descanso — "treinar mesmo assim" (R4, 28/09/2026).
+        do_dia = services.sessao_do_dia(
             sessao.plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
         )
+        letra_hoje = do_dia.label if do_dia is not None else None
         # COM A ROTAÇÃO, A LINHA DA LETRA VESTE O DIA DE HOJE ANTES DO
         # HISTÓRICO (17/09/2026). `anexar_historico` só aplica o balde "hoje"
         # à sessão cujo `weekday` é o de hoje — e a linha da letra guarda o
@@ -630,12 +666,8 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         # por `sessao_do_dia`, mostrava a série. Passou despercebido porque os
         # testes rodaram em dias em que letra e linha coincidiam. A mesma
         # cópia vestida que a execução usa resolve os dois lados de uma vez.
-        if services.usa_presenca(sessao.plan) and letra_hoje == sessao.label:
-            vestida = services.sessao_do_dia(
-                sessao.plan, hoje_data, linhas, user=user, seq=seq, escolha=escolha_hoje
-            )
-            if vestida is not None and vestida.pk == sessao.pk:
-                sessao = vestida
+        if services.usa_presenca(sessao.plan) and do_dia is not None and do_dia.pk == sessao.pk:
+            sessao = do_dia
         # A MESMA preparação da tela principal, pela mesma função. Uma segunda
         # cópia divergiria, e a que fica errada é a que ninguém está olhando.
         anexar_historico(user, [sessao])
@@ -659,12 +691,17 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         if services.usa_presenca(sessao.plan):
             # Por presença, "é hoje" é a LETRA recomendada (ou escolhida) de
             # hoje — o dia da semana da linha é o da primeira semana —, e o
-            # cabeçalho diz em que dias desta semana a letra cai.
+            # cabeçalho diz em que dias desta semana a letra cai: os da TIRA,
+            # sem o `pulado` (BA4, 28/09/2026) — a linha pulada é a da letra na
+            # estrutura, e "Quarta · Quinta" ao lado de uma tira com "·" na
+            # quarta anunciava um treino que não caiu ali. Letra que não cai
+            # nesta semana fica sem dia — o dia da linha seria o mesmo mapa fixo.
             sessao.eh_hoje = letra_hoje == sessao.label
             sessao.aberta = True
             sessao.dias_texto = " · ".join(
-                s.weekday_display for s in irmas if s.label == sessao.label
-            ) or sessao.weekday_display
+                s.weekday_display for s in irmas
+                if s.label == sessao.label and s.projecao != "pulado"
+            )
         else:
             marcar_ficha_aberta([sessao])
             sessao.dias_texto = sessao.weekday_display
@@ -693,7 +730,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
                 user, [i.exercise_id for i in sessao.exercises.all()]
             ) if historico else 0,
         })
-        context.update(self.contexto_da_ficha(user, sessao, linhas, irmas, hoje_data, seq=seq))
+        context.update(self.contexto_da_ficha(user, sessao, linhas, irmas, hoje_data, seq=seq, historico=historico))
         return context
 
     @staticmethod
@@ -711,7 +748,7 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
             return segunda + timedelta(days=sessao.weekday)
         return next((d for d in datas if d >= hoje_data), datas[-1])
 
-    def contexto_da_ficha(self, user, sessao, linhas, irmas, hoje_data, seq=None) -> dict:
+    def contexto_da_ficha(self, user, sessao, linhas, irmas, hoje_data, seq=None, historico=False) -> dict:
         """UMA lista: a variação da letra para a DATA da ficha (ficha única
         por letra, 17/09/2026). Hoje: a opção pinada pela primeira série,
         senão a do ciclo (`preparar_dia` já decidiu). Outro dia: a variação
@@ -726,6 +763,19 @@ class FichaDaSessaoView(OnboardingRequiredMixin, TemplateView):
         escolha = getattr(sessao, "escolha", None) if eh_hoje else None
         if eh_hoje:
             numero = sessao.opcao_do_dia
+        elif historico:
+            # PROGRAMA ANTERIOR: a opção FEITA — a da última escolha desta
+            # sessão com série registrada, a régua de "feito" da sequência por
+            # presença —, e não a "próxima vez" de um plano que não terá
+            # próxima vez (M19, 28/09/2026). Só a ficha legada tem duas
+            # opções, e só ela paga a consulta; nada feito, a primeira.
+            feita = (
+                EscolhaDeTreino.objects.filter(user=user, session_id=sessao.pk)
+                .filter(Exists(ExerciseLog.objects.filter(user=user, date=OuterRef("date"))))
+                .order_by("-date").values_list("opcao", flat=True).first()
+                if len(sessao.opcoes) > 1 else None
+            )
+            numero = feita if feita in sessao.opcoes else sessao.opcoes[0]
         elif services.usa_presenca(sessao.plan):
             # Por presença, a ficha de OUTRA letra mostra a PRÓXIMA vez que ela
             # cai — a variação para hoje (a contagem da letra até agora). Não é
@@ -1210,7 +1260,11 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
 
         # As ocorrências na semana, com a letra que a ficha mostra (A1/A2) —
         # a semana de HOJE pela posição no ciclo, na ordem dos dias.
-        sessoes = telas.semana_do_plano(user, plano)
+        # A escolha do dia, lida UMA vez: a projeção da pessoa (BA4) e a opção
+        # de hoje, logo abaixo, usam a mesma. Sem plano (a leitura "fora da
+        # ficha") não há semana nem opção, e a consulta seria à toa.
+        escolha = services.escolha_do_dia(user) if plano is not None else None
+        sessoes = telas.semana_do_plano(user, plano, escolha=escolha)
         nomear_ocorrencias(sessoes)
         itens = []
         for sessao in sessoes:
@@ -1238,7 +1292,7 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
         item_de_hoje = None
         sessao_de_hoje = next((s for s in sessoes if s.weekday == hoje), None)
         if sessao_de_hoje is not None:
-            opcao = services.opcao_do_dia(user, sessao_de_hoje, timezone.localdate(), sessoes)
+            opcao = services.opcao_do_dia(user, sessao_de_hoje, timezone.localdate(), sessoes, escolha=escolha)
             item_de_hoje = next(
                 (i for i in sessao_de_hoje.da_opcao(opcao) if i.exercise_id == exercicio.pk), None
             )
@@ -1303,9 +1357,12 @@ class ExercicioView(OnboardingRequiredMixin, TemplateView):
                 if not exercicio.sem_carga else None
             ),
             "prescricao": itens[0] if itens else None,
+            # Sem o dia `pulado` (BA4, 28/09/2026): a linha pulada é a da
+            # letra na estrutura, e "Quarta-feira (C)" numa semana em que C
+            # caiu na quinta era o mapa fixo dia↔letra de antes da presença.
             "dias": [
                 "%s (%s)" % (i.session.weekday_display, i.session.rotulo)
-                for i in itens
+                for i in itens if getattr(i.session, "projecao", None) != "pulado"
             ],
             # Os dias acima são os desta semana (rotação); com o ciclo girando, a
             # letra cai em dias diferentes na semana seguinte, e sem dizer isso o
@@ -1486,6 +1543,14 @@ class ModoTreinoView(OnboardingRequiredMixin, TemplateView):
         except services.ExercicioForaDaSessao:
             raise Http404("exercício não é do treino de hoje")
         estado = context["estado"]
+        # DESCANSO COM PORTA (R4, 28/09/2026): a letra do "treinar mesmo
+        # assim" é a do próximo treino — a recomendada, a seguinte à última
+        # feita —, a mesma que o painel oferece. Só no descanso (uma consulta).
+        if estado.plan is not None and estado.sessao is None:
+            proximo = services.proximo_treino(
+                estado.linhas, estado.plan, timezone.localdate(), estado.linhas, user=user
+            )
+            context["treinar_mesmo_assim"] = proximo["session"].label if proximo else None
         # `?extra=1` reabre o formulário num exercício já concluído — a série
         # a mais, que `append_set` sempre aceitou (até 20). LISTA FECHADA,
         # como `?exercicio=`: valor desconhecido é 404, e não "ignora e abre

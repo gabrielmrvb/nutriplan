@@ -57,8 +57,9 @@
     {% endcomment %}
     <section class="card">
       <p class="empty-state">
-        Você disse que não faz musculação, então não há ficha aqui. Suas
-        corridas ficam logo abaixo.
+        {# BA18 (28/09/2026): abaixo vem a porta da corrida, não uma lista de corridas. #}
+        Você disse que não faz musculação, então não há ficha aqui. A
+        corrida fica logo abaixo.
       </p>
       <a class="btn-link btn-link--rodape"
          href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">
@@ -171,9 +172,14 @@
             {% if hoje.focus %}<p class="hoje__foco">{{ hoje.focus }}</p>{% endif %}
 
             <div class="hoje__topo">
+              {% comment %}
+                O ANEL CONTA SÉRIES (28/09/2026, M3), pela mesma função da
+                execução (`services.progresso_em_series`): contando exercícios
+                ele dizia "14 %" ao lado de uma execução em "2/25 séries".
+              {% endcomment %}
               <div class="ring ring--treino" style="--pct: {{ hoje.pct_hoje }}"
                    role="img"
-                   aria-label="{{ hoje.feitos_hoje }} de {{ hoje.total_exercicios }} exercícios com série registrada hoje">
+                   aria-label="{{ hoje.series_feitas }} de {{ hoje.series_previstas }} séries registradas hoje">
                 <span class="ring__inner">
                   <strong class="ring__value num">{{ hoje.pct_hoje }}<span class="ring__pc">%</span></strong>
                   <span class="ring__unit">do treino</span>
@@ -258,7 +264,8 @@
                   <b class="num">{{ hoje.feitos_hoje }}</b> de
                   <span class="num">{{ hoje.total_exercicios }}</span>
                   {% if hoje.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-                  com série registrada hoje
+                  com série registrada hoje ·
+                  <span class="num">{{ hoje.series_feitas }}</span>&nbsp;de&nbsp;<span class="num">{{ hoje.series_previstas }}</span>&nbsp;séries
                 </span>
               </p>
             </div>
@@ -324,10 +331,11 @@
               um único filho de primeiro nível, o `<a>` só tem UM item para o
               flexbox posicionar, não importa a direção.
             {% endcomment %}
+            {# BA22 (28/09/2026): encerrado, o destino é o resumo (o placar da execução), e o verbo diz isso — "Continuar" desmentia o "Encerrar". #}
             <a class="btn btn--primary btn--block btn--hoje"
                href="{% url 'workouts:now' %}"
                {% if not hoje.proximo %}hidden{% endif %}
-               data-hoje-cta><span>{% if hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</span></a>
+               data-hoje-cta><span>{% if hoje.encerrado %}Ver o resumo do treino{% elif hoje.feitos_hoje %}Continuar treino (<span class="num">{{ hoje.feitos_hoje }}</span> de <span class="num">{{ hoje.total_exercicios }}</span>){% else %}Começar treino{% endif %}</span></a>
             {% comment %}
               Todos os exercícios têm série anotada. A frase descreve isso, e
               para — dizer "treino concluído" seria afirmar o que não se sabe.
@@ -374,7 +382,8 @@
             {% endif %}
             {% if hoje.outras_letras %}
               <details class="fora hoje__trocar">
-                <summary>Fazer outro treino</summary>
+                {# R7 (28/09/2026): o `summary` cru media 25 px; a classe do "Comi outra coisa" dá os 44. #}
+                <summary class="fora__abrir btn btn--ghost btn--block">Fazer outro treino</summary>
                 <ul class="hoje__trocar-lista">
                   {% for outra in hoje.outras_letras %}
                     <li>
@@ -464,6 +473,18 @@
                   {% if proximo.dias == 1 %}amanhã{% else %}{{ proximo.session.weekday_display }}{% endif %}
                 </span>
               </p>
+              {% comment %}
+                TREINAR MESMO ASSIM (R4, 28/09/2026): no domingo não havia como
+                treinar — nem aqui nem na execução. É a MESMA escolha de letra
+                do "Fazer outro treino" (`EscolherLetraView`), na letra do
+                próximo treino, que é a recomendada: a seguinte à última
+                feita. Discreto, porque descanso continua sendo o plano.
+              {% endcomment %}
+              <form method="post" action="{% url 'workouts:escolher_letra' %}">
+                {% csrf_token %}
+                <input type="hidden" name="letra" value="{{ proximo.session.label }}">
+                <button type="submit" class="btn btn--ghost btn--block">Treinar mesmo assim · Treino {{ proximo.session.label }}</button>
+              </form>
             {% endif %}
           </section>
         {% endif %}
@@ -700,13 +721,14 @@
           {% for letra in letras %}
             <li>
               <a class="sessao-cartao{% if letra.eh_hoje %} sessao-cartao--hoje{% endif %}"
-                 aria-label="Treino {{ letra.rotulo }}: {{ letra.name }}, {{ letra.dias|join:' e ' }}, {{ letra.exercicios }} exercícios"
+                 aria-label="Treino {{ letra.rotulo }}: {{ letra.name }}, {% if letra.dias %}{{ letra.dias|join:' e ' }}, {% endif %}{{ letra.exercicios }} exercícios"
                  href="{% url 'workouts:ficha' letra.sessao.pk %}">
                 <span class="session__badge" data-dia="{{ letra.label }}">{{ letra.rotulo }}</span>
                 <span class="sessao-cartao__texto">
                   <strong class="sessao-cartao__nome">{{ letra.name }}</strong>
                   <span class="session__meta">
-                    <span>{{ letra.dias|join:" · " }}</span>
+                    {# Os dias são os da TIRA (BA4, 28/09/2026); a letra que não cai nesta semana fica sem dia. #}
+                    {% if letra.dias %}<span>{{ letra.dias|join:" · " }}</span>{% endif %}
                     <span>{{ letra.exercicios }} exercícios</span>
                     <span>{{ letra.series }} séries</span>
                     <span>~{{ letra.minutos }} min</span>

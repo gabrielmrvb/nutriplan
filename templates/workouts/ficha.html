@@ -45,8 +45,10 @@
       polia e halteres"), e isso se lê ANTES da lista.
     {% endcomment %}
     <p class="lead">
-      <span>{{ sessao.dias_texto }}</span>
-      <span aria-hidden="true">·</span>
+      {% if sessao.dias_texto %}
+        <span>{{ sessao.dias_texto }}</span>
+        <span aria-hidden="true">·</span>
+      {% endif %}
       <span class="num">{{ ficha.itens|length }} exercícios</span>
       <span aria-hidden="true">·</span>
       {% if rapida %}
@@ -102,6 +104,8 @@
         exercícios com série registrada hoje" era a ÚNICA informação de
         estado da tela; a barra diz o mesmo de relance e o texto continua
         embaixo, porque cor e comprimento não são leitura para todo mundo.
+        A barra conta SÉRIES desde 28/09/2026 (M3), pela função da execução,
+        e o texto diz as duas contas.
       {% endcomment %}
       {% if sessao.eh_hoje %}
         <div class="ficha__estado">
@@ -112,7 +116,8 @@
             <b class="num">{{ sessao.feitos_hoje }}</b> de
             <span class="num">{{ sessao.total_exercicios }}</span>
             {% if sessao.total_exercicios == 1 %}exercício{% else %}exercícios{% endif %}
-            com série registrada hoje{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
+            com série registrada hoje ·
+            <span class="num">{{ sessao.series_feitas }}</span>&nbsp;de&nbsp;<span class="num">{{ sessao.series_previstas }}</span>&nbsp;séries{% if escolha and escolha.versao == 'rapido' %} · versão rápida{% endif %}
           </p>
         </div>
       {% endif %}
@@ -134,6 +139,25 @@
           </div>
         {% endif %}
       </section>
+
+      {% comment %}
+        O AVISO NO FIM DA FICHA (28/09/2026, §4 do Gate 1, liberado para a
+        ficha de treino pelo dono). A MESMA frase do cadastro, da última
+        etapa e da Alimentação (`config/test_linguagem.py::AVISO_CRN_CREF`),
+        palavra por palavra — é texto jurídico aprovado. Uma linha no fim da
+        lista, e não um banner: é o mesmo lugar que ela ocupa na Alimentação.
+        Dentro da coluna da lista, porque no celular o respiro dela é o que
+        impede o botão fixo do rodapé de cobrir a frase.
+      {% endcomment %}
+      {# [REVISAR] frase do §4 do Gate 1 #}
+      <p class="hint">
+        O NutriPlan calcula e organiza — não prescreve. Ele não substitui a
+        orientação de um nutricionista (registrado no CRN) nem de um
+        profissional de Educação Física (registrado no CREF), e não serve
+        para tratar doença. Gestante, lactante, menor de idade ou quem tem
+        condição de saúde: procure um profissional antes de seguir o que o
+        app sugere.
+      </p>
 
     </div>
 
@@ -202,12 +226,17 @@
         botão que inicia o treino não pode depender de rolar até o fim.
       {% endcomment %}
       {% if sessao.eh_hoje and sessao.proximo %}
+        {# BA22 (28/09/2026): encerrado, o botão leva ao resumo e "Encerrar" não se repete — o mesmo verbo e destino do painel. #}
         <div class="ficha__acoes">
+          {% if sessao.encerrado %}
+            <a class="btn btn--primary btn--block" href="{% url 'workouts:now' %}">Ver o resumo do treino</a>
+          {% else %}
           <a class="btn btn--primary btn--block"
              href="{% url 'workouts:now' %}?exercicio={{ sessao.proximo.exercise_id }}">
             {% if sessao.feitos_hoje %}Continuar treino ({{ sessao.feitos_hoje }}/{{ sessao.total_exercicios }}){% else %}Começar treino{% endif %}
           </a>
-          {% if sessao.feitos_hoje %}
+          {% endif %}
+          {% if sessao.feitos_hoje and not sessao.encerrado %}
             <form method="post" action="{% url 'workouts:encerrar' %}">
               {% csrf_token %}
               <button type="submit" class="btn btn--quiet">Encerrar treino</button>
