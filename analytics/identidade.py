@@ -5,6 +5,11 @@
 - NO LOGIN o `alias` costura: todo evento anônimo daquele `anon_id` passa a
   apontar para a pessoa, como o `alias` do Mixpanel. É o que faz o funil
   "abriu a landing (anônimo) → criou conta → treinou" ser de UMA pessoa.
+  [REVISAR I1, Lote 1, 28/09/2026] Quem já desligou o rastreio no perfil
+  (ou manda `DNT: 1`) NÃO tem o alias aplicado: costurar o `anon_id` a essa
+  pessoa identificaria retroativamente linhas que nasceram anônimas —
+  exatamente o que `pode_registrar` existe para evitar dali para frente.
+  Sem a guarda, o opt-out virava atribuição em vez de zero linha.
 
 A EXCLUSÃO da conta não mora aqui: `Event.user` é `CASCADE`, então
 `User.delete()` de qualquer caminho (tela, admin, shell) já apaga os eventos
@@ -38,17 +43,25 @@ def alias(anon_id, user):
 def _costura_no_login(sender, request, user, **kwargs):
     if request is None:
         return
-    alias(request.COOKIES.get(COOKIE_ANON, ""), user)
-    # O login é um bom lugar para pagar a leitura do opt-out UMA vez e guardá-lo
-    # na sessão — depois `pode_identificar` o lê de graça, na rota da série
-    # inclusive. Sem perfil ainda (onboarding), o padrão é rastrear.
+    # O login é um bom lugar para pagar a leitura do opt-out UMA vez — aqui
+    # ela decide DUAS coisas: se o alias corre (abaixo) e o que fica na
+    # sessão para `pode_identificar`/`pode_registrar` lerem de graça depois,
+    # inclusive na rota da série. Sem perfil ainda (onboarding), o padrão é
+    # rastrear.
+    try:
+        rastrear = user.profile.rastrear_uso
+    except Exception:
+        rastrear = True
+    dnt = request.META.get("HTTP_DNT") == "1"
+    # [REVISAR I1, Lote 1, 28/09/2026] quem desligou o rastreio, ou manda
+    # DNT, não tem o histórico anônimo costurado a si: sem a guarda, o
+    # login identificava retroativamente linhas que nasceram anônimas —
+    # o oposto de "zero linha sobre a pessoa" que o opt-out promete.
+    if rastrear and not dnt:
+        alias(request.COOKIES.get(COOKIE_ANON, ""), user)
     # Um login de verdade sempre tem sessão; um sinal disparado à mão (teste,
     # shell) pode não ter, e o opt-out não vale o suficiente para exigir uma.
     if hasattr(request, "session"):
         from .privacidade import marcar_sessao
 
-        try:
-            rastrear = user.profile.rastrear_uso
-        except Exception:
-            rastrear = True
         marcar_sessao(request, rastrear)

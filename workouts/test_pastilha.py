@@ -9,10 +9,13 @@ o campo trazia preenchido: a frase lia `melhor_anterior`, o campo lia
 `sugestao_carga` (hoje > mesma série anterior > melhor). Duas afirmações na
 mesma tela sobre o mesmo número, divergindo.
 
-Agora: UMA função (`linhas_de_serie`), a pastilha feita mostra "62,50×9", a
+Agora: UMA função (`linhas_de_serie`), a pastilha feita mostra "62,5×9", a
 pendente mostra "60×10" em cinza — a mesma série da última vez, com "última
 vez:" para o leitor de tela —, e a frase de sugestão cita o número do campo.
 A prioridade da sugestão NÃO muda (`test_hoje_manda_na_sugestao`).
+
+Formato único (28/09/2026, item 5 da parte 2): o filtro `carga` descarta o
+zero à direita — "62,5×9", não mais "62,50×9" (`floatformat:'-2'` antigo).
 """
 import re
 from datetime import timedelta
@@ -73,7 +76,8 @@ class APastilhaTests(TestCase):
 
         pastilhas = self._pastilhas(self._html(self.item))
         self.assertGreaterEqual(len(pastilhas), 3)
-        self.assertIn("62,50×9", re.sub(r"\s+", "", pastilhas[0]))
+        # Formato único (28/09/2026): "62,5×9", não "62,50×9".
+        self.assertIn("62,5×9", re.sub(r"\s+", "", pastilhas[0]))
         self.assertIn('class="series__antes', pastilhas[1])
         self.assertIn("última vez", pastilhas[1])
         self.assertIn("60×10", re.sub(r"\s+", "", pastilhas[1]))
@@ -104,9 +108,10 @@ class APastilhaTests(TestCase):
 
         html = self._html(self.item)
         campo = re.search(r'name="weight_kg"[^>]*value="([^"]*)"', html).group(1)
-        self.assertEqual(campo, "62,50")
+        # Formato único (28/09/2026): "62,5", não "62,50" (item 5 da parte 2).
+        self.assertEqual(campo, "62,5")
         sugestao = html.split('class="agora__anterior-sugestao"', 1)[1].split("</span>", 1)[0]
-        self.assertIn("62,50", sugestao)
+        self.assertIn("62,5", sugestao)
         fato = html.split('class="agora__anterior-fato"', 1)[1].split("</span>", 1)[0]
         self.assertIn("60", fato)
 

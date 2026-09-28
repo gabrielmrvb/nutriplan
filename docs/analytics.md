@@ -202,6 +202,8 @@ ninguém reparar que a corrida não é usada.
 ### Consentimento
 
 Nada disso muda a privacidade: os três leem `Event`, que já nasce pelo
-`analytics.servidor.evento` respeitando o opt-out do Perfil — quem desligou a
-atribuição conta só de forma anônima, e a exclusão da conta apaga os eventos
-identificados por `CASCADE`.
+`analytics.servidor.evento` respeitando o opt-out do Perfil — quem desligou
+o rastreio (Lote 1 da missão LGPD, 28/09/2026) não gera NENHUM evento, nem
+anônimo (`analytics.privacidade.pode_registrar`; era "conta só de forma
+anônima" até então) —, e a exclusão da conta apaga os eventos identificados
+por `CASCADE`.

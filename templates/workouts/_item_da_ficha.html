@@ -94,7 +94,7 @@
           <span class="ficha-item__ultima">
             <span class="vis-oculto">Última vez: </span>
             {% if item.ultima_vez.peso %}
-              <span class="num">{{ item.ultima_vez.peso|floatformat:"-2g" }}</span>&nbsp;kg{% if item.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span><span class="vis-oculto">por</span>&nbsp;<span class="num">{{ item.ultima_vez.reps }}</span>{% endif %}
+              <span class="num">{{ item.ultima_vez.peso|carga }}</span>&nbsp;kg{% if item.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span><span class="vis-oculto">por</span>&nbsp;<span class="num">{{ item.ultima_vez.reps }}</span>{% endif %}
             {% else %}
               <span class="num">{{ item.ultima_vez.reps }}</span>&nbsp;reps
             {% endif %}
