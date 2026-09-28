@@ -1440,3 +1440,75 @@ class UmCartaoSoTests(SimpleTestCase):
         fora = [{"card", "x"}]
         falso = ".x { padding: 1rem; } .card { padding: var(--pad); } .auth .card { padding: 2rem; }"
         self.assertEqual(caixas_de_cartao_fora_do_canone(falso, fora, []), [".x", ".auth .card"])
+
+
+# ---------------------------------------------------------------------------
+# UM H2 SÓ (dívida de sistema visual, lote 4, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou o `h2` em cinco tamanhos, e o mais usado (119 vezes) era
+# o 20,8 px do `h2 { font-size: 1.3rem }` — que nem é degrau da escala. O dono
+# escolheu, no gate 1: o título de seção é o RÓTULO da tela Mais
+# (`.sobretitulo`: 11,2 px, caixa alta, .16em); documento longo (Termos,
+# Privacidade, "Sobre" do demo) usa `--texto-lg` 700. O `h2` base fica como
+# legado do treino.
+
+#: Onde o `h2` é título de PROSA: documento longo, lido de cima a baixo.
+PROSA = {"legal/privacidade.html", "legal/termos.html", "demo/sobre.html"}
+
+#: `h2` com papel próprio, fora do rótulo — e por quê.
+H2_COM_PAPEL = {
+    "agora__titulo": "o nome da refeição ou do treino da vez: herói em display, não seção",
+    "receita-folha__nome": "o nome da receita, que abre a tela dela: título a --texto-lg",
+    "folha-receita__titulo": "o título da folha da receita no celular: --texto-lg",
+    "aviso-regenerar__titulo": "uma pergunta inteira, que em caixa alta não se lê: --texto-lg",
+    "landing__cta-titulo": "a frase que chama para a demonstração, na landing: --texto-lg (revisão do lote 4)",
+    "vis-oculto": "só para leitor de tela",
+}
+
+
+def h2_fora_do_canone():
+    achados = []
+    for p in TEMPLATES.rglob("*.html"):
+        if "workouts" in p.parts:
+            continue
+        rel = p.relative_to(TEMPLATES).as_posix()
+        if rel in PROSA:
+            continue
+        texto = _sem_comentario_django(p.read_text(encoding="utf-8"))
+        for m in re.finditer(r"<h2\b([^>]*)>", texto):
+            classe = re.search(r'class\s*=\s*"([^"]*)"', m.group(1))
+            classes = set(classe.group(1).split()) if classe else set()
+            if "sobretitulo" not in classes and not classes & set(H2_COM_PAPEL):
+                achados.append("%s:%d" % (rel, texto[:m.start()].count("\n") + 1))
+    return achados
+
+
+class UmH2SoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.bruto = CSS.read_text(encoding="utf-8")
+
+    def test_todo_h2_fora_do_treino_e_rotulo_prosa_ou_papel_nomeado(self):
+        self.assertEqual(h2_fora_do_canone(), [],
+                         "`<h2>` fora do cânone: use `class=\"sobretitulo\"` (ou nomeie o papel em H2_COM_PAPEL)")
+
+    def test_o_h2_base_e_legado_do_treino(self):
+        antes = self.bruto.split("\nh2 {", 1)[0][-700:]
+        self.assertIn("LEGADO", antes)
+        self.assertIn("28/09/2026", antes)
+
+    def test_a_prosa_usa_o_texto_grande(self):
+        self.assertRegex(self.css, r"\.legal h2,\s*\.card--prosa h2\s*\{[^}]*font-size:\s*var\(--texto-lg\)")
+
+    def test_os_papeis_nomeados_nao_herdam_o_legado(self):
+        """Sem tamanho próprio, o `h2` com papel cai no 20,8 do legado."""
+        for classe in set(H2_COM_PAPEL) - {"vis-oculto"}:
+            with self.subTest(classe=classe):
+                self.assertRegex(self.css, r"\.%s\s*\{[^}]*font-size:\s*var\(--texto-" % re.escape(classe))
+
+    def test_o_controle_positivo_acha_um_h2_cru(self):
+        falso = '<h2>Seção</h2><h2 class="sobretitulo">Ok</h2><h2 class="x">Não</h2>'
+        crus = [m.group(1) for m in re.finditer(r"<h2\b([^>]*)>", falso)
+                if "sobretitulo" not in m.group(1)]
+        self.assertEqual(crus, ["", ' class="x"'])

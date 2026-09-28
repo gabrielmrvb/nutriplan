@@ -53,7 +53,7 @@ class TelasAbremSemLoginTests(TestCase):
         html = self.client.get(reverse("ajuda:index")).content.decode()
         self.assertGreaterEqual(html.count('<details class="fora">'), 12)
         for titulo in ("A estimativa e o cardápio", "O treino", "Água, peso e progresso", "Conta, avisos e privacidade"):
-            self.assertIn("<h2>%s</h2>" % titulo, html)
+            self.assertIn('<h2 class="sobretitulo">%s</h2>' % titulo, html)
         self.assertIn('href="%s"' % reverse("ajuda:reportar"), html)
         self.assertIn('href="%s"' % reverse("ajuda:mudancas"), html)
         self.assertIn("<code>local</code>", html, "a versão em uso aparece na página")

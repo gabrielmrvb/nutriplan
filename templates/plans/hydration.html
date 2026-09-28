@@ -135,7 +135,7 @@
 
       {# ---------------- Os goles de hoje ---------------- #}
       <section class="card">
-        <div class="card__head"><h2>Registros de hoje</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Registros de hoje</h2></div>
 
         {% comment %}
           A lista TEM DE SOMAR O TOTAL DO PAINEL, e é por isso que existe a
@@ -248,7 +248,7 @@
 
       {# ---------------- A semana ---------------- #}
       <section class="card">
-        <div class="card__head"><h2>Últimos {{ semana.dias }} dias</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Últimos {{ semana.dias }} dias</h2></div>
 
         <ul class="semanas" aria-label="Água registrada por dia">
           {% for linha in semana.linhas %}
@@ -295,7 +295,7 @@
 
       {# ---------------- O que a meta é, e o que ela não é ---------------- #}
       <section class="card">
-        <div class="card__head"><h2>Sobre a meta</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Sobre a meta</h2></div>
         <p class="hint">
           A meta do app é 35 ml por quilo de peso, arredondada para o meio litro
           mais próximo. É uma regra prática para adulto ativo, não uma

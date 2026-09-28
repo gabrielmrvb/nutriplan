@@ -17,7 +17,7 @@
         ninguém medir o tamanho do que está prestes a fazer — e é justamente na
         hora de uma ação irreversível que o número importa.
       {% endcomment %}
-      <h2>O que será apagado</h2>
+      <h2 class="sobretitulo">O que será apagado</h2>
       <dl class="data-list">
         {% for nome, total in resumo %}
           <div><dt>{{ nome }}</dt><dd class="num">{{ total }}</dd></div>
@@ -27,7 +27,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Confirmar</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Confirmar</h2></div>
 
     {% if tem_senha %}
       <p>Digite sua senha para confirmar que é você.</p>
