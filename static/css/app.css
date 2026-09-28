@@ -1171,6 +1171,10 @@ h1 {
   line-height: var(--entrelinha-numero);
   text-transform: uppercase;
 }
+/* LEGADO (28/09/2026): o `h2` de 20,8 px só vale para o treino (a Fase A
+   mora em templates/workouts/). Fora dele o título de seção é o RÓTULO
+   (`.sobretitulo`), a prosa usa `--texto-lg` e o que tem papel próprio
+   declara o tamanho (`UmH2SoTests`). */
 h2 {
   font-size: 1.3rem;
   font-weight: 700;
@@ -5736,7 +5740,6 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   line-height: var(--entrelinha);
 }
 
-.demo-titulo { margin: 0 0 var(--e3); font-size: var(--texto-base); }
 
 .demo-areas {
   display: grid;
@@ -8046,8 +8049,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Texto longo, e a única coisa que ele precisa é ser lido. Nada de coluna
    estreita decorativa: o `.card` já limita a largura, e a medida de linha do
    corpo do app vale aqui como vale no resto. */
-.legal h2 {
-  font-size: var(--texto-base);
+.legal h2,
+.card--prosa h2 {
+  font-size: var(--texto-lg);
   margin-bottom: var(--e2);
 }
 
@@ -9344,6 +9348,10 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 }
 .landing__hero .stack { margin-top: var(--e4); }
 
+/* A frase que chama para a demonstração, no fim da landing: em rótulo de
+   11 px ela virava legenda (revisão do lote 4, 28/09/2026). */
+.landing__cta-titulo { font-size: var(--texto-lg); }
+
 /* ACIMA DE 900px A LANDING DEIXA DE SER UM CELULAR CENTRALIZADO (22/09/2026).
 
    `.container.auth` é estreito de propósito — formulário de entrada se lê
@@ -10171,6 +10179,9 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
 /* Dentro da folha o nome da receita já é o título da barra de cima — duas
    vezes o mesmo nome, um embaixo do outro, é o que a régua de repetição
    existe para impedir. No painel e na tela ele fica. */
+/* O nome da receita abre a tela dela: título a `--texto-lg`, como a pergunta
+   do aviso de regenerar e o título da folha. */
+.receita-folha__nome { font-size: var(--texto-lg); }
 .folha-receita__corpo .receita-folha__nome { display: none; }
 
 .receita-folha__feita {

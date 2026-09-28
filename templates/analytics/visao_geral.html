@@ -12,7 +12,7 @@
   </div>
 
   <section class="card">
-    <div class="card__head"><h2>Pessoas ativas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Pessoas ativas</h2></div>
     <div class="tiles">
       <div class="tile"><strong class="tile__value">{{ dau }}</strong><span class="tile__label">no dia</span></div>
       <div class="tile"><strong class="tile__value">{{ wau }}</strong><span class="tile__label">na semana</span></div>
@@ -21,7 +21,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Eventos por dia</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Eventos por dia</h2></div>
     {% if por_dia.pontos %}
       <svg width="100%" height="120" viewBox="0 0 {{ por_dia.largura }} {{ por_dia.altura }}"
            role="img" aria-label="Eventos por dia" preserveAspectRatio="none">
@@ -35,7 +35,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Eventos mais frequentes</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Eventos mais frequentes</h2></div>
     {% if top_eventos %}
       <dl class="data-list">
         {% for e in top_eventos %}
@@ -46,7 +46,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Telas mais vistas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Telas mais vistas</h2></div>
     {% if top_rotas %}
       <dl class="data-list">
         {% for r in top_rotas %}<div><dt>{{ r.route }}</dt><dd>{{ r.n }}</dd></div>{% endfor %}
@@ -55,7 +55,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Erros de JavaScript ({{ erros_total }})</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Erros de JavaScript ({{ erros_total }})</h2></div>
     {% if erros %}
       <dl class="data-list">
         {% for e in erros %}<div><dt>{{ e.msg|default:"—" }} <span class="hint">{{ e.rota }}</span></dt><dd>{{ e.n }}</dd></div>{% endfor %}
