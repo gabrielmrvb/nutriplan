@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **Um botão principal só.** O "Salvar" do peso, no Progresso e na Home, ganhou o mesmo desenho dos outros botões principais. O aviso de conquista, que aparece embaixo de "Concluir série", passou a mostrar "Compartilhar" com contorno, para não disputar com o botão da série, e o aviso de regenerar o treino, na Home, deixou de competir com o cartão "Agora". O selo "Agora" da Alimentação não aparece mais cortado como "Ag…", e o "Buscar no YouTube" do exercício sem vídeo ficou do tamanho de um dedo.
 - **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
 
 ## 2026-09-27

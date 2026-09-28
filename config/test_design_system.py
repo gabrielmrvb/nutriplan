@@ -1255,3 +1255,77 @@ class OSistemaViraALeiTests(SimpleTestCase):
         com_style = sorted(p.relative_to(TEMPLATES).as_posix() for p in TEMPLATES.rglob("*.html")
                            if "<style" in p.read_text(encoding="utf-8") and "email" not in p.parts)
         self.assertEqual(com_style, ["500.html"])
+
+
+# ---------------------------------------------------------------------------
+# UM BOTÃO PRIMÁRIO SÓ (dívida de sistema visual, lote 2, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou três primários: o da NERVURA (display 22,4, inclinado), o
+# `btn--sm` dele (Archivo — a display nunca desce de 20 px, e é regra) e o
+# `.pesagem__salvar`, um verde cheio escrito à parte, sem inclinação, no
+# Progresso e na faixa de peso da Home. E o aviso de conquista punha um
+# SEGUNDO primário na execução, embaixo do CONCLUIR SÉRIE.
+
+#: O que pinta `--brand` cheio com texto `--on-brand` e NÃO é botão.
+PREENCHIDOS_QUE_NAO_SAO_BOTAO = {".choice-card__mark"}  # o visto do cartão escolhido
+
+
+def _sem_comentario_django(texto):
+    return re.sub(r"\{% comment %\}.*?\{% endcomment %\}", "", texto, flags=re.S)
+
+
+class UmBotaoPrimarioSoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_fora_do_treino_so_o_primario_pinta_a_marca_cheia(self):
+        fora, treino = _textos_de_template()
+        paralelos = [
+            sel for sel, corpo in _regras(self.css)
+            if not eh_root(sel) and not sel.startswith("@")
+            and re.search(r"background(-color)?:\s*var\(--brand\)", corpo) and "var(--on-brand)" in corpo
+            and sel not in PREENCHIDOS_QUE_NAO_SAO_BOTAO and not so_de_treino(sel, fora, treino)
+        ]
+        self.assertEqual(paralelos, [], "botão verde cheio fora do `.btn--primary`: use `btn btn--primary` (ou `--sm`)")
+
+    def test_a_pesagem_usa_o_primario_pequeno(self):
+        html = (TEMPLATES / "plans" / "_peso_campo.html").read_text(encoding="utf-8")
+        botao = re.search(r"<button\b[^>]*type=\"submit\"[^>]*>", html).group(0)
+        self.assertIn('class="btn btn--primary btn--sm"', botao)
+        self.assertNotIn(".pesagem__salvar", self.css)
+
+    def test_o_aviso_de_conquista_nao_traz_um_segundo_primario(self):
+        """Ele aparece EMBAIXO do CONCLUIR SÉRIE, na execução: o primário da
+        tela é concluir, e compartilhar é contorno — como na lista de
+        Conquistas, onde ele sempre foi."""
+        html = _sem_comentario_django((TEMPLATES / "partials" / "_conquista.html").read_text(encoding="utf-8"))
+        self.assertNotIn("btn--primary", html)
+        self.assertRegex(html, r'class="btn btn--ghost conquista__compartilhar"')
+
+    def test_a_home_so_tem_o_primario_do_agora(self):
+        """O aviso de regenerar a ficha aparece DEPOIS do AGORA, e com ele
+        a Home tinha dois primários. O primário é o do AGORA (`_agora.html`);
+        o aviso é uma oferta, e oferta é contorno."""
+        html = _sem_comentario_django((TEMPLATES / "plans" / "today.html").read_text(encoding="utf-8"))
+        self.assertNotIn("btn--primary", html)
+        self.assertIn("btn--primary", (TEMPLATES / "plans" / "_agora.html").read_text(encoding="utf-8"))
+
+    def test_o_selo_da_vez_nao_encolhe(self):
+        """"Agora" virava "Ag…" a 390 px (caixa de 46, texto de 50, medido na
+        auditoria). A regra de 25/09 que deixa o selo ceder antes do nome
+        continua valendo para os selos longos; o da vez tem cinco letras."""
+        self.assertRegex(self.css, r"\.meal__linha \.meal__marca--agora\s*\{[^}]*flex-shrink:\s*0")
+
+    def test_o_primario_pequeno_fica_nos_pesos_da_archivo(self):
+        """A display nunca desce de 20 px, então o `btn--sm` volta à Archivo —
+        e o 800 que ele herdava do primário é peso da display."""
+        regra = re.search(r"\.btn--primary\.btn--sm\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-family: var(--font)", regra)
+        self.assertRegex(regra, r"font-weight:\s*(400|500|600|700)\b")
+
+    def test_o_controle_positivo_acha_um_primario_paralelo(self):
+        falso = ".x { background: var(--brand); color: var(--on-brand); }"
+        achados = [sel for sel, corpo in _regras(falso)
+                   if re.search(r"background(-color)?:\s*var\(--brand\)", corpo) and "var(--on-brand)" in corpo]
+        self.assertEqual(achados, [".x"])
