@@ -6,6 +6,8 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **Quem só corre vê a própria rotina.** Se você disse no cadastro que não faz musculação, a Home abre com Alimentação e Corrida e não mostra mais "Montar treino"; o Progresso mostra a corrida no lugar do treino, e as Conquistas passaram a ter metas de corrida e de refeições registradas.
+- **O primeiro dia não cobra o que ainda não aconteceu.** A Hidratação não lista mais os dias de antes da sua conta, e o Progresso não mostra seta de queda para o treino de hoje enquanto o dia não acabou.
 - **"Exportar meus dados" agora leva tudo, não só uma parte.** O arquivo que você baixa no Perfil passou a incluir corrida, consentimento, água registrada gole a gole, lista de compras marcada, e-mails enviados e todo o resto que o app guarda sobre você — antes faltavam essas partes, sem aviso. Continua sem senha, sem token e sem nada de outra pessoa.
 - **A barra de cima não parte mais palavra.** Em celular estreito, sem conta, a barra dizia "NutriPla / n" e "Entra / r". Agora as palavras ficam inteiras e, abaixo de 384 px, a barra de quem ainda não entrou mostra só o símbolo do NutriPlan ao lado de "Entrar" e "Criar conta". No computador, o nome e os links da barra passaram para os tamanhos de texto do resto do app.
 - **Escolher tem um jeito só.** No cadastro, no Perfil e na conta do Google, toda opção agora é o mesmo cartão com o visto no canto: o sexo lado a lado, os dias da semana numa fila, o equipamento, as restrições e os consentimentos em lista. As bolinhas de rádio saíram, e quem navega pelo teclado vê o foco mesmo na opção já marcada.
