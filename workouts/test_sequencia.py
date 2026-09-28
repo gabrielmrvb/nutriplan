@@ -109,16 +109,24 @@ class ASequenciaRealizadaTests(TestCase):
         self.assertEqual(seq.feitas, [])
         self.assertEqual(seq.recomendada(), "A")
 
-    def test_feita_de_outro_plano_nao_conta(self):
+    def test_feita_de_outro_plano_conta_na_sequencia_e_nao_na_opcao(self):
         """Escolha que aponta para a sessão de um plano antigo (remontado)
-        não entra na sequência do plano atual."""
+        ENTRA na sequência do plano atual: a letra segue da última feita.
+
+        O CONTRATO MUDOU em 28/09/2026 (B4 do caça-bugs de 27/09). Este teste
+        dizia "feito sob plano antigo não conta" (`feitas == []`, recomenda
+        A), e era exatamente o defeito: remontar a ficha zerava a sequência —
+        A de novo no dia seguinte a A, e a tira marcando `pulado` os dias
+        treinados. A presença é da pessoa, não da ficha. Só a `contagem`
+        (a opção da ficha legada) continua por plano."""
         antigo = self.plan
         TrainingPlan.objects.filter(pk=antigo.pk).update(is_active=False)
         novo = services.create_routine(self.user)
         fazer(self.user, antigo, "A", SEGUNDA)  # feito sob o plano antigo
         seq = services.sequencia_do_treino(self.user, novo)
-        self.assertEqual(seq.feitas, [])
-        self.assertEqual(seq.recomendada(), "A")
+        self.assertEqual(seq.feitas, [(SEGUNDA, "A")])
+        self.assertEqual(seq.recomendada(), "B")
+        self.assertEqual(seq.contagem("A"), 0)
 
     def test_a_leitura_e_uma_consulta_so(self):
         fazer(self.user, self.plan, "A", SEGUNDA)

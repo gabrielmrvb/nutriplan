@@ -239,9 +239,9 @@ def mapa_de_treino(user, janela: Janela, dias_combinados=None) -> list:
             estado, titulo = FEITO, "%d série%s" % (series, "s" if series > 1 else "")
             intensidade = _degrau(series / maior) if maior else 4
         elif dia.weekday() in dias_combinados:
-            estado, intensidade, titulo = FALTOU, 0, "dia combinado, sem série"
+            estado, intensidade, titulo = FALTOU, 0, "dia de treino, sem série"
         else:
-            estado, intensidade, titulo = DESCANSO, 0, "descanso combinado"
+            estado, intensidade, titulo = DESCANSO, 0, "dia de descanso"
         mapa.append(DiaDoMapa(data=dia, estado=estado, intensidade=intensidade,
                               titulo=titulo))
     return mapa
@@ -657,8 +657,8 @@ AJUDA = {
              "com registro — dia sem registro não é dia sem comer, é dia sem "
              "registro.",
     "treino": "Cada quadrado é um dia. Aceso, você anotou pelo menos uma série; "
-              "vazado, era dia combinado e não houve série; apagado, era dia de "
-              "descanso — e descansar no dia de descanso é cumprir o combinado. "
+              "vazado, era dia de treino e não houve série; apagado, era dia de "
+              "descanso — e descansar no dia de descanso também conta. "
               "A barra da semana é o total de séries.",
     "agua": "Cada quadrado é um dia, e a cor é quanto da meta você registrou. A "
             "barra da semana é a média dos dias com registro, e não dos sete: "
