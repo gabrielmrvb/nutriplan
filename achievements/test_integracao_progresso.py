@@ -92,7 +92,7 @@ class OBlocoDeConquistasNoProgressoTests(TestCase):
         de dizer é o que está mais perto de acontecer."""
         html = self.progresso()
 
-        self.assertIn("<h2>Conquistas</h2>", html)
+        self.assertIn('<h2 class="sobretitulo">Conquistas</h2>', html)
         self.assertIn("Desbloqueadas", html)
 
     def test_com_UMA_conquista_o_bloco_conta_uma(self):
@@ -108,7 +108,7 @@ class OBlocoDeConquistasNoProgressoTests(TestCase):
 
         html = self.progresso()
 
-        self.assertIn("<h2>Conquistas</h2>", html)
+        self.assertIn('<h2 class="sobretitulo">Conquistas</h2>', html)
         total, recente, _proxima = services.resumo(self.user)
         self.assertGreaterEqual(total, 1)
         self.assertIsNotNone(recente)

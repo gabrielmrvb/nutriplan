@@ -2868,6 +2868,18 @@ regra de dois níveis desfazê-lo — hoje é `.entrada__cartao`, só com o resp
 O `.painel__cartao` da Home NÃO é `.card` e fica: é a célula da grade, e o
 padding de 16 foi medido para três alvos de 44 px caberem em 169 px.
 
+**UM H2 SÓ (28/09/2026, dívida visual, lote 4).** O `h2` estava em cinco
+tamanhos, e o mais usado era o 20,8 px do `h2 { font-size: 1.3rem }`, que
+nem é degrau. Gate do dono ("R"): fora do treino, todo `<h2>` é o RÓTULO da
+tela Mais (`class="sobretitulo"`); a prosa longa (`.legal`, `.card--prosa`)
+usa `--texto-lg` 700; e quem tem papel próprio está numa lista fechada com a
+razão (`H2_COM_PAPEL`: o nome da vez no AGORA, o nome da receita, a pergunta
+do aviso de regenerar, a chamada do fim da landing, o título da folha, o
+oculto) e declara o tamanho. O
+`h2` base é LEGADO datado do treino. Toda tela migrada continua com um `h1`
+acima dos rótulos (medido nas 43 telas capturadas; gestão e analytics, no
+template): nenhum título foi inventado.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de

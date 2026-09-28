@@ -170,6 +170,11 @@ segue é o herói. O piso de 11 px vale para ele também (o mockup desceu a
 10; a implementação sobe). Sob o rótulo do bloco que manda vai a régua
 de `--traco` em `--fio-forte` ou a nervura — nunca as duas.
 
+Todo `<h2>` fora do treino é esse rótulo (`class="sobretitulo"`); o
+documento longo (Termos, Privacidade, "Sobre" do demo) usa `--texto-lg`
+700, e o nome que abre a tela (a refeição da vez, a receita) declara o
+próprio tamanho. O `h2` de 20,8 px é legado do treino (`UmH2SoTests`).
+
 ## Espaço, sombra, camadas, movimento
 
 - Grade de 4 px: **`--e1…--e8` = 4 · 8 · 12 · 16 · 20 · 24 · 32 · 48** — a
