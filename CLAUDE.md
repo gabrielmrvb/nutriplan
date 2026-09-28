@@ -2736,6 +2736,23 @@ nomeada). O "Salvar" do peso deixou de ser o `.pesagem__salvar` paralelo; o
 contorno, porque o primário da execução é CONCLUIR SÉRIE e o da Home é o do
 AGORA — `templates/plans/today.html` não tem `btn--primary` (há teste).
 
+**UM CARTÃO SÓ (28/09/2026, dívida visual, lote 3).** A auditoria mediu doze
+caixas de `.card` fora do treino; o DESIGN.md tem duas. A SEÇÃO é `.card`
+(`--surface`, `--pad`, régua de `--traco` em `--fio`); o PRATO é
+`.card--prato` — a superfície de foco, contornada por `--brand-linha-forte`,
+com a nervura no lugar da régua —, e mora no AGORA da Home e no topo da
+Alimentação, um por tela. Quem decide o prato do AGORA é o SERVIDOR
+(`_agora.html`): água, pesagem e "nada pendente" não têm hora que passa e
+saem como seção. `UmCartaoSoTests` recusa regra fora do treino que mude
+padding, fundo, borda ou sombra de um elemento `.card` sem ser o cânone, com
+três exceções nomeadas e cobradas (`CAIXAS_DE_CARTAO_PERMITIDAS`). Saíram o
+vidro e a luz do topo da Alimentação (vidro além da moldura é o que o
+DESIGN.md recusa), o padding de 27,2 px do `.auth .card` (onboarding, 403,
+404, landing, offline) e o `.card` das telas de entrada, que existia para uma
+regra de dois níveis desfazê-lo — hoje é `.entrada__cartao`, só com o respiro.
+O `.painel__cartao` da Home NÃO é `.card` e fica: é a célula da grade, e o
+padding de 16 foi medido para três alvos de 44 px caberem em 169 px.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de

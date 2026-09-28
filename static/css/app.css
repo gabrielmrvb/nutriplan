@@ -1274,9 +1274,18 @@ h3 {
   box-shadow: var(--edge), var(--shadow-rest);
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-/* O PRATO: a peça que a pessoa lê de relance — o AGORA da Home — leva o
-   recorte grande. É uma por tela. */
-.card.agora-card { border-radius: var(--quina-g); border-top-color: var(--brand); }
+/* O PRATO: o bloco que manda na tela — o AGORA da Home, o topo da
+   Alimentação. Um por tela (`UmCartaoSoTests`). É a SUPERFÍCIE DE FOCO,
+   contornada pela marca (o contorno faz o trabalho quando o fundo tingido
+   não aparece: monitor ruim, sol, `prefers-contrast`), e a nervura faz o
+   papel da régua de cima (DESIGN.md). O servidor escreve a classe só no
+   que tem hora que passa: o AGORA de água, pesagem ou "nada pendente" é
+   uma seção como as outras. */
+.card--prato {
+  background: var(--surface-focus);
+  border: 1px solid var(--brand-linha-forte);
+  border-radius: var(--quina-g);
+}
 
 /* A NERVURA no prato e no título de tela: a régua diagonal em `--brand`,
    nascendo no canto inferior esquerdo e subindo a −14° — ATRÁS do texto
@@ -1293,9 +1302,9 @@ h3 {
    72 px é assinatura, passar atrás de um rótulo de 13 px é ruído. Com no
    máximo 120 px (× sen 14° ≈ 29 px) ela cabe nos 32 px de respiro. */
 .page-head h1,
-.today-hero { position: relative; isolation: isolate; }
+.card--prato { position: relative; isolation: isolate; }
 .page-head h1::after,
-.today-hero::after {
+.card--prato::after {
   content: "";
   position: absolute;
   z-index: var(--camada-fundo);
@@ -1315,7 +1324,7 @@ h3 {
    fica acima da régua em vez de riscado por ela (captura de 17/09). Sem o
    teto de 100 px, a 1280 os 32 % subiam 34 px — e o link, a 390, 27. */
 .page-head > .btn-link + h1 { margin-top: var(--e6); }
-.today-hero::after { width: min(30%, 120px); bottom: 0; }
+.card--prato::after { width: min(30%, 120px); bottom: 0; }
 
 /* O cartão em que a pessoa está mexendo sobe um pouco. Só sombra e borda:
    mudar cor de fundo aqui faria a tela piscar a cada foco. */
@@ -1381,26 +1390,8 @@ h3 {
   align-items: center;
   gap: var(--e5);
   overflow: hidden;
-  border-radius: var(--quina-g);
-  box-shadow: var(--edge), var(--shadow-deep);
 }
 
-.today-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(115% 80% at 12% -12%,
-                    var(--brand-tinta), transparent 58%),
-    radial-gradient(85% 65% at 104% 108%,
-                    var(--agua-tinta-fraca), transparent 60%);
-  pointer-events: none;
-}
-
-/* O conteúdo sobe acima da luz. Sem isto o `::before` posicionado pinta por
-   cima do texto em fluxo, que é a pegadinha clássica do pseudo-elemento de
-   fundo: ele não vai para trás sozinho. */
-.today-hero > * { position: relative; }
 
 /* `--pct` é o valor do anel, e é uma propriedade personalizada TIPADA.
  *
@@ -1451,6 +1442,10 @@ h3 {
      parecer desenhado NO painel em vez de um buraco através dele. */
   background: var(--surface);
 }
+/* No prato o cartão é a superfície de foco, e o miolo acompanha — senão o
+   anel do topo da Alimentação ganha um disco de outra cor no meio (achado da
+   revisão do lote 3, 28/09/2026). */
+.card--prato .ring::after { background: var(--surface-focus); }
 
 .ring__inner { position: relative; z-index: var(--camada-conteudo); line-height: var(--entrelinha-display); text-align: center; }
 
@@ -4080,13 +4075,7 @@ body:not(.tem-tabbar) .container { padding-top: var(--e3); }
 .auth .wizard { margin-bottom: var(--e3); }
 .auth h1 { margin-bottom: var(--e1); }
 .auth .lead { margin-bottom: var(--e4); }
-/* Uma linha por título: "Os dois ao mesmo tempo" quebrava em duas na coluna
-   de 147px e a FAIXA inteira da grade crescia junto, porque a linha de uma
-   grade tem a altura do cartão mais alto dela. Dois cartões pagavam pela
-   quebra de um. */
-.auth .card { padding: var(--e4); }
 .auth .field { margin-bottom: var(--e4); }
-.auth .card { padding: 1.7rem 1.4rem; }
 
 /* A mesma marca, em 64px, na tela de entrada. Vetor: o desenho que cabe em
    30 pixels na barra é o mesmo aqui, sem segunda arte e sem borrar. */
@@ -5874,15 +5863,15 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
 
 /* O fio de acento no topo dos cartões de destaque do painel.
  *
- * Só nos três que a pessoa lê ANTES de decidir alguma coisa: a ofensiva, o
- * resumo do dia e a água. Os outros seis cartões do painel são consulta —
+ * Só nos que a pessoa lê ANTES de decidir alguma coisa (o resumo do dia
+ * saiu daqui em 28/09/2026: ele é o PRATO da Alimentação): a ofensiva e a
+ * água. Os outros seis cartões do painel são consulta —
  * balanço de energia, como chegamos na meta, lembretes — e um fio verde em
  * todos eles não destacaria nada, só pintaria a tela de listras.
  *
  * `color-mix` com o token, e não `rgba(16, 185, 129, .2)` escrito à mão: o
  * verde do tema claro é #0c6b40, e o esmeralda fixo apareceria ali como uma
  * cor que não pertence a lugar nenhum da paleta. Um valor, dois temas. */
-.today-hero,
 .ofensiva,
 .agua {
   border-top: 1px solid var(--brand-linha);
@@ -5933,7 +5922,6 @@ body::before {
  * uma cor sólida custa quadros para produzir a mesma cor sólida.
  *
  * O fundo precisa ser translúcido, senão não há o que ver através. */
-.today-hero,
 .ofensiva,
 .agua {
   background: var(--surface-translucida);
@@ -5944,7 +5932,6 @@ body::before {
 /* Sem suporte a `backdrop-filter`, o fundo translúcido deixaria o halo passar
    direto e o texto perderia contraste. Ali o cartão volta a ser opaco. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .today-hero,
   .ofensiva,
   .agua { background: var(--surface); }
 }
@@ -6032,12 +6019,6 @@ body.montando { overflow: hidden; }
 /* ==========================================================================
    34. Perfil: metas e conta
    ========================================================================== */
-
-/* O cartão de metas leva a borda de acento dos destaques do painel: ele é o
-   mesmo tipo de peça — o número que a pessoa veio conferir. */
-.card--metas {
-  border-top: 1px solid var(--brand-linha);
-}
 
 /* Duas colunas de dado, e as duas primeiras em corpo maior.
  *
@@ -6230,7 +6211,6 @@ body.montando { overflow: hidden; }
   .entrada__marca { margin-bottom: var(--e4); }
   .entrada__wordmark { font-size: var(--texto-xl); }
   .entrada__tagline { font-size: var(--texto-sm); }
-  .auth .card { padding: var(--e4) var(--e4); }
   .auth h1 { font-size: var(--texto-2xl); }
 }
 
@@ -6247,12 +6227,7 @@ body.montando { overflow: hidden; }
 
    `background: none` e não uma superfície: se o painel voltar a ter fundo,
    volta o retângulo, e com ele a sensação de formulário dentro de página. */
-.entrada__cartao {
-  padding: 0;
-  background: none;
-  border: 0;
-  box-shadow: none;
-}
+.entrada__cartao { padding: var(--e6) var(--e5); }
 
 /* O título da tela alinha à esquerda com o resto do formulário. Centralizado,
    ele lia como cabeçalho de documento; à esquerda, ele abre a coluna que os
@@ -6282,23 +6257,6 @@ body.montando { overflow: hidden; }
   min-height: calc(100dvh - 3.6rem);
 }
 
-/* O CARTÃO DA ENTRADA SAIU, e era daqui que ele vinha.
-
-   Este seletor tem dois níveis de classe — `.auth--entrada .card` — contra o
-   único de `.entrada__cartao`. Removi o fundo lá primeiro e o retângulo
-   continuou na tela por três capturas: especificidade não se resolve por
-   ordem no arquivo.
-
-   O que sai: fundo translúcido, desfoque e sombra. O halo de marca que este
-   painel existia para desfocar continua ali, e agora ele banha o formulário
-   inteiro em vez de ficar espremido atrás de um retângulo. O que fica: o
-   padding, que é o que segura a coluna longe da borda do telefone. */
-.auth--entrada .card {
-  padding: 1.4rem 1.15rem;
-  background: none;
-  border: 0;
-  box-shadow: none;
-}
 
 /* ---- o olho da senha ---- */
 
@@ -7704,24 +7662,12 @@ body:not(.tem-tabbar) .agora__registro {
    `prefers-contrast`.
 
    Uma superfície de foco POR TELA. Se um segundo cartão pedir este fundo, a
-   pergunta certa é qual dos dois deixa de ser foco. */
-.agora-card {
-  padding-top: var(--e3);
-  background: var(--surface-focus);
-  border-color: var(--brand-linha-forte);
-}
+   pergunta certa é qual dos dois deixa de ser foco.
 
-/* Os ramos que NÃO são ação com hora marcada abrem mão do foco.
-
-   Água e pesagem são convites, e o cartão vazio é a ausência de pendência —
-   nenhum dos três tem hora que passa. Deixar os três no verde faria a tela
-   dizer "urgente" todo dia, e uma tela que grita sempre não grita nunca. */
-.agora-card--agua,
-.agora-card--pesagem,
-.agora-card--vazio {
-  background: var(--surface);
-  border-color: var(--fio);
-}
+   Desde 28/09/2026 o fundo e o contorno são do `.card--prato`, e quem
+   decide é o SERVIDOR (`_agora.html`): água, pesagem e o cartão vazio são
+   convite ou ausência de pendência — nenhum tem hora que passa, e deixar
+   os três no verde faria a tela dizer "urgente" todo dia. */
 
 .agora__rotulo {
   margin: 0 0 var(--e1);
@@ -7789,8 +7735,6 @@ body:not(.tem-tabbar) .agora__registro {
 /* TMB, TDEE, fator de atividade, fórmula e dados de entrada continuam na
    página, inteiros. O que muda é que eles não abrem sozinhos: eram ~1.100px
    de tabela numa tela cuja pergunta é "o que eu como agora". */
-.explicacao { padding-block: var(--e1); }
-
 .explicacao__head {
   display: flex;
   align-items: center;
@@ -7801,6 +7745,16 @@ body:not(.tem-tabbar) .agora__registro {
   list-style: none;
 }
 .explicacao__head::-webkit-details-marker { display: none; }
+/* Fechada, a explicação é UMA LINHA: o `<summary>` ocupa o respiro de cima
+   e de baixo do cartão, e o toque vale na faixa inteira. A caixa continua a
+   do `.card` (`UmCartaoSoTests`); quem estica é a linha — com o `--pad` do
+   cartão em volta, as três explicações da Alimentação iam de 54 a 86 px
+   (medido em 28/09/2026). A do Peso mora DENTRO de um cartão e fica como é. */
+.card.explicacao > .explicacao__head {
+  margin-top: calc(-1 * var(--pad));
+  padding-block: var(--e3);
+}
+.card.explicacao:not([open]) > .explicacao__head { margin-bottom: calc(-1 * var(--pad)); }
 /* `h3` junto do `h2`: o mesmo cabeçalho serve a um bloco de tela (a
    explicação da meta, `h2`) e a uma seção DENTRO de um cartão (a lista de
    pesagens, `h3`, que não pode roubar o nível do "Peso" acima dela). */
