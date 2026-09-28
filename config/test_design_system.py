@@ -151,8 +151,9 @@ TETO_FONT_SIZE_CRU = 25
 #: que não é de treino virou a escala da direção (`--e1`…`--e8`). Sobram as
 #: regras de treino, o que passa de 56 px (é layout, não ritmo), `em`, `%`
 #: e o `-1px` do `.vis-oculto`. 58 no lote 3 (cartão único): o `.auth .card`
-#: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram.
-TETO_ESPACO_CRU = 58
+#: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram. 56 no
+#: lote 5 (escolha única): o `.segmented` saiu com os dois valores dele.
+TETO_ESPACO_CRU = 56
 
 
 def sem_comentarios(texto):
@@ -1512,3 +1513,102 @@ class UmH2SoTests(SimpleTestCase):
         crus = [m.group(1) for m in re.finditer(r"<h2\b([^>]*)>", falso)
                 if "sobretitulo" not in m.group(1)]
         self.assertEqual(crus, ["", ' class="x"'])
+
+
+# ---------------------------------------------------------------------------
+# UM CONTROLE DE ESCOLHA SÓ (dívida de sistema visual, lote 5, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou cinco desenhos para "escolha uma (ou várias) opções":
+# cartão com ícone em grade, cartão largo com visto, rádio redondo em lista,
+# segmented e cartão com chips. O cânone é o `choice-card` do
+# `partials/choice_cards.html` (o input escondido, a moldura e o visto
+# quadrado). `choice-list` fica só no treino, como legado.
+
+#: Caixas que NÃO são escolha, e por quê.
+CAIXAS_QUE_NAO_SAO_ESCOLHA = {
+    "plans/shopping.html": "marcar o item comprado é a linha da lista, não uma escolha entre opções",
+    "achievements/list.html": "o som das conquistas é um interruptor da tela, não uma opção de formulário",
+}
+
+
+def controles_fora_do_canone():
+    """Templates fora do treino com classe de escolha antiga, ou com rádio/
+    caixa escrito à mão sem `choice-card__input`."""
+    achados = []
+    for p in TEMPLATES.rglob("*.html"):
+        if "workouts" in p.parts:
+            continue
+        rel = p.relative_to(TEMPLATES).as_posix()
+        texto = _sem_comentario_django(p.read_text(encoding="utf-8"))
+        for e in _elementos_de(texto):
+            velhas = {c for c in e if c == "choice-list" or c.startswith(("choice-list-", "segmented"))}
+            if velhas:
+                achados.append("%s: %s" % (rel, " ".join(sorted(velhas))))
+        if rel in CAIXAS_QUE_NAO_SAO_ESCOLHA:
+            continue
+        for m in re.finditer(r"<input\b[^>]*\btype=\"(radio|checkbox)\"[^>]*>", texto):
+            if "choice-card__input" not in m.group(0):
+                achados.append("%s:%d" % (rel, texto[:m.start()].count("\n") + 1))
+    return achados
+
+
+class UmControleDeEscolhaSoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.bruto = CSS.read_text(encoding="utf-8")
+
+    def test_fora_do_treino_toda_escolha_e_choice_card(self):
+        self.assertEqual(controles_fora_do_canone(), [],
+                         "use o `choice-card` (partials/choice_cards.html ou a mesma marcação)")
+
+    def test_o_campo_generico_desenha_o_choice_card(self):
+        """`partials/field.html` desenha os rádios e as caixas de QUALQUER
+        formulário (sexo, dias, experiência, equipamento, restrições…): o
+        input do Django entra direto no cartão, com o `aria-label` do dia."""
+        html = (TEMPLATES / "partials" / "field.html").read_text(encoding="utf-8")
+        self.assertRegex(html, r'<label class="choice-card">\{\{ subwidget\.tag \}\}')
+        self.assertIn("choice-card__mark", html)
+
+    def test_o_input_do_django_fica_escondido_como_o_do_partial(self):
+        """O `{{ subwidget.tag }}` não leva a classe `choice-card__input`;
+        o CSS alcança os dois pelo filho direto do cartão."""
+        for trecho in (r"\.choice-card > input\s*[,{]",
+                       r"\.choice-card > input:checked ~ \.choice-card__frame",
+                       r"\.choice-card > input:checked ~ \.choice-card__mark",
+                       r"\.choice-card > input:focus-visible ~ \.choice-card__frame"):
+            with self.subTest(trecho=trecho):
+                self.assertRegex(self.css, trecho)
+
+    def test_o_segmented_saiu_e_o_choice_list_e_legado_do_treino(self):
+        self.assertNotIn(".segmented", self.css)
+        antes = self.bruto.split("\n.choice-list {", 1)[0][-700:]
+        self.assertIn("LEGADO", antes)
+        self.assertIn("28/09/2026", antes)
+
+    def test_os_dias_nao_descem_do_alvo_de_44(self):
+        """Sete colunas não cabem: a 390 px a coluna do cadastro tem 318 px e
+        sete células com vão dariam 42. A fila quebra, com base de 3,8rem."""
+        corpo = re.search(r"\.choice-cards--dias > li\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("flex: 1 1 3.8rem", corpo)
+        cartao = re.search(r"\.choice-cards--dias \.choice-card\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("min-height: 2.75rem", cartao)
+
+    def test_a_caixa_da_lista_aparece_vazia_antes_de_marcar(self):
+        """Consentimento tem de parecer uma coisa que se marca: sem o
+        quadrado vazio, "Li e aceito os Termos" era texto numa moldura."""
+        corpo = re.search(r'\.choice-cards--lista \.choice-card > input\[type="checkbox"\] ~ \.choice-card__mark\s*\{([^}]*)\}',
+                          self.css).group(1)
+        self.assertIn("opacity: 1", corpo)
+        self.assertIn("var(--fio-forte)", corpo)
+
+    def test_toda_excecao_ainda_tem_caixa(self):
+        for rel in CAIXAS_QUE_NAO_SAO_ESCOLHA:
+            with self.subTest(rel=rel):
+                self.assertRegex((TEMPLATES / rel).read_text(encoding="utf-8"), r'type="checkbox"')
+
+    def test_o_controle_positivo_acha_as_duas_formas(self):
+        falso = '<ul class="choice-list"><li><input type="checkbox" name="x"></li></ul>'
+        elementos = _elementos_de(falso)
+        self.assertTrue(any("choice-list" in e for e in elementos))
+        self.assertTrue(re.search(r"<input\b[^>]*\btype=\"(radio|checkbox)\"[^>]*>", falso))

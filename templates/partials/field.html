@@ -61,10 +61,16 @@ pelo form.
       `config/test_axe_serio.py` guarda os dois.
     {% endcomment %}
     <div role="group" aria-labelledby="{{ field.auto_id }}_label"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.help_text and field.errors %} {% endif %}{% if field.errors %}{{ field.auto_id }}_error{% endif %}"{% endif %}>
-    <ul class="choice-list{% if field.name == 'sex' %} segmented{% elif field.name == 'weekdays' %} segmented--envolve{% endif %}">
+    {% comment %}
+      O `choice-card` do `partials/choice_cards.html`, com o input do
+      Django dentro (ele traz o `aria-label` de cada dia; o CSS o esconde
+      pelo filho direto do cartão). Sexo lado a lado, dias numa fila
+      que quebra, o resto em lista (dívida visual, lote 5, 28/09/2026).
+    {% endcomment %}
+    <ul class="choice-cards{% if field.name == 'sex' %} choice-cards--lista choice-cards--par{% elif field.name == 'weekdays' %} choice-cards--dias{% else %} choice-cards--lista{% endif %}">
       {% for subwidget in field %}
         <li>
-          <label>{{ subwidget.tag }}<span class="segmented__fundo" aria-hidden="true"></span><span class="segmented__texto">{{ subwidget.choice_label }}</span></label>
+          <label class="choice-card">{{ subwidget.tag }}<span class="choice-card__frame" aria-hidden="true"></span><span class="choice-card__text"><strong class="choice-card__title">{{ subwidget.choice_label }}</strong></span><span class="choice-card__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></label>
         </li>
       {% endfor %}
     </ul>
