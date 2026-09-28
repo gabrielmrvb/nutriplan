@@ -241,7 +241,9 @@ de `--traco` em `--fio-forte` ou a nervura — nunca as duas.
 ## Componentes que já existem (não recriar; refinar)
 
 `card` é a SEÇÃO: `--surface`, sem sombra, quina reta, régua de `--traco`
-em `--fio` no topo; o prato (o AGORA) leva a nervura em vez da régua ·
+em `--fio` no topo; o prato (`.card--prato`: o AGORA da Home e o topo da
+Alimentação, um por tela) é a superfície de foco com contorno de marca, e
+leva a nervura em vez da régua · nenhum outro modificador muda a caixa ·
 `btn` (`--primary` `--brand` cheio e INCLINADO; `--ghost` contorno de
 `--traco` em `--fio-forte`; `--quiet`; `--perigo`; `--sm`; `--block`;
 todos retos; uma escala de toque, `.96`) · `chip` / `chip-row` (quadrado,

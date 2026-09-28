@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **Os blocos têm um desenho só.** O cartão "Agora" da Home e o topo da Alimentação ganharam o mesmo destaque: fundo verde-escuro, contorno da marca e a linha diagonal no canto. Quando o "Agora" é só um convite (água, peso, nada pendente), ele aparece como os outros blocos. As telas de cadastro, erro e boas-vindas e o bloco de metas do Perfil passaram a usar o mesmo respiro de todos os cartões.
 - **Um botão principal só.** O "Salvar" do peso, no Progresso e na Home, ganhou o mesmo desenho dos outros botões principais. O aviso de conquista, que aparece embaixo de "Concluir série", passou a mostrar "Compartilhar" com contorno, para não disputar com o botão da série, e o aviso de regenerar o treino, na Home, deixou de competir com o cartão "Agora". O selo "Agora" da Alimentação não aparece mais cortado como "Ag…", e o "Buscar no YouTube" do exercício sem vídeo ficou do tamanho de um dedo.
 - **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
 

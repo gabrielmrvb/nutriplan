@@ -1719,7 +1719,7 @@ class GymReadyTests(TestCase):
         """`rgba(16, 185, 129, .2)` e o esmeralda do tema ESCURO. No claro a
         marca e #0c6b40, e o hex fixo apareceria la como uma cor que nao
         pertence a paleta de lugar nenhum."""
-        regra = self.css.split(chr(10) + ".today-hero,", 1)[1].split("}", 1)[0]
+        regra = self.css.split(chr(10) + ".ofensiva,", 1)[1].split("}", 1)[0]
         # Desde 28/09/2026 a borda é a tinta com nome (`--brand-linha`), que
         # é receita de `var(--brand)` no :root.
         self.assertRegex(regra, r"var\(--brand(-[\w-]+)?\)")
@@ -1729,11 +1729,13 @@ class GymReadyTests(TestCase):
         """Nove cartoes com fio verde nao destacam nada, pintam listras. Os
         tres sao os que a pessoa le ANTES de decidir: ofensiva, resumo do dia
         e agua."""
-        regra = self.css.split(chr(10) + ".today-hero,", 1)[1]
+        # Desde 28/09/2026 o resumo do dia (o topo da Alimentação) é o
+        # PRATO da tela, e o contorno de marca dele vem do `.card--prato`.
+        regra = self.css.split(chr(10) + ".ofensiva,", 1)[1]
         seletores = regra.split("{", 1)[0]
         self.assertEqual(
-            sorted(s.strip() for s in (".today-hero," + seletores).split(",") if s.strip()),
-            [".agua", ".ofensiva", ".today-hero"],
+            sorted(s.strip() for s in (".ofensiva," + seletores).split(",") if s.strip()),
+            [".agua", ".ofensiva"],
         )
 
     def test_a_pressed_submit_says_so_before_the_server_answers(self):
