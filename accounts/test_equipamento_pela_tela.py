@@ -90,4 +90,4 @@ class EquipamentoPelaTelaTests(TestCase):
         self.assertEqual(perfil.equipamento, Equipamento.CASA_HALTERES)
         perfil_html = self.client.get(reverse("accounts:profile")).content.decode()
         self.assertIn("Em casa, com halteres", perfil_html)
-        self.assertNotIn("Academia completa", perfil_html.split("<h2>Treinos</h2>", 1)[1].split("</section>", 1)[0])
+        self.assertNotIn("Academia completa", perfil_html.split('<h2 class="sobretitulo">Treinos</h2>', 1)[1].split("</section>", 1)[0])

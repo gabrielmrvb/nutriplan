@@ -44,7 +44,7 @@
         depois vê se mudou.
       {% endcomment %}
       <section class="card">
-        <div class="card__head"><h2>Suas metas de hoje</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Suas metas de hoje</h2></div>
         {% comment %}
           "de hoje" precisa ser verdade.
 
@@ -115,7 +115,7 @@
 
       <section class="card">
         <div class="card__head">
-          <h2>Objetivo</h2>
+          <h2 class="sobretitulo">Objetivo</h2>
           <a href="{% url 'accounts:onboarding_step' step=2 %}">Editar</a>
         </div>
         <dl class="data-list">
@@ -126,7 +126,7 @@
 
       <section class="card">
         <div class="card__head">
-          <h2>Dados corporais</h2>
+          <h2 class="sobretitulo">Dados corporais</h2>
           <a href="{% url 'accounts:onboarding_step' step=1 %}">Editar</a>
         </div>
         <dl class="data-list">
@@ -139,7 +139,7 @@
 
       <section class="card">
         <div class="card__head">
-          <h2>Treinos</h2>
+          <h2 class="sobretitulo">Treinos</h2>
           <a href="{% url 'accounts:onboarding_step' step=2 %}">Editar</a>
         </div>
         {% if training_days %}
@@ -291,7 +291,7 @@
       {% endcomment %}
       <section class="card">
         <div class="card__head">
-          <h2>Prioridade no NutriPlan</h2>
+          <h2 class="sobretitulo">Prioridade no NutriPlan</h2>
           <a href="{% url 'accounts:onboarding_step' step=3 %}">Editar</a>
         </div>
         {% if profile.personalizacao_declarada %}
@@ -336,7 +336,7 @@
 
       <section class="card">
         <div class="card__head">
-          <h2>Comida e restrições</h2>
+          <h2 class="sobretitulo">Comida e restrições</h2>
           {% comment %}
             A etapa 3 (comida e áreas), e não a 2. Já houve um link daqui
             apontando para a tela da divisão de treino — cartão que mostra
@@ -389,7 +389,7 @@
       {% if divisao_importa %}
         <section class="card">
           <div class="card__head">
-            <h2>Divisão de treino</h2>
+            <h2 class="sobretitulo">Divisão de treino</h2>
             <a href="{% url 'accounts:onboarding_step' step=2 %}">Editar</a>
           </div>
           <dl class="data-list">
@@ -451,7 +451,7 @@
     "o que eu sou neste app", e conquista é exatamente isso.
   {% endcomment %}
   <section class="card">
-    <div class="card__head"><h2>Conquistas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Conquistas</h2></div>
     <p class="muted">O que o seu histórico já provou — sequências, treinos e recordes.</p>
     <a class="btn btn--ghost btn--block" href="{% url 'achievements:list' %}">Minhas conquistas</a>
   </section>
@@ -472,7 +472,7 @@
     que aparece uma vez por mês.
   {% endcomment %}
   <section class="card card--conta">
-    <div class="card__head"><h2>Sua conta</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Sua conta</h2></div>
     <dl class="data-list">
       <div><dt>Entrou como</dt><dd>{{ user.email }}</dd></div>
     </dl>
@@ -557,7 +557,7 @@
   {% endcomment %}
   {% if perms.accounts.ver_painel_de_gestao %}
     <section class="card">
-      <div class="card__head"><h2>Painel de gestão</h2></div>
+      <div class="card__head"><h2 class="sobretitulo">Painel de gestão</h2></div>
       <p class="muted">
         Os números do produto: contas, cadastros e atividade.
       </p>
@@ -568,7 +568,7 @@
   {% endif %}
 
   <section class="card">
-    <div class="card__head"><h2>Análise de uso</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Análise de uso</h2></div>
     <p class="muted">
       O NutriPlan mede o próprio uso para melhorar — de primeira parte, sem
       terceiros, sem vender nada e sem guardar quem você é. Com a análise
@@ -581,13 +581,14 @@
         O mesmo cartão de caixa dos consentimentos e dos avisos (44 px de
         alvo): a linha solta media 197 × 17 px na varredura de 22/09/2026.
       {% endcomment %}
-      <ul class="choice-list">
+      <ul class="choice-cards choice-cards--lista">
         <li>
-          <label>
-            <input type="checkbox" name="rastrear_uso" value="1"
+          <label class="choice-card">
+            <input class="choice-card__input" type="checkbox" name="rastrear_uso" value="1"
                    {% if request.user.profile.rastrear_uso %}checked{% endif %}>
-            <span class="segmented__fundo" aria-hidden="true"></span>
-            <span class="segmented__texto">Permitir a análise de uso</span>
+            <span class="choice-card__frame" aria-hidden="true"></span>
+            <span class="choice-card__text">Permitir a análise de uso</span>
+            <span class="choice-card__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
           </label>
         </li>
       </ul>
@@ -604,7 +605,7 @@
     a página não esbarra num botão vermelho de apagar tudo.
   {% endcomment %}
   <section class="card">
-    <div class="card__head"><h2>Excluir conta</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Excluir conta</h2></div>
     <p class="muted">
       Apaga permanentemente sua estimativa, sua ficha, seu histórico e seus registros. Não há
       como desfazer.

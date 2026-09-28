@@ -170,6 +170,11 @@ segue é o herói. O piso de 11 px vale para ele também (o mockup desceu a
 10; a implementação sobe). Sob o rótulo do bloco que manda vai a régua
 de `--traco` em `--fio-forte` ou a nervura — nunca as duas.
 
+Todo `<h2>` fora do treino é esse rótulo (`class="sobretitulo"`); o
+documento longo (Termos, Privacidade, "Sobre" do demo) usa `--texto-lg`
+700, e o nome que abre a tela (a refeição da vez, a receita) declara o
+próprio tamanho. O `h2` de 20,8 px é legado do treino (`UmH2SoTests`).
+
 ## Espaço, sombra, camadas, movimento
 
 - Grade de 4 px: **`--e1…--e8` = 4 · 8 · 12 · 16 · 20 · 24 · 32 · 48** — a
@@ -253,7 +258,9 @@ contorno de `--traco`, caixa alta .16em; o escolhido cheio de `--brand`)
 meta em Archivo) · `data-list` (`dt`/`dd`) · `empty-state` · `hint` ·
 `field` (rótulo em caixa alta, ajuda, erro; campo reto com régua embaixo
 em `--fio-forte`, que vira `--brand` no foco; rádios e caixas quadrados)
-· `choice_cards` (rádio como caixa de contorno com o visto quadrado) ·
+· `choice_cards` (rádio e caixa como cartão de contorno com o visto
+quadrado; é a ÚNICA escolha fora do treino — sexo lado a lado, dias numa
+fila que quebra, o resto em lista; foco em anel com vão) ·
 `marca` e `marca_de_entrada` · `_conquista` (aviso ancorado embaixo, não
 modal) · anel de progresso (calorias, água, treino: trilha em `--fio`, arco
 em `--folha` — o círculo é a única curva) · barra de progresso (reta, com

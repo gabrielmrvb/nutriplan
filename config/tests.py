@@ -1560,10 +1560,11 @@ class HasSelectorTests(TestCase):
             f"layout, use classe escrita pelo servidor: {novos}",
         )
 
-    def test_the_segmented_control_draws_its_state_on_a_sibling(self):
+    def test_the_choice_card_draws_its_state_on_a_sibling(self):
         """O padrão que substitui o `:has()`: o input é filho do label, então
-        só um irmão é alcançável — e `~` funciona em qualquer navegador."""
-        self.assertIn(".segmented input:checked ~ .segmented__fundo", self.css)
+        só um irmão é alcançável — e `~` funciona em qualquer navegador.
+        Era o segmented; desde 28/09/2026 é o `choice-card` (lote 5)."""
+        self.assertIn(".choice-card > input:checked ~ .choice-card__frame", self.css)
 
 
 class TouchFeedbackTests(TestCase):

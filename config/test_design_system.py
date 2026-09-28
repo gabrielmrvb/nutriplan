@@ -101,8 +101,10 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: 25 em 28/09/2026 (dívida de sistema visual, lote 1): todo `font-size` cru
 #: de regra que não é de treino virou degrau `--texto-*` (o mais perto; só
 #: quatro andaram mais de 0,8 px). Sobram as regras de treino (Fase A), o
-#: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6).
-TETO_FONT_SIZE_CRU = 25
+#: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6). 23 no lote 6: a marca
+#: (1.05rem) e os links do desktop (.875rem) viraram degrau; o `h2` base é
+#: legado do treino.
+TETO_FONT_SIZE_CRU = 23
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -151,8 +153,10 @@ TETO_FONT_SIZE_CRU = 25
 #: que não é de treino virou a escala da direção (`--e1`…`--e8`). Sobram as
 #: regras de treino, o que passa de 56 px (é layout, não ritmo), `em`, `%`
 #: e o `-1px` do `.vis-oculto`. 58 no lote 3 (cartão único): o `.auth .card`
-#: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram.
-TETO_ESPACO_CRU = 58
+#: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram. 56 no
+#: lote 5 (escolha única): o `.segmented` saiu com os dois valores dele. 47
+#: no lote 6: os nove espaços da barra de cima viraram degrau.
+TETO_ESPACO_CRU = 47
 
 
 def sem_comentarios(texto):
@@ -1440,3 +1444,237 @@ class UmCartaoSoTests(SimpleTestCase):
         fora = [{"card", "x"}]
         falso = ".x { padding: 1rem; } .card { padding: var(--pad); } .auth .card { padding: 2rem; }"
         self.assertEqual(caixas_de_cartao_fora_do_canone(falso, fora, []), [".x", ".auth .card"])
+
+
+# ---------------------------------------------------------------------------
+# UM H2 SÓ (dívida de sistema visual, lote 4, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou o `h2` em cinco tamanhos, e o mais usado (119 vezes) era
+# o 20,8 px do `h2 { font-size: 1.3rem }` — que nem é degrau da escala. O dono
+# escolheu, no gate 1: o título de seção é o RÓTULO da tela Mais
+# (`.sobretitulo`: 11,2 px, caixa alta, .16em); documento longo (Termos,
+# Privacidade, "Sobre" do demo) usa `--texto-lg` 700. O `h2` base fica como
+# legado do treino.
+
+#: Onde o `h2` é título de PROSA: documento longo, lido de cima a baixo.
+PROSA = {"legal/privacidade.html", "legal/termos.html", "demo/sobre.html"}
+
+#: `h2` com papel próprio, fora do rótulo — e por quê.
+H2_COM_PAPEL = {
+    "agora__titulo": "o nome da refeição ou do treino da vez: herói em display, não seção",
+    "receita-folha__nome": "o nome da receita, que abre a tela dela: título a --texto-lg",
+    "folha-receita__titulo": "o título da folha da receita no celular: --texto-lg",
+    "aviso-regenerar__titulo": "uma pergunta inteira, que em caixa alta não se lê: --texto-lg",
+    "landing__cta-titulo": "a frase que chama para a demonstração, na landing: --texto-lg (revisão do lote 4)",
+    "vis-oculto": "só para leitor de tela",
+}
+
+
+def h2_fora_do_canone():
+    achados = []
+    for p in TEMPLATES.rglob("*.html"):
+        if "workouts" in p.parts:
+            continue
+        rel = p.relative_to(TEMPLATES).as_posix()
+        if rel in PROSA:
+            continue
+        texto = _sem_comentario_django(p.read_text(encoding="utf-8"))
+        for m in re.finditer(r"<h2\b([^>]*)>", texto):
+            classe = re.search(r'class\s*=\s*"([^"]*)"', m.group(1))
+            classes = set(classe.group(1).split()) if classe else set()
+            if "sobretitulo" not in classes and not classes & set(H2_COM_PAPEL):
+                achados.append("%s:%d" % (rel, texto[:m.start()].count("\n") + 1))
+    return achados
+
+
+class UmH2SoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.bruto = CSS.read_text(encoding="utf-8")
+
+    def test_todo_h2_fora_do_treino_e_rotulo_prosa_ou_papel_nomeado(self):
+        self.assertEqual(h2_fora_do_canone(), [],
+                         "`<h2>` fora do cânone: use `class=\"sobretitulo\"` (ou nomeie o papel em H2_COM_PAPEL)")
+
+    def test_o_h2_base_e_legado_do_treino(self):
+        antes = self.bruto.split("\nh2 {", 1)[0][-700:]
+        self.assertIn("LEGADO", antes)
+        self.assertIn("28/09/2026", antes)
+
+    def test_a_prosa_usa_o_texto_grande(self):
+        self.assertRegex(self.css, r"\.legal h2,\s*\.card--prosa h2\s*\{[^}]*font-size:\s*var\(--texto-lg\)")
+
+    def test_os_papeis_nomeados_nao_herdam_o_legado(self):
+        """Sem tamanho próprio, o `h2` com papel cai no 20,8 do legado."""
+        for classe in set(H2_COM_PAPEL) - {"vis-oculto"}:
+            with self.subTest(classe=classe):
+                self.assertRegex(self.css, r"\.%s\s*\{[^}]*font-size:\s*var\(--texto-" % re.escape(classe))
+
+    def test_o_controle_positivo_acha_um_h2_cru(self):
+        falso = '<h2>Seção</h2><h2 class="sobretitulo">Ok</h2><h2 class="x">Não</h2>'
+        crus = [m.group(1) for m in re.finditer(r"<h2\b([^>]*)>", falso)
+                if "sobretitulo" not in m.group(1)]
+        self.assertEqual(crus, ["", ' class="x"'])
+
+
+# ---------------------------------------------------------------------------
+# UM CONTROLE DE ESCOLHA SÓ (dívida de sistema visual, lote 5, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A auditoria achou cinco desenhos para "escolha uma (ou várias) opções":
+# cartão com ícone em grade, cartão largo com visto, rádio redondo em lista,
+# segmented e cartão com chips. O cânone é o `choice-card` do
+# `partials/choice_cards.html` (o input escondido, a moldura e o visto
+# quadrado). `choice-list` fica só no treino, como legado.
+
+#: Caixas que NÃO são escolha, e por quê.
+CAIXAS_QUE_NAO_SAO_ESCOLHA = {
+    "plans/shopping.html": "marcar o item comprado é a linha da lista, não uma escolha entre opções",
+    "achievements/list.html": "o som das conquistas é um interruptor da tela, não uma opção de formulário",
+}
+
+
+def controles_fora_do_canone():
+    """Templates fora do treino com classe de escolha antiga, ou com rádio/
+    caixa escrito à mão sem `choice-card__input`."""
+    achados = []
+    for p in TEMPLATES.rglob("*.html"):
+        if "workouts" in p.parts:
+            continue
+        rel = p.relative_to(TEMPLATES).as_posix()
+        texto = _sem_comentario_django(p.read_text(encoding="utf-8"))
+        for e in _elementos_de(texto):
+            velhas = {c for c in e if c == "choice-list" or c.startswith(("choice-list-", "segmented"))}
+            if velhas:
+                achados.append("%s: %s" % (rel, " ".join(sorted(velhas))))
+        if rel in CAIXAS_QUE_NAO_SAO_ESCOLHA:
+            continue
+        for m in re.finditer(r"<input\b[^>]*\btype=\"(radio|checkbox)\"[^>]*>", texto):
+            if "choice-card__input" not in m.group(0):
+                achados.append("%s:%d" % (rel, texto[:m.start()].count("\n") + 1))
+    return achados
+
+
+class UmControleDeEscolhaSoTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.bruto = CSS.read_text(encoding="utf-8")
+
+    def test_fora_do_treino_toda_escolha_e_choice_card(self):
+        self.assertEqual(controles_fora_do_canone(), [],
+                         "use o `choice-card` (partials/choice_cards.html ou a mesma marcação)")
+
+    def test_o_campo_generico_desenha_o_choice_card(self):
+        """`partials/field.html` desenha os rádios e as caixas de QUALQUER
+        formulário (sexo, dias, experiência, equipamento, restrições…): o
+        input do Django entra direto no cartão, com o `aria-label` do dia."""
+        html = (TEMPLATES / "partials" / "field.html").read_text(encoding="utf-8")
+        self.assertRegex(html, r'<label class="choice-card">\{\{ subwidget\.tag \}\}')
+        self.assertIn("choice-card__mark", html)
+
+    def test_o_input_do_django_fica_escondido_como_o_do_partial(self):
+        """O `{{ subwidget.tag }}` não leva a classe `choice-card__input`;
+        o CSS alcança os dois pelo filho direto do cartão."""
+        for trecho in (r"\.choice-card > input\s*[,{]",
+                       r"\.choice-card > input:checked ~ \.choice-card__frame",
+                       r"\.choice-card > input:checked ~ \.choice-card__mark",
+                       r"\.choice-card > input:focus-visible ~ \.choice-card__frame"):
+            with self.subTest(trecho=trecho):
+                self.assertRegex(self.css, trecho)
+
+    def test_o_segmented_saiu_e_o_choice_list_e_legado_do_treino(self):
+        self.assertNotIn(".segmented", self.css)
+        antes = self.bruto.split("\n.choice-list {", 1)[0][-700:]
+        self.assertIn("LEGADO", antes)
+        self.assertIn("28/09/2026", antes)
+
+    def test_os_dias_nao_descem_do_alvo_de_44(self):
+        """Sete colunas não cabem: a 390 px a coluna do cadastro tem 318 px e
+        sete células com vão dariam 42. A fila quebra, com base de 3,8rem."""
+        corpo = re.search(r"\.choice-cards--dias > li\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("flex: 1 1 3.8rem", corpo)
+        cartao = re.search(r"\.choice-cards--dias \.choice-card\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("min-height: 2.75rem", cartao)
+
+    def test_a_caixa_da_lista_aparece_vazia_antes_de_marcar(self):
+        """Consentimento tem de parecer uma coisa que se marca: sem o
+        quadrado vazio, "Li e aceito os Termos" era texto numa moldura."""
+        corpo = re.search(r'\.choice-cards--lista \.choice-card > input\[type="checkbox"\] ~ \.choice-card__mark\s*\{([^}]*)\}',
+                          self.css).group(1)
+        self.assertIn("opacity: 1", corpo)
+        self.assertIn("var(--fio-forte)", corpo)
+
+    def test_toda_excecao_ainda_tem_caixa(self):
+        for rel in CAIXAS_QUE_NAO_SAO_ESCOLHA:
+            with self.subTest(rel=rel):
+                self.assertRegex((TEMPLATES / rel).read_text(encoding="utf-8"), r'type="checkbox"')
+
+    def test_o_controle_positivo_acha_as_duas_formas(self):
+        falso = '<ul class="choice-list"><li><input type="checkbox" name="x"></li></ul>'
+        elementos = _elementos_de(falso)
+        self.assertTrue(any("choice-list" in e for e in elementos))
+        self.assertTrue(re.search(r"<input\b[^>]*\btype=\"(radio|checkbox)\"[^>]*>", falso))
+
+
+# ---------------------------------------------------------------------------
+# O CROMO NA ESCALA (dívida de sistema visual, lote 6, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A barra de cima aparece em TODA tela e era a última peça fora da escala:
+# a marca a 16,8 px (a segunda medida mais frequente do app, 149 blocos),
+# os links do desktop a 14 px e nove espaços crus. E, anônima, abaixo de
+# 390 px ela partia palavra ("NutriPla / n", "Entra / r").
+
+#: As propriedades de TAMANHO que a barra não escreve à mão.
+PROPRIEDADE_DE_TAMANHO = re.compile(r"^(font-size|padding[\w-]*|margin[\w-]*|gap|row-gap|column-gap)$")
+
+
+def tamanhos_crus_da_barra(css):
+    achados = []
+    for sel, corpo in _regras(css):
+        if "app-bar" not in sel or sel.startswith("@"):
+            continue
+        for prop, valor in _declaracoes(corpo):
+            if PROPRIEDADE_DE_TAMANHO.match(prop) and re.search(r"\d(rem|px|em)\b", re.sub(r"var\([^)]*\)", "", valor)):
+                achados.append((sel, prop, valor))
+    return achados
+
+
+class OCromoNaEscalaTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_a_barra_de_cima_nao_escreve_tamanho_a_mao(self):
+        self.assertEqual(tamanhos_crus_da_barra(self.css), [])
+
+    def test_a_marca_e_os_links_estao_nos_degraus(self):
+        marca = re.search(r"\n\.app-bar__brand\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-size: var(--texto-base)", marca)
+        links = re.search(r"\n\.app-bar__link,\s*\.app-bar__quiet\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-size: var(--texto-md)", links)
+
+    def test_a_barra_nao_parte_palavra(self):
+        """"NutriPla / n" e "Entra / r" (auditoria de 27/09/2026): o
+        `overflow-wrap: anywhere` do corpo alcançava a barra."""
+        corpo = re.search(r"\n\.app-bar__brand,\s*\.app-bar__link,\s*\.app-bar__quiet,\s*\.app-bar \.btn\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("white-space: nowrap", corpo)
+
+    def test_na_tela_estreita_a_barra_com_acoes_fica_so_com_o_simbolo(self):
+        """Sem partir palavra, a 320 px a marca inteira + "Entrar" + "Criar
+        conta" somam 374 px para 305 — rolaria na horizontal. Abaixo de 24rem,
+        a barra que tem ações (anônima e demo) mostra só o símbolo; o nome
+        continua para leitor de tela."""
+        corpo = re.search(
+            r"@media \(max-width: 23\.99rem\)\s*\{\s*\.app-bar--acoes \.app-bar__word\s*\{([^}]*)\}", self.css).group(1)
+        # a receita inteira de esconder SÓ da vista: some da tela, fica para o leitor
+        for trecho in ("position: absolute", "width: 1px", "height: 1px", "overflow: hidden", "clip-path: inset(50%)"):
+            with self.subTest(trecho=trecho):
+                self.assertIn(trecho, corpo)
+        self.assertNotIn("display: none", corpo)
+        base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+        self.assertIn("app-bar--acoes", base)
+
+    def test_o_controle_positivo_acha_um_tamanho_cru(self):
+        falso = ".app-bar__x { font-size: .875rem; gap: var(--e1); } .outra { padding: 3px; }"
+        self.assertEqual(tamanhos_crus_da_barra(falso), [(".app-bar__x", "font-size", ".875rem")])

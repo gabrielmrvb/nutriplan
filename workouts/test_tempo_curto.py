@@ -311,13 +311,20 @@ class OTempoCurtoNaoMenteTests(TestCase):
 
     def test_nenhuma_sessao_passa_de_trinta_minutos(self):
         # POR OPÇÃO (15/09/2026): cada versão da letra é uma sessão.
+        #
+        # O TEMPO INFORMADO EFETIVO do corpo inteiro de uma vez por semana é
+        # max(30, 75) (28/09/2026, decisão do dono). O princípio: essa sessão
+        # é a semana inteira da pessoa, e os dez grupos não cabem em menos de
+        # 75 — a tela não oferece menos, e a ficha de quem já tinha menos
+        # nasce com 75 e diz por quê. Nenhuma outra semana ganha folga.
         for preferencia, dias, plano in self._semanas("-teto"):
+            teto = 75 if plano.split == Split.FULL and plano.days_per_week == 1 else 30
             for sessao in plano.sessions.prefetch_related("exercises__exercise"):
                 for opcao in sessao.opcoes:
                     with self.subTest(preferencia=preferencia, dias=dias,
                                       letra=sessao.label, opcao=opcao):
                         self.assertLessEqual(
-                            sessao.minutos_da_opcao(opcao), 30,
+                            sessao.minutos_da_opcao(opcao), teto,
                             "%s %s opção %d saiu com %d min"
                             % (plano.split, sessao.label, opcao, sessao.minutos_da_opcao(opcao)),
                         )
@@ -349,10 +356,17 @@ class OTempoCurtoNaoMenteTests(TestCase):
 
     def test_toda_sessao_curta_avisa_que_foi_apertada(self):
         """Silêncio faria a pessoa comparar a ficha dela com a de outra pessoa
-        na mesma divisão e concluir que falta exercício."""
+        na mesma divisão e concluir que falta exercício.
+
+        O corpo inteiro de uma vez por semana (28/09/2026, decisão do dono) é
+        montado com 75 e não com os 30 escolhidos: a nota continua falando de
+        TEMPO, e diz o número que montou a ficha — senão a pessoa que escolheu
+        30 veria uma sessão de 74 sem saber por quê."""
         for preferencia, dias, plano in self._semanas("-aviso"):
             with self.subTest(preferencia=preferencia, dias=dias):
                 self.assertIn("tempo", plano.notes)
+                if plano.split == Split.FULL and plano.days_per_week == 1:
+                    self.assertIn("75 minutos", plano.notes)
 
 
 class OPerfilNormalNaoSofreReducaoDeEmergenciaTests(TestCase):
