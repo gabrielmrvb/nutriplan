@@ -7,6 +7,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 ## 2026-09-28
 
 - **Desligar a análise de uso agora para tudo.** Antes, desligar "Análise de uso" no Perfil deixava de identificar você, mas o app ainda contava a ação sem o seu nome. Agora, desligado, nenhum registro sai — nem anônimo.
+- **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
 
 ## 2026-09-27
 

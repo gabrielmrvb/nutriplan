@@ -98,7 +98,11 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: quatro tamanhos crus (`.92rem` do nome, `.82rem` do kcal e da hora,
 #: `.85rem` da lista de ingredientes). O que substituiu tudo nasceu em
 #: token.
-TETO_FONT_SIZE_CRU = 107
+#: 25 em 28/09/2026 (dívida de sistema visual, lote 1): todo `font-size` cru
+#: de regra que não é de treino virou degrau `--texto-*` (o mais perto; só
+#: quatro andaram mais de 0,8 px). Sobram as regras de treino (Fase A), o
+#: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6).
+TETO_FONT_SIZE_CRU = 25
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -143,7 +147,11 @@ TETO_FONT_SIZE_CRU = 107
 #: de treino — o `gap` só existia para o `flex-direction: column` do eco
 #: (o nome do exercício embaixo do verbo), removido em 22/09/2026; sem
 #: coluna, sobrava cru e sem uso.
-TETO_ESPACO_CRU = 228
+#: 62 em 28/09/2026 (dívida de sistema visual, lote 1): o espaço cru de regra
+#: que não é de treino virou a escala da direção (`--e1`…`--e8`). Sobram as
+#: regras de treino, o que passa de 56 px (é layout, não ritmo), `em`, `%`
+#: e o `-1px` do `.vis-oculto`.
+TETO_ESPACO_CRU = 62
 
 
 def sem_comentarios(texto):
@@ -254,7 +262,7 @@ class ACatracaDoSistemaVisualTests(SimpleTestCase):
             atual,
             TETO_ESPACO_CRU,
             f"{atual} espaçamentos crus, e o teto é {TETO_ESPACO_CRU}. "
-            "Use um degrau de --espaco-1..7.",
+            "Use um degrau de --e1…--e8.",
         )
 
     def test_o_teto_registrado_nao_esta_folgado(self):
@@ -280,10 +288,12 @@ class ACatracaDoSistemaVisualTests(SimpleTestCase):
                 self.assertIn(f"--texto-{degrau}:", self.css)
                 self.assertIn(f"var(--texto-{degrau})", self.css)
 
-        for degrau in range(1, 8):
-            with self.subTest(degrau=f"--espaco-{degrau}"):
-                self.assertIn(f"--espaco-{degrau}:", self.css)
-                self.assertIn(f"var(--espaco-{degrau})", self.css)
+        # Desde 28/09/2026 a escala é a da direção (`--e1`…`--e8`); os
+        # `--espaco-*` são legado de treino e podem ir sumindo sem buraco.
+        for degrau in range(1, 9):
+            with self.subTest(degrau=f"--e{degrau}"):
+                self.assertIn(f"--e{degrau}:", self.css)
+                self.assertIn(f"var(--e{degrau})", self.css)
 
     def test_o_piso_de_onze_pixels_continua_no_menor_degrau(self):
         """`--texto-xs` é o menor degrau, e ele carrega uma regra do produto:
@@ -773,7 +783,7 @@ class OEspacamentoNaoVoltaParaODentroDoHTMLTests(SimpleTestCase):
                        ".nota-do-botao"):
             with self.subTest(classe=classe):
                 bloco = css.split(classe, 1)[1].split("}", 1)[0]
-                self.assertIn("var(--espaco-", bloco)
+                self.assertIn("var(--e", bloco)  # a escala da direção desde 28/09/2026
 
 
 # ---------------------------------------------------------------------------
@@ -1035,3 +1045,213 @@ class ORotuloDoGraficoDeSvgRespeitaOPisoDeOnzePixelsTests(SimpleTestCase):
             achados, [float("-inf"), 7.0, 8.0, 10.0, 12.0],
             "o scanner parou de achar valor cru, de ler aspas simples/tspan, ou passou a engolir unidade",
         )
+
+
+# ---------------------------------------------------------------------------
+# O SISTEMA VIRA A LEI (dívida de sistema visual, lote 1, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# Base: `achados/auditoria-visual-20260927.md` e o gate 1 do dono (28/09):
+# a escala de espaço é a da DIREÇÃO (`--e1`…`--e8` = 4·8·12·16·20·24·32·48);
+# os `--espaco-*` ficam como LEGADO só nas regras de treino (a Fase A mora em
+# `templates/workouts/` e ninguém mexe lá agora); a entrelinha tem quatro
+# degraus; as tintas de `--brand` e dos pilares têm nome. Tudo que sobrou cru
+# é regra de treino ou exceção nomeada — e cada categoria tem catraca de folga
+# zero, igual às duas de cima.
+
+TEMPLATES = CSS.parent.parent.parent / "templates"
+
+ESCALA_DA_DIRECAO = {
+    "--e1": ".25rem", "--e2": ".5rem", "--e3": ".75rem", "--e4": "1rem",
+    "--e5": "1.25rem", "--e6": "1.5rem", "--e7": "2rem", "--e8": "3rem",
+}
+TINTAS_DA_MARCA = {
+    "--brand-tinta-fraca": 9, "--brand-tinta": 12, "--brand-linha": 24,
+    "--brand-linha-forte": 32, "--brand-tinta-forte": 45,
+}
+#: Medidos em 28/09/2026 depois da migração do lote 1. O que sobra é regra de
+#: treino (ledger) ou exceção com nome (a vinheta de 12 % da entrada, que
+#: `config/test_vinheta_da_entrada.py` recalcula; o player de vídeo do treino).
+TETO_ENTRELINHA_CRUA = 15  # 14 de treino + o `h2` (lote 4)
+TETO_COR_LITERAL = 4  # a vinheta de 12 % da entrada + 3 de treino
+#: 15: 8 de treino, a vinheta da entrada, e 6 misturas de cor POR ELEMENTO
+#: (`--cor`, `--cor-area`, `--dia`), que o :root não tem como resolver.
+TETO_TINTA_FORA_DO_ROOT = 15
+
+#: Um bloco de TOKEN: cada parte do seletor é o próprio `:root`, no máximo
+#: com classe, atributo ou `:not()` — `:root .x { … }` é regra de componente
+#: e conta (achado da revisão do lote 1).
+_ROOT_PARTE = re.compile(r"\s*:root(?:\.[\w-]+|\[[^\]]*\]|:not\([^)]*\))*\s*")
+
+
+def eh_root(sel):
+    return all(_ROOT_PARTE.fullmatch(p) for p in sel.split(","))
+COR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(")
+
+
+def _regras(css):
+    """(seletor, corpo) de cada bloco mais interno — o `@media` em volta não
+    entra no seletor."""
+    for m in re.finditer(r"([^{}]*)\{([^{}]*)\}", css):
+        yield " ".join(m.group(1).split()), m.group(2)
+
+
+def _declaracoes(corpo):
+    for pedaco in corpo.split(";"):
+        prop, sep, valor = pedaco.partition(":")
+        if sep:
+            yield prop.strip(), valor.strip()
+
+
+def entrelinhas_cruas(css):
+    """`line-height` escrito à mão; `1`, `normal` e `inherit` não são degrau
+    e continuam livres."""
+    achados = []
+    for sel, corpo in _regras(css):
+        if eh_root(sel) or sel.startswith("@"):
+            continue
+        for prop, valor in _declaracoes(corpo):
+            if prop == "line-height" and "var(" not in valor and valor not in ("1", "normal", "inherit"):
+                achados.append((sel, valor))
+    return achados
+
+
+def cores_literais(css):
+    """Cor escrita à mão fora dos blocos `:root` (onde as duas paletas moram)."""
+    achados = []
+    for sel, corpo in _regras(css):
+        if eh_root(sel) or sel.startswith("@"):
+            continue
+        for prop, valor in _declaracoes(corpo):
+            if prop == "content":
+                continue
+            achados += [(sel, prop, c) for c in COR_LITERAL.findall(re.sub(r"url\([^)]*\)", "", valor))]
+    return achados
+
+
+def tintas_fora_do_root(css):
+    """`color-mix()` fora do `:root`: a tinta que não virou token."""
+    return [(sel, n) for sel, corpo in _regras(css) if not eh_root(sel)
+            for n in range(corpo.count("color-mix("))]
+
+
+def _elementos_de(texto):
+    """Os conjuntos de classes de cada elemento de um template — o que está
+    em `class="…"`, não a palavra solta no texto ("hoje" é classe e é
+    palavra). Pedaço dinâmico (`meal--{{ estado }}`) entra como prefixo,
+    marcado com `*` no fim."""
+    elementos = []
+    for attr in re.findall(r'class\s*=\s*"([^"]*)"', texto):
+        classes = set()
+        for token in re.sub(r"\{%.*?%\}", " ", attr).split():
+            if "{{" in token:
+                base = token.split("{{", 1)[0]
+                if base:
+                    classes.add(base + "*")
+            elif not token.startswith("{"):
+                classes.add(token)
+        if classes:
+            elementos.append(classes)
+    return elementos
+
+
+def _textos_de_template():
+    fora, treino = [], []
+    for p in TEMPLATES.rglob("*.html"):
+        (treino if "workouts" in p.parts else fora).extend(_elementos_de(p.read_text(encoding="utf-8")))
+    return fora, treino
+
+
+def _tem(elemento, classe):
+    return classe in elemento or any(c.endswith("*") and classe.startswith(c[:-1]) for c in elemento)
+
+
+def _algum_elemento_com(classes, elementos):
+    return any(all(_tem(e, c) for c in classes) for e in elementos)
+
+
+def so_de_treino(seletor, fora, treino):
+    """Cada parte do seletor tem um seletor simples (as classes de UM
+    elemento, como `.card.hoje`) que só existe em templates de treino. É a
+    mesma definição que a migração do lote 1 usou para decidir o que ficava
+    para a Fase A."""
+    partes = [p for p in seletor.split(",") if p.strip()]
+    if not partes:
+        return False
+    for parte in partes:
+        simples = [set(re.findall(r"\.([a-zA-Z_][\w-]*)", s)) for s in re.split(r"[\s>+~]+", parte)]
+        if not any(c and _algum_elemento_com(c, treino) and not _algum_elemento_com(c, fora) for c in simples):
+            return False
+    return True
+
+
+class OSistemaViraALeiTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+        self.bruto = CSS.read_text(encoding="utf-8")
+
+    def test_os_oito_degraus_da_direcao_existem_com_os_valores_do_design_md(self):
+        for token, valor in ESCALA_DA_DIRECAO.items():
+            with self.subTest(token=token):
+                self.assertRegex(self.css, r"%s:\s*%s;" % (re.escape(token), re.escape(valor)))
+
+    def test_pad_e_gap_apontam_para_a_escala_da_direcao(self):
+        """Os dois apelidos que o app já usava continuam valendo — e agora são
+        degraus da direção, não números soltos."""
+        self.assertRegex(self.css, r"--pad:\s*var\(--e5\);")
+        self.assertRegex(self.css, r"--gap:\s*var\(--e4\);")
+
+    def test_o_legado_esta_marcado_e_datado(self):
+        """`--espaco-*` continua existindo porque as regras de treino ainda o
+        usam; o comentário logo acima diz isso, com a data, para o próximo
+        leitor não achar que é a escala do app."""
+        bloco = self.bruto.split("--espaco-1:", 1)[0][-900:]
+        self.assertIn("LEGADO", bloco)
+        self.assertIn("28/09/2026", bloco)
+
+    def test_o_legado_so_mora_em_regra_de_treino(self):
+        fora, treino = _textos_de_template()
+        invasores = [sel for sel, corpo in _regras(self.css)
+                     if "var(--espaco-" in corpo and not eh_root(sel) and not so_de_treino(sel, fora, treino)]
+        self.assertEqual(invasores, [], "regra fora de treino usando --espaco-*: use --e1…--e8")
+
+    def test_a_regra_do_legado_enxerga_uma_regra_de_fora_do_treino(self):
+        """Controle positivo: `.card` existe fora do treino, `.hoje` só dentro."""
+        fora, treino = _textos_de_template()
+        self.assertFalse(so_de_treino(".card", fora, treino))
+        self.assertTrue(so_de_treino(".card.hoje", fora, treino))
+
+    def test_as_cinco_tintas_da_marca_tem_nome_e_porcentagem(self):
+        for token, pct in TINTAS_DA_MARCA.items():
+            with self.subTest(token=token):
+                self.assertRegex(self.css, r"%s:\s*color-mix\(in srgb, var\(--brand\) %d%%, transparent\);" % (re.escape(token), pct))
+
+    def test_a_divida_de_entrelinha_nao_cresce_e_o_teto_nao_folga(self):
+        self.assertEqual(len(entrelinhas_cruas(self.css)), TETO_ENTRELINHA_CRUA,
+                         "use --entrelinha-numero/-display/-titulo ou --entrelinha")
+
+    def test_a_divida_de_cor_literal_nao_cresce_e_o_teto_nao_folga(self):
+        self.assertEqual(len(cores_literais(self.css)), TETO_COR_LITERAL,
+                         "cor escrita à mão fora do :root — dê nome a ela no :root")
+
+    def test_a_divida_de_tinta_fora_do_root_nao_cresce_e_o_teto_nao_folga(self):
+        self.assertEqual(len(tintas_fora_do_root(self.css)), TETO_TINTA_FORA_DO_ROOT,
+                         "color-mix() fora do :root — use --brand-tinta* ou a tinta do pilar")
+
+    def test_os_leitores_enxergam_o_que_procuram(self):
+        """Controle positivo dos três contadores, num CSS de mentira."""
+        falso = (":root { --x: #fff; --y: color-mix(in srgb, red 5%, transparent); }\n"
+                 ".a { line-height: 1.4; color: #123456; background: color-mix(in srgb, var(--z) 9%, transparent); }\n"
+                 ".b { line-height: var(--entrelinha); line-height: 1; }")
+        self.assertEqual(len(entrelinhas_cruas(falso)), 1)
+        self.assertEqual(len(cores_literais(falso)), 1)
+        self.assertEqual(len(tintas_fora_do_root(falso)), 1)
+        # e `:root .x` é componente, não bloco de token (revisão do lote 1)
+        self.assertEqual(len(cores_literais(":root .x { color: #fff; }")), 1)
+
+    def test_estilo_embutido_so_na_pagina_de_erro(self):
+        """A página de 500 carrega o próprio `<style>` porque é servida quando
+        o resto pode estar quebrado; nenhuma outra tela do app faz isso."""
+        com_style = sorted(p.relative_to(TEMPLATES).as_posix() for p in TEMPLATES.rglob("*.html")
+                           if "<style" in p.read_text(encoding="utf-8") and "email" not in p.parts)
+        self.assertEqual(com_style, ["500.html"])

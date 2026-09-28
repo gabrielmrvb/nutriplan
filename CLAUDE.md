@@ -2709,6 +2709,23 @@ antiga vê o aviso "regenerar?" uma vez, e decide.
 
 ## Design: o que já existe, e o que não inventar de novo
 
+**A ESCALA DA DIREÇÃO É A LEI DO CÓDIGO (28/09/2026, dívida de sistema visual,
+lote 1).** Base: `achados/auditoria-visual-20260927.md` e a medição completa
+em `achados/divida-visual-medicao-20260927.md`. Espaço é `--e1…--e8` (4 · 8
+· 12 · 16 · 20 · 24 · 32 · 48; `--pad` = `--e5`, `--gap` = `--e4`); entrelinha
+é `--entrelinha-numero/-display/-titulo` e `--entrelinha`; tinta é
+`--brand-tinta-fraca/-tinta/-linha/-linha-forte/-tinta-forte` e a mesma escada
+nos pilares. `--espaco-*` é LEGADO só de regra de treino (a Fase A mora em
+`templates/workouts/`). `config/test_design_system.py`
+(`OSistemaViraALeiTests`) cobra, com catraca de folga zero: `font-size`,
+espaço, entrelinha, cor literal e `color-mix()` fora do `:root`; e recusa
+`--espaco-*` em regra que não é de treino — "regra de treino" é a que tem,
+em cada parte do seletor, um seletor simples (as classes de UM elemento, como
+`.card.hoje`) que só aparece em `templates/workouts/`. A busca é no atributo
+`class="…"`, não no texto: "hoje" é classe e é palavra. A migração foi
+mecânica (o degrau mais perto; 40/36/52 px viraram soma exata de dois) e
+provada com 129 capturas antes/depois em 390 e 1280: nenhuma nota medida caiu.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de

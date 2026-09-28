@@ -63,7 +63,7 @@ class TecladoAbertoRecolheABarraTests(SimpleTestCase):
         # valia na execução do treino, que não tem barra: focar o campo de
         # carga encolhia a página em ~100 px (MEDIDO: `scrollHeight` 1026 →
         # 923) e o "Concluir série" escapava do dedo.
-        self.assertRegex(css, r"\.teclado-aberto\.tem-tabbar \.container \{[^}]*padding-bottom: var\(--espaco-")
+        self.assertRegex(css, r"\.teclado-aberto\.tem-tabbar \.container \{[^}]*padding-bottom: var\(--e4\)")
         self.assertNotRegex(css, r"\.teclado-aberto \.container \{")
 
 
