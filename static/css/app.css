@@ -907,7 +907,7 @@ button { font-family: inherit; color: inherit; }
   justify-content: space-between;
   gap: var(--e4);
   min-height: 3.6rem;
-  padding: .5rem var(--pad);
+  padding: var(--e2) var(--pad);
   padding-top: max(var(--e2), env(safe-area-inset-top));
   /* Translúcida de verdade: o conteúdo passa por baixo desfocado em vez de
      sumir atrás de uma faixa opaca. O prefixo `-webkit-` continua aí porque o
@@ -937,10 +937,10 @@ button { font-family: inherit; color: inherit; }
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
-  gap: .55rem;
+  gap: var(--e2);
   min-width: 0;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--texto-base);
   letter-spacing: -.03em;
   color: var(--text);
   text-decoration: none;
@@ -983,7 +983,7 @@ button { font-family: inherit; color: inherit; }
 }
 .auth__logo .marca { border-radius: var(--quina); }
 
-.app-bar__nav { display: flex; align-items: center; gap: .3rem; }
+.app-bar__nav { display: flex; align-items: center; gap: var(--e1); }
 .app-bar__nav .app-bar__link { display: none; }
 
 /* O que só existe na largura em que a barra de cima é a navegação. No celular
@@ -995,15 +995,44 @@ button { font-family: inherit; color: inherit; }
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
-  padding: .45rem .75rem;
+  padding: var(--e2) var(--e3);
   border: 0;
   border-radius: var(--quina-p);
   background: none;
   color: var(--text-dim);
-  font-size: .875rem;
+  font-size: var(--texto-md);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* A barra não parte palavra. O `overflow-wrap: anywhere` do corpo (que
+   existe para nome longo de exercício e de alimento) alcançava a marca e
+   os links: abaixo de 390 px a barra anônima dizia "NutriPla / n" e
+   "Entra / r" (auditoria visual de 27/09/2026). */
+.app-bar__brand,
+.app-bar__link,
+.app-bar__quiet,
+.app-bar .btn {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Sem partir palavra, a barra com AÇÕES (anônima: "Entrar" e "Criar
+   conta"; demo: o selo e "Sobre o demo") não cabe na tela estreita: a
+   320 px a marca inteira e as duas ações somam 374 px para 305, e a página
+   rolaria na horizontal. Abaixo de 24rem essa barra mostra só o símbolo; o
+   nome continua no documento, para leitor de tela. A barra de quem está
+   logado não tem ação no celular, e fica com o nome. */
+@media (max-width: 23.99rem) {
+  .app-bar--acoes .app-bar__word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .app-bar__link,
@@ -5281,7 +5310,7 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
   .tabbar { display: none; }
   .app-bar__nav .app-bar__link { display: inline-flex; }
   .app-bar__so-desktop { display: block; }
-  .app-bar { padding-inline: 1.9rem; }
+  .app-bar { padding-inline: var(--e7); }
 }
 
 @media (max-width: 22rem) {
@@ -5577,8 +5606,8 @@ body:not(.tem-tabbar) .fila { bottom: calc(env(safe-area-inset-bottom) + .75rem)
  * único lugar que a pessoa olha ao chegar em qualquer tela, e depois sai do
  * caminho — que é o que "discreto" quer dizer. */
 .app-bar__demo {
-  margin-left: .4rem;
-  padding: .1rem .38rem;
+  margin-left: var(--e2);
+  padding: var(--traco) var(--e2);
   border: 1px solid var(--terra-linha-forte);
   border-radius: var(--quina-p);
   background: var(--terra-tinta);
