@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-09-28
 
+- **A barra de cima não parte mais palavra.** Em celular estreito, sem conta, a barra dizia "NutriPla / n" e "Entra / r". Agora as palavras ficam inteiras e, abaixo de 384 px, a barra de quem ainda não entrou mostra só o símbolo do NutriPlan ao lado de "Entrar" e "Criar conta". No computador, o nome e os links da barra passaram para os tamanhos de texto do resto do app.
 - **Escolher tem um jeito só.** No cadastro, no Perfil e na conta do Google, toda opção agora é o mesmo cartão com o visto no canto: o sexo lado a lado, os dias da semana numa fila, o equipamento, as restrições e os consentimentos em lista. As bolinhas de rádio saíram, e quem navega pelo teclado vê o foco mesmo na opção já marcada.
 - **Títulos de seção no mesmo tom.** Os títulos que abrem cada bloco — no Perfil, na Alimentação, no Progresso, na Hidratação, na lista de compras, nas Conquistas e na Ajuda — passaram a ser o rótulo pequeno em caixa alta que a tela Mais já usava. O nome da tela continua grande no topo, e os Termos e a Privacidade ficaram com títulos um pouco maiores, para leitura.
 - **Os blocos têm um desenho só.** O cartão "Agora" da Home e o topo da Alimentação ganharam o mesmo destaque: fundo verde-escuro, contorno da marca e a linha diagonal no canto. Quando o "Agora" é só um convite (água, peso, nada pendente), ele aparece como os outros blocos. As telas de cadastro, erro e boas-vindas e o bloco de metas do Perfil passaram a usar o mesmo respiro de todos os cartões.

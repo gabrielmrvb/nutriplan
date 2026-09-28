@@ -101,8 +101,10 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: 25 em 28/09/2026 (dívida de sistema visual, lote 1): todo `font-size` cru
 #: de regra que não é de treino virou degrau `--texto-*` (o mais perto; só
 #: quatro andaram mais de 0,8 px). Sobram as regras de treino (Fase A), o
-#: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6).
-TETO_FONT_SIZE_CRU = 25
+#: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6). 23 no lote 6: a marca
+#: (1.05rem) e os links do desktop (.875rem) viraram degrau; o `h2` base é
+#: legado do treino.
+TETO_FONT_SIZE_CRU = 23
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -152,8 +154,9 @@ TETO_FONT_SIZE_CRU = 25
 #: regras de treino, o que passa de 56 px (é layout, não ritmo), `em`, `%`
 #: e o `-1px` do `.vis-oculto`. 58 no lote 3 (cartão único): o `.auth .card`
 #: de 1.7rem 1.4rem e o `.auth--entrada .card` de 1.4rem 1.15rem saíram. 56 no
-#: lote 5 (escolha única): o `.segmented` saiu com os dois valores dele.
-TETO_ESPACO_CRU = 56
+#: lote 5 (escolha única): o `.segmented` saiu com os dois valores dele. 47
+#: no lote 6: os nove espaços da barra de cima viraram degrau.
+TETO_ESPACO_CRU = 47
 
 
 def sem_comentarios(texto):
@@ -1612,3 +1615,66 @@ class UmControleDeEscolhaSoTests(SimpleTestCase):
         elementos = _elementos_de(falso)
         self.assertTrue(any("choice-list" in e for e in elementos))
         self.assertTrue(re.search(r"<input\b[^>]*\btype=\"(radio|checkbox)\"[^>]*>", falso))
+
+
+# ---------------------------------------------------------------------------
+# O CROMO NA ESCALA (dívida de sistema visual, lote 6, 28/09/2026)
+# ---------------------------------------------------------------------------
+#
+# A barra de cima aparece em TODA tela e era a última peça fora da escala:
+# a marca a 16,8 px (a segunda medida mais frequente do app, 149 blocos),
+# os links do desktop a 14 px e nove espaços crus. E, anônima, abaixo de
+# 390 px ela partia palavra ("NutriPla / n", "Entra / r").
+
+#: As propriedades de TAMANHO que a barra não escreve à mão.
+PROPRIEDADE_DE_TAMANHO = re.compile(r"^(font-size|padding[\w-]*|margin[\w-]*|gap|row-gap|column-gap)$")
+
+
+def tamanhos_crus_da_barra(css):
+    achados = []
+    for sel, corpo in _regras(css):
+        if "app-bar" not in sel or sel.startswith("@"):
+            continue
+        for prop, valor in _declaracoes(corpo):
+            if PROPRIEDADE_DE_TAMANHO.match(prop) and re.search(r"\d(rem|px|em)\b", re.sub(r"var\([^)]*\)", "", valor)):
+                achados.append((sel, prop, valor))
+    return achados
+
+
+class OCromoNaEscalaTests(SimpleTestCase):
+    def setUp(self):
+        self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
+
+    def test_a_barra_de_cima_nao_escreve_tamanho_a_mao(self):
+        self.assertEqual(tamanhos_crus_da_barra(self.css), [])
+
+    def test_a_marca_e_os_links_estao_nos_degraus(self):
+        marca = re.search(r"\n\.app-bar__brand\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-size: var(--texto-base)", marca)
+        links = re.search(r"\n\.app-bar__link,\s*\.app-bar__quiet\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("font-size: var(--texto-md)", links)
+
+    def test_a_barra_nao_parte_palavra(self):
+        """"NutriPla / n" e "Entra / r" (auditoria de 27/09/2026): o
+        `overflow-wrap: anywhere` do corpo alcançava a barra."""
+        corpo = re.search(r"\n\.app-bar__brand,\s*\.app-bar__link,\s*\.app-bar__quiet,\s*\.app-bar \.btn\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("white-space: nowrap", corpo)
+
+    def test_na_tela_estreita_a_barra_com_acoes_fica_so_com_o_simbolo(self):
+        """Sem partir palavra, a 320 px a marca inteira + "Entrar" + "Criar
+        conta" somam 374 px para 305 — rolaria na horizontal. Abaixo de 24rem,
+        a barra que tem ações (anônima e demo) mostra só o símbolo; o nome
+        continua para leitor de tela."""
+        corpo = re.search(
+            r"@media \(max-width: 23\.99rem\)\s*\{\s*\.app-bar--acoes \.app-bar__word\s*\{([^}]*)\}", self.css).group(1)
+        # a receita inteira de esconder SÓ da vista: some da tela, fica para o leitor
+        for trecho in ("position: absolute", "width: 1px", "height: 1px", "overflow: hidden", "clip-path: inset(50%)"):
+            with self.subTest(trecho=trecho):
+                self.assertIn(trecho, corpo)
+        self.assertNotIn("display: none", corpo)
+        base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+        self.assertIn("app-bar--acoes", base)
+
+    def test_o_controle_positivo_acha_um_tamanho_cru(self):
+        falso = ".app-bar__x { font-size: .875rem; gap: var(--e1); } .outra { padding: 3px; }"
+        self.assertEqual(tamanhos_crus_da_barra(falso), [(".app-bar__x", "font-size", ".875rem")])

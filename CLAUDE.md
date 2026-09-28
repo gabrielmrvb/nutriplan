@@ -2898,6 +2898,19 @@ cartão. `segmented` saiu do CSS; `choice-list` é LEGADO datado do treino
 (`CAIXAS_QUE_NAO_SAO_ESCOLHA`: o item da lista de compras e o som das
 conquistas). `UmControleDeEscolhaSoTests`.
 
+**O CROMO NA ESCALA (28/09/2026, dívida visual, lote 6).** A barra de cima
+aparece em toda tela e era a última peça fora da escala: a marca a 16,8 px
+(149 blocos na auditoria), os links do desktop a 14 px e nove espaços crus.
+Hoje é `--texto-base`, `--texto-md` e `--e*`, e `OCromoNaEscalaTests` recusa
+tamanho escrito à mão em regra `.app-bar*`. E ela não parte palavra: o
+`overflow-wrap: anywhere` do corpo alcançava a marca e os links ("NutriPla /
+n", "Entra / r" abaixo de 390 px). Sem partir, a barra com AÇÕES — anônima
+("Entrar", "Criar conta") e demo (selo, "Sobre o demo") — não cabe a 320:
+374 px para 305. Abaixo de 24rem ela mostra só o SÍMBOLO, e o nome continua
+no documento para leitor de tela; `app-bar--acoes` é classe do servidor
+(`base.html`), e a barra de quem está logado, sem ação no celular, fica com o
+nome.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de
