@@ -14,6 +14,11 @@ Um POST em lote, e três coisas que ele NÃO faz de propósito:
 Anônimo por padrão: o `anon_id` é um cookie de primeira parte, `HttpOnly`,
 sorteado no servidor. Só vira PESSOA se ela estiver logada e não tiver pedido
 para não ser rastreada (`privacidade.pode_identificar`).
+
+Quem desligou o rastreio (`privacidade.pode_registrar` == False, só possível
+logado) não tem NENHUM evento gravado por este lote — nem anônimo. Decisão 2
+do plano de 28/09/2026 (Lote 1 da missão LGPD): a resposta continua 204, o
+cliente não deve saber a diferença entre "recusado" e "gravado".
 """
 import uuid
 
@@ -27,7 +32,7 @@ from django.views.decorators.csrf import csrf_exempt
 from . import ingest
 from .identidade import COOKIE_ANON
 from .models import Event
-from .privacidade import pode_identificar
+from .privacidade import pode_identificar, pode_registrar
 
 #: Teto por janela, best-effort (o cache é por processo). Generoso: uma sessão
 #: ativa de treino dispara dezenas de eventos por minuto; abuso são milhares.
@@ -48,6 +53,9 @@ class IngestView(View):
 
         anon = request.COOKIES.get(COOKIE_ANON) or uuid.uuid4().hex
 
+        if not pode_registrar(request):
+            return self._resposta(request, anon)
+
         try:
             dados = ingest.parse_lote(request.body)
         except (ValueError, UnicodeDecodeError):
@@ -59,13 +67,17 @@ class IngestView(View):
         user = None
         if request.user.is_authenticated and pode_identificar(request):
             user = request.user
+        # Logado e não atribuído (DNT): sem `anon_id`, senão o alias do
+        # próximo login no mesmo navegador daria a linha a outra pessoa
+        # (`servidor._anon_gravavel`, I-1 da revisão final de 28/09/2026).
+        anon_da_linha = "" if request.user.is_authenticated and user is None else anon
 
         objetos = [
             Event(
                 name=e["name"],
                 props=e["props"],
                 user=user,
-                anon_id=anon,
+                anon_id=anon_da_linha,
                 session_id=e["session_id"],
                 route=e["route"],
                 referrer=e["referrer"],

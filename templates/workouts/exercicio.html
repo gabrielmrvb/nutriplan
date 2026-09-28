@@ -214,7 +214,7 @@
         <figure class="curva curva--carga">
           <svg class="curva__grafico" viewBox="0 0 {{ curva_carga.largura }} {{ curva_carga.altura }}"
                preserveAspectRatio="none" role="img"
-               aria-label="Carga máxima por sessão: de {{ curva_carga.primeiro|floatformat:'-2' }} kg há {{ historico|length }} sessões a {{ curva_carga.final|floatformat:'-2' }} kg na última">
+               aria-label="Carga máxima por sessão: de {{ curva_carga.primeiro|carga }} kg há {{ historico|length }} sessões a {{ curva_carga.final|carga }} kg na última">
             <polyline class="curva__linha" points="{{ curva_carga.pontos }}"/>
             {% comment %}
               `stringformat:"g"` e não interpolação direta: o app é pt-BR e

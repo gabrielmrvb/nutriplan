@@ -28,16 +28,22 @@
         {% if field.name != "termos" %}{% include "partials/field.html" with field=field %}{% endif %}
       {% endfor %}
       {% comment %}
-        O AVISO NO CADASTRO (decisão do dono, 21/09/2026): antes de existir
-        conta, a pessoa lê que o que o app entrega é uma estimativa e um
-        cardápio de exemplo — não prescrição, que é atividade privativa do
-        nutricionista (Lei 8.234/1991). Uma frase, a mesma da última etapa e
-        do cardápio; `config/test_linguagem.py` cobra as três.
+        O AVISO NO CADASTRO (decisão do dono, 21/09/2026, texto revisto pelo
+        §4 do Gate 1 em 28/09/2026): antes de existir conta, a pessoa lê que
+        o que o app entrega é uma estimativa e um cardápio de exemplo — não
+        prescrição, que é atividade privativa do nutricionista (Lei
+        8.234/1991) e do profissional de Educação Física. Uma frase, a
+        mesma da última etapa e do cardápio; `config/test_linguagem.py`
+        cobra as três.
       {% endcomment %}
+      {# [REVISAR] frase do §4 do Gate 1 #}
       <p class="form__nota form__nota--perto">
-        O NutriPlan calcula uma <strong>estimativa</strong> com fórmulas
-        públicas e monta um cardápio de exemplo. Ele não substitui
-        nutricionista nem médico.
+        O NutriPlan calcula e organiza — não prescreve. Ele não substitui a
+        orientação de um nutricionista (registrado no CRN) nem de um
+        profissional de Educação Física (registrado no CREF), e não serve
+        para tratar doença. Gestante, lactante, menor de idade ou quem tem
+        condição de saúde: procure um profissional antes de seguir o que o
+        app sugere.
       </p>
       {% comment %}
         O ACEITE dos Termos e da Política (decisão do dono, 21/09/2026): caixa
