@@ -97,7 +97,7 @@
               </span>
             </div>
             <p class="painel__detalhe num">
-              de {{ summary.target_kcal }} kcal · {{ summary.no_plano }}/{{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+              de {{ summary.target_kcal }} kcal · {{ summary.no_plano }}/{{ summary.ate_agora }} até agora{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
             </p>
             <p class="painel__rodape">
               <a class="btn btn--quiet btn--sm btn--block" href="{% url 'plans:alimentacao' %}">Ver cardápio</a>
@@ -279,10 +279,10 @@
         <p class="aviso-regenerar__texto">O programa mudou desde que sua ficha foi montada. A ficha nova segue o programa de hoje; a atual continua no histórico.</p>
         <div class="aviso-regenerar__acoes">
           <form method="post" action="{% url 'workouts:regenerar' %}">{% csrf_token %}
-            <button type="submit" class="btn btn--primary">Montar a ficha nova</button>
+            <button type="submit" class="btn btn--ghost">Montar a ficha nova</button>
           </form>
           <form method="post" action="{% url 'workouts:dispensar_aviso' %}">{% csrf_token %}
-            <button type="submit" class="btn btn--ghost">Agora não</button>
+            <button type="submit" class="btn btn--quiet">Agora não</button>
           </form>
         </div>
       </section>

@@ -172,12 +172,28 @@ de `--traco` em `--fio-forte` ou a nervura — nunca as duas.
 
 ## Espaço, sombra, camadas, movimento
 
-- Grade de 4 px. Alvo da direção: `--e1…e7` = 4 · 8 · 12 · 16 · 24 · 32 · 48.
-  **O CSS de hoje ainda roda os sete degraus fracionários** (4 · 5,6 · 8 ·
-  11,2 · 14,4 · 16 · 24) e 243 valores crus; o remap move pixel em toda tela
-  e é lote próprio com captura antes/depois (decisão do dono, 16/09). Ao
-  desenhar, use a grade da direção; ao ler o app, saiba que ele ainda está
-  na antiga.
+- Grade de 4 px: **`--e1…--e8` = 4 · 8 · 12 · 16 · 20 · 24 · 32 · 48** — a
+  grade da direção mais o 20 do `--pad` (o respiro do cartão). É a escala do
+  app desde 28/09/2026 (dívida de sistema visual, gate 1 do dono); `--pad` é
+  `var(--e5)` e `--gap` é `var(--e4)`. Os sete degraus fracionários de antes
+  (`--espaco-*`: 4 · 5,6 · 8 · 11,2 · 14,4 · 16 · 24) são **LEGADO só das
+  regras de treino**, marcados com data no `:root`, até a Fase A do treino
+  migrar. Valor que ficava a mais de 3 px de todo degrau virou a soma exata
+  de dois (`calc(var(--e7) + var(--e2))` = 40).
+- **Entrelinha**: `--entrelinha-numero` .95 (o número em display) ·
+  `--entrelinha-display` 1.1 · `--entrelinha-titulo` 1.3 · `--entrelinha` 1.5
+  (corpo). `1` continua livre — é o reset.
+- **Tintas com nome.** `--brand-tinta-fraca` 9 % · `--brand-tinta` 12 % ·
+  `--brand-linha` 24 % · `--brand-linha-forte` 32 % · `--brand-tinta-forte`
+  45 % — as 15 porcentagens escritas à mão eram cinco tintas de verdade
+  (ΔE2000 < 2 entre vizinhas, nos dois temas). A mesma escada vale para os
+  pilares (`--terra-*`, `--agua-*`, `--danger-*`, `--chama-*`,
+  `--text-mute-tinta`); o que não cabia nela a 2,6 ΔE ganhou nome de uso com
+  o valor exato (`--terra-aviso`, `--terra-alerta-*`, `--agua-contorno`,
+  `--danger-tinta-hover`, `--chama-fundo`), e as receitas de palco e de sombra
+  também (`--palco-*`, `--marca-brilho`, `--sombra-*`, `--veu-folha`,
+  `--video-*`). `color-mix()` fora do `:root` só sobrevive onde a cor é do
+  ELEMENTO (`--cor`, `--cor-area`, `--dia`) e no treino.
 - **Sem cartão com sombra.** `--shadow-rest`, `--shadow-lift`, `--shadow-deep`
   e `--edge` não desenham nada (`0 0 0 0 transparent`, não `none`, que não
   entra em lista de `box-shadow`); os nomes ficam. Hierarquia é por
@@ -225,7 +241,9 @@ de `--traco` em `--fio-forte` ou a nervura — nunca as duas.
 ## Componentes que já existem (não recriar; refinar)
 
 `card` é a SEÇÃO: `--surface`, sem sombra, quina reta, régua de `--traco`
-em `--fio` no topo; o prato (o AGORA) leva a nervura em vez da régua ·
+em `--fio` no topo; o prato (`.card--prato`: o AGORA da Home e o topo da
+Alimentação, um por tela) é a superfície de foco com contorno de marca, e
+leva a nervura em vez da régua · nenhum outro modificador muda a caixa ·
 `btn` (`--primary` `--brand` cheio e INCLINADO; `--ghost` contorno de
 `--traco` em `--fio-forte`; `--quiet`; `--perigo`; `--sm`; `--block`;
 todos retos; uma escala de toque, `.96`) · `chip` / `chip-row` (quadrado,

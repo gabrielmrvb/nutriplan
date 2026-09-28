@@ -64,7 +64,7 @@
       {% endcomment %}
 
       {# ---------------- Painel do dia ---------------- #}
-      <section class="card today-hero">
+      <section class="card today-hero card--prato">
         {% comment %}
           O ANEL TEM DOIS MODOS, e quem escolhe é o servidor (`topo.modo`).
 
@@ -129,7 +129,7 @@
             {% if topo.modo == 'plano' %}
               {{ macros.0.grams }} g de proteína
             {% else %}
-              {{ summary.no_plano }} de {{ summary.previstas }} refeições{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
+              {{ summary.no_plano }}/{{ summary.ate_agora }} até agora{% if summary.fora_do_plano %} · {{ summary.fora_do_plano }} fora{% endif %}
             {% endif %}
           </p>
           {% comment %}

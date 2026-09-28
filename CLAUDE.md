@@ -657,6 +657,17 @@ POR PRIORIDADE (22/09/2026).**
   não entram — nem aqui nem no AGORA/lista (`agora.proxima_acao(desde=)`,
   `marcar_refeicoes(desde=)`; achado #7: "três refeições Pendente" na
   primeira Home de quem chegou às 18h). `plans/test_aderencia_primeiros_dias.py`.
+  **REVOGADO EM 27/09/2026 (decisão do dono): o recorte "até agora" valia
+  só para o Progresso, e a Home e o topo da Alimentação continuavam
+  dividindo pelo DIA INTEIRO ("1/5 refeições").** O QA exploratório daquele
+  dia viu as duas telas, na mesma hora, darem dois números para a mesma
+  pergunta ("1/5" na Home, "1/1 · hoje, até agora" no Progresso). Agora as
+  três contam igual: `tracking.teto_de_hoje` é a conta única,
+  `day_summary` devolve `ate_agora` e a Home diz "1/1 até agora".
+  `previstas` continua sendo o plano inteiro, porque "o seu dia em 5
+  refeições" fala da estrutura, não do progresso.
+  `plans/test_home_e_progresso_ate_agora.py` compara os dois números no
+  mesmo instante.
 - **"FICOU PARA TRÁS" depois da janela da refeição** (`JANELA_DO_AGORA_MIN
   = 90`): a refeição vencida mais recente continua sendo a ação (registrar
   o que aconteceu), mas às 18:20 o almoço das 14:30 não é "AGORA" (achado
@@ -2813,6 +2824,50 @@ antiga vê o aviso "regenerar?" uma vez, e decide.
 
 ## Design: o que já existe, e o que não inventar de novo
 
+**A ESCALA DA DIREÇÃO É A LEI DO CÓDIGO (28/09/2026, dívida de sistema visual,
+lote 1).** Base: `achados/auditoria-visual-20260927.md` e a medição completa
+em `achados/divida-visual-medicao-20260927.md`. Espaço é `--e1…--e8` (4 · 8
+· 12 · 16 · 20 · 24 · 32 · 48; `--pad` = `--e5`, `--gap` = `--e4`); entrelinha
+é `--entrelinha-numero/-display/-titulo` e `--entrelinha`; tinta é
+`--brand-tinta-fraca/-tinta/-linha/-linha-forte/-tinta-forte` e a mesma escada
+nos pilares. `--espaco-*` é LEGADO só de regra de treino (a Fase A mora em
+`templates/workouts/`). `config/test_design_system.py`
+(`OSistemaViraALeiTests`) cobra, com catraca de folga zero: `font-size`,
+espaço, entrelinha, cor literal e `color-mix()` fora do `:root`; e recusa
+`--espaco-*` em regra que não é de treino — "regra de treino" é a que tem,
+em cada parte do seletor, um seletor simples (as classes de UM elemento, como
+`.card.hoje`) que só aparece em `templates/workouts/`. A busca é no atributo
+`class="…"`, não no texto: "hoje" é classe e é palavra. A migração foi
+mecânica (o degrau mais perto; 40/36/52 px viraram soma exata de dois) e
+provada com 129 capturas antes/depois em 390 e 1280: nenhuma nota medida caiu.
+
+**UM BOTÃO PRIMÁRIO SÓ (28/09/2026, dívida visual, lote 2).** O primário é
+`.btn.btn--primary` (display, inclinado) e o pequeno é `.btn--primary.btn--sm`
+(Archivo 700 — a display nunca desce de 20 px, e a Archivo vai de 400 a 700).
+Nenhuma regra fora do treino pinta `--brand` cheio com `--on-brand` a não ser
+ele (`UmBotaoPrimarioSoTests`; o visto do `choice-card` é a única exceção
+nomeada). O "Salvar" do peso deixou de ser o `.pesagem__salvar` paralelo; o
+"Compartilhar" do aviso de conquista e o "Regenerar treino" da Home são
+contorno, porque o primário da execução é CONCLUIR SÉRIE e o da Home é o do
+AGORA — `templates/plans/today.html` não tem `btn--primary` (há teste).
+
+**UM CARTÃO SÓ (28/09/2026, dívida visual, lote 3).** A auditoria mediu doze
+caixas de `.card` fora do treino; o DESIGN.md tem duas. A SEÇÃO é `.card`
+(`--surface`, `--pad`, régua de `--traco` em `--fio`); o PRATO é
+`.card--prato` — a superfície de foco, contornada por `--brand-linha-forte`,
+com a nervura no lugar da régua —, e mora no AGORA da Home e no topo da
+Alimentação, um por tela. Quem decide o prato do AGORA é o SERVIDOR
+(`_agora.html`): água, pesagem e "nada pendente" não têm hora que passa e
+saem como seção. `UmCartaoSoTests` recusa regra fora do treino que mude
+padding, fundo, borda ou sombra de um elemento `.card` sem ser o cânone, com
+três exceções nomeadas e cobradas (`CAIXAS_DE_CARTAO_PERMITIDAS`). Saíram o
+vidro e a luz do topo da Alimentação (vidro além da moldura é o que o
+DESIGN.md recusa), o padding de 27,2 px do `.auth .card` (onboarding, 403,
+404, landing, offline) e o `.card` das telas de entrada, que existia para uma
+regra de dois níveis desfazê-lo — hoje é `.entrada__cartao`, só com o respiro.
+O `.painel__cartao` da Home NÃO é `.card` e fica: é a célula da grade, e o
+padding de 16 foi medido para três alvos de 44 px caberem em 169 px.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de
@@ -3828,8 +3883,13 @@ Actions + UptimeRobot free —, e isso implica três coisas escritas:**
   (27/09/2026, lido nos docs do Render):** hora DORMINDO não conta para a
   cota — mas esgotar as 750 h **suspende todos os serviços free do
   workspace até o mês seguinte**, produção junto, porque produção e
-  staging dividem o mesmo workspace; a confirmação no painel de uso segue
-  pendente (esta máquina não tem login no Render).
+  staging dividem o mesmo workspace; CONFIRMADO no painel (Billing →
+  Monthly Included Usage, 27/09/2026 à tarde): 377,88 h de 750 no mês,
+  com os dois serviços web existindo desde o dia 1 — se hora dormindo
+  contasse, seriam mais de 1.270 h. No mesmo painel: 223 de 500 minutos
+  de build (cada merge constrói o staging e cada promoção constrói a
+  produção), 1,71 de 5 GB de banda, US$ 0,00 no mês e nenhum cartão
+  cadastrado.
 
 - **o staging só acorda pra fila e o E2E, nunca pelo lote adiado
   (27/09/2026).** Três motivos e nenhum outro: o `autoDeploy` de todo

@@ -21,7 +21,9 @@ CSS = RAIZ / "static" / "css" / "app.css"
 
 #: Os donos da superfície de foco, e o que cada um responde na sua tela.
 DONOS = {
-    ".agora-card": "a próxima ação em /hoje/",
+    # desde 28/09/2026 o dono é o PRATO, que o servidor escreve no AGORA
+    # com hora marcada e no topo da Alimentação (lote 3 da dívida visual)
+    ".card--prato": "a próxima ação em /hoje/ e o dia em /alimentacao/",
     ".hoje": "o treino de hoje em /treino/",
 }
 
@@ -100,8 +102,9 @@ class ASuperficieDeFocoTemDonoTests(SimpleTestCase):
         for seletor in DONOS:
             with self.subTest(seletor=seletor):
                 corpo = bloco(self.css, seletor)
-                self.assertIn("border-color", corpo)
-                self.assertIn("var(--brand)", corpo)
+                self.assertRegex(corpo, r"border(-color)?:")
+                # a tinta com nome (`--brand-linha-forte`) é receita de `var(--brand)` desde 28/09/2026
+                self.assertRegex(corpo, r"var\(--brand(-[\w-]+)?\)")
 
     def test_os_ramos_sem_hora_marcada_abrem_mao_do_foco(self):
         """Água, pesagem e "nada pendente" não são ação com hora que passa.
@@ -110,17 +113,11 @@ class ASuperficieDeFocoTemDonoTests(SimpleTestCase):
         — e uma tela que grita sempre não grita nunca. Este teste guarda a
         regra de PRODUTO, não a cor: o foco é para o que a hora atrasa.
         """
-        for ramo in (".agora-card--agua", ".agora-card--pesagem",
-                     ".agora-card--vazio"):
+        # Desde 28/09/2026 quem recua é o SERVIDOR: `_agora.html` só escreve
+        # `card--prato` quando o tipo não é um dos três.
+        agora = (RAIZ / "templates" / "plans" / "_agora.html").read_text(encoding="utf-8")
+        condicao = re.search(r"\{% if ([^%]*) %\} card--prato\{% endif %\}", agora)
+        self.assertIsNotNone(condicao, "o prato do AGORA deixou de depender do tipo")
+        for ramo in ("agua", "pesagem", "vazio"):
             with self.subTest(ramo=ramo):
-                self.assertIn(ramo, self.css)
-
-        recuo = re.search(
-            r"\.agora-card--agua,\s*\.agora-card--pesagem,\s*"
-            r"\.agora-card--vazio\s*\{([^}]*)\}",
-            self.css,
-        )
-        self.assertIsNotNone(
-            recuo, "os três ramos deixaram de recuar o fundo de foco juntos"
-        )
-        self.assertIn("var(--surface)", recuo.group(1))
+                self.assertIn("acao.tipo != '%s'" % ramo, condicao.group(1))

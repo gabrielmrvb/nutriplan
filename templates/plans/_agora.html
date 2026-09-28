@@ -14,7 +14,7 @@
   o conteúdo e a Hoje desenha — separar as duas coisas é o que permite testar
   a decisão sem renderizar tela.
 {% endcomment %}
-<section class="card agora-card agora-card--{{ acao.tipo }}">
+<section class="card agora-card agora-card--{{ acao.tipo }}{% if acao.tipo != 'agua' and acao.tipo != 'pesagem' and acao.tipo != 'vazio' %} card--prato{% endif %}">
   {% if acao.existe %}
     <p class="agora__rotulo">{{ acao.rotulo }}</p>
     <h2 class="agora__titulo">{{ acao.titulo }}</h2>

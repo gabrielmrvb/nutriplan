@@ -162,6 +162,17 @@ def log_meal(
     return log
 
 
+def _ate_agora(user, plan, day, slots, feitas, total):
+    if day != timezone.localdate():
+        return total
+    agora, desde = timezone.localtime().time(), _desde(user, day)
+    if slots is None:
+        passaram = previstas_ate_agora(plan.pk, agora, desde)
+    else:  # a Home já tem os horários: contar em memória, sem consulta.
+        passaram = sum(1 for slot in slots if slot.time <= agora and (desde is None or slot.time >= desde))
+    return teto_de_hoje(passaram, total, feitas)
+
+
 def logs_by_slot(user, day) -> dict:
     """Registros do dia indexados pelo horário, para casar com o cardápio."""
     return {
@@ -247,6 +258,10 @@ def day_summary(user, plan, day, *, peso_kg=None, logs=None, slots=None, corrida
         "total": total_slots,
         # Os nomes da TELA, que dizem qual das duas perguntas cada um responde.
         "previstas": total_slots,
+        # O denominador do PROGRESSO DO DIA, recortado pelo relógio como no
+        # Progresso (`teto_de_hoje`). `previstas` continua sendo o plano
+        # inteiro — "o seu dia em 5 refeições" fala da estrutura.
+        "ate_agora": _ate_agora(user, plan, day, slots, counts["done"], total_slots),
         "registradas": counts["marked"],
         "no_plano": counts["done"],
         "fora_do_plano": counts["fora_do_plano"],
@@ -355,7 +370,7 @@ def history(user, days=HISTORY_DAYS) -> list:
             # continua sendo o plano; o recorte é o relógio. Marcar uma
             # refeição futura não passa de 100 %: o feito entra no piso.
             ate_agora = previstas_ate_agora(row["plano"], timezone.localtime().time(), _desde(user, today))
-            total = max(min(ate_agora, total), row["done"], 0)
+            total = teto_de_hoje(ate_agora, total, row["done"])
             parcial = True
         summary.append(
             {
@@ -370,6 +385,16 @@ def history(user, days=HISTORY_DAYS) -> list:
             }
         )
     return summary
+
+
+def teto_de_hoje(ate_agora, total, feitas) -> int:
+    """O denominador de HOJE: as refeições que já passaram, nunca mais que o
+    plano, e nunca menos que as feitas (marcar uma futura não passa de 100 %).
+
+    É a MESMA conta no Progresso (`history`) e na Home/Alimentação
+    (`day_summary`), por decisão do dono de 27/09/2026: a Home dizia "1/5"
+    enquanto o Progresso, na mesma hora, dizia "1/1 · até agora"."""
+    return max(min(ate_agora, total), feitas, 0)
 
 
 def previstas_ate_agora(plan_id, agora, desde=None) -> int:

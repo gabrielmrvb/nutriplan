@@ -4,8 +4,15 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-28
+
+- **Os blocos têm um desenho só.** O cartão "Agora" da Home e o topo da Alimentação ganharam o mesmo destaque: fundo verde-escuro, contorno da marca e a linha diagonal no canto. Quando o "Agora" é só um convite (água, peso, nada pendente), ele aparece como os outros blocos. As telas de cadastro, erro e boas-vindas e o bloco de metas do Perfil passaram a usar o mesmo respiro de todos os cartões.
+- **Um botão principal só.** O "Salvar" do peso, no Progresso e na Home, ganhou o mesmo desenho dos outros botões principais. O aviso de conquista, que aparece embaixo de "Concluir série", passou a mostrar "Compartilhar" com contorno, para não disputar com o botão da série, e o aviso de regenerar o treino, na Home, deixou de competir com o cartão "Agora". O selo "Agora" da Alimentação não aparece mais cortado como "Ag…", e o "Buscar no YouTube" do exercício sem vídeo ficou do tamanho de um dedo.
+- **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
+
 ## 2026-09-27
 
+- **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".
 - **A última etapa do cadastro respira.** O resumo das suas respostas ganhou espaço antes da primeira pergunta, e "Não quero priorizar agora" deixou de mostrar uma caixa de ícone vazia.
 - **A mesma corrida tem o mesmo número em toda tela.** A lista dizia "5,20 km" e a Home "5,2 km". Agora a distância aparece sempre com até duas casas e sem zero sobrando: 5,2 · 5,23 · 10.
 - **A sequência não pede o que você acabou de fazer.** Com a sequência em zero, a Home convidava a "registrar uma refeição ou um copo d'água" mesmo depois de você registrar. Agora, assim que há registro no dia, ela diz o que ainda falta para o dia contar.
