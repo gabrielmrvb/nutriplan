@@ -101,7 +101,8 @@ class ASuperficieDeFocoTemDonoTests(SimpleTestCase):
             with self.subTest(seletor=seletor):
                 corpo = bloco(self.css, seletor)
                 self.assertIn("border-color", corpo)
-                self.assertIn("var(--brand)", corpo)
+                # a tinta com nome (`--brand-linha-forte`) é receita de `var(--brand)` desde 28/09/2026
+                self.assertRegex(corpo, r"var\(--brand(-[\w-]+)?\)")
 
     def test_os_ramos_sem_hora_marcada_abrem_mao_do_foco(self):
         """Água, pesagem e "nada pendente" não são ação com hora que passa.

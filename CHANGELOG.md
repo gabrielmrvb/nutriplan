@@ -7,6 +7,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 ## 2026-09-28
 
 - **"Exportar meus dados" agora leva tudo, não só uma parte.** O arquivo que você baixa no Perfil passou a incluir corrida, consentimento, água registrada gole a gole, lista de compras marcada, e-mails enviados e todo o resto que o app guarda sobre você — antes faltavam essas partes, sem aviso. Continua sem senha, sem token e sem nada de outra pessoa.
+- **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
 
 ## 2026-09-27
 
