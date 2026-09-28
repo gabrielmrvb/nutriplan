@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-28
+
+- **O aviso sobre nutricionista e Educação Física ficou mais claro.** No cadastro, na última etapa e junto do cardápio, o app agora diz que a orientação de quem tem registro profissional (CRN ou CREF) não é substituída, e que gestante, lactante, menor de idade ou quem tem alguma condição de saúde deve procurar um profissional antes de seguir o que o app sugere.
+
 ## 2026-09-27
 
 - **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".
