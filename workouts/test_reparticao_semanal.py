@@ -76,6 +76,41 @@ MINIMOS_SEMANAIS = {
 }
 
 
+def minimo_do_contrato(plano, grupo, minimo):
+    """Quantos exercícios distintos a semana de `plano` deve a `grupo`.
+
+    LETRA REPETIDA SEGUE A TABELA A. O CONTRATO SEMANAL VALE SÓ PARA A LETRA
+    TREINADA UMA VEZ POR SEMANA (28/09/2026, decisão do dono). O princípio:
+    o teto por sessão da tabela A existe para a letra que repete, cuja dose
+    se soma na semana; só a letra que cai uma vez carrega o contrato inteiro.
+    Então: se alguma letra que anuncia o grupo cai uma vez, o contrato
+    (`minimo`); se todas as que o anunciam repetem, a tabela A da letra — o
+    grande para peito e costas, o pequeno para o resto. Um grupo que nenhum
+    título anuncia continua com o contrato: nada afrouxa fora da letra
+    repetida.
+
+    "Uma vez por semana" é a leitura do MOTOR (`services.
+    ocorrencias_das_letras`: com a rotação contínua, a PIOR semana do ciclo
+    — no ABC de 4 dias a B cai duas vezes em alguma semana). A contagem das
+    sessões de uma semana só divergia dela e pediria três bíceps ao ABC de 4
+    dias (revisões A2 e B2, 28/09/2026).
+    """
+    from . import doutrina
+
+    vezes = services.ocorrencias_das_letras(list(plano.sessions.all()))
+    modelos = {t.label: t for t in services.templates_for(plano.split)}
+    devidos = []
+    for letra, n in vezes.items():
+        if grupo not in (modelos[letra].main_groups or ()):
+            continue
+        if n == 1:
+            devidos.append(minimo)
+        else:
+            grande, pequeno = doutrina.exercicios_por_grupo(plano.nivel, doutrina.tipo_de_dia(plano.split, letra))
+            devidos.append(grande if grupo in (MuscleGroup.CHEST, MuscleGroup.BACK) else pequeno)
+    return max(devidos, default=minimo)
+
+
 def perfil(dias, preferencia=SplitPreference.DOIS,
            duracao=DuracaoTreino.PADRAO,
            experiencia=Experiencia.INTERMEDIARIO, sufixo=""):
@@ -138,107 +173,32 @@ class ALetraRepetidaDistribuiExerciciosTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def test_nenhuma_passagem_repete_enquanto_houver_opcao(self):
-        """O defeito central, varrido de 1 a 7 dias — lido sobre as OPÇÕES.
-
-        A regra não é "nunca repetir": é "não repetir enquanto o modelo ainda
-        tiver exercício daquele grupo sem usar". Desde 15/09/2026 quem reparte
-        a letra são as duas OPÇÕES, e não as passagens: um exercício que
-        aparece nas duas só é legítimo quando o grupo dele já está INTEIRO em
-        uso entre as duas — é o empréstimo do grupo ímpar (três tríceps para
-        duas opções: mergulho e corda numa, testa e corda na outra) ou o grupo
-        com menos exercícios que opções. Compartilhar com exercício do grupo
-        sobrando no modelo é a segunda opção deixando de ser uma versão.
-        """
+    def test_a_variante_da_letra_cobre_os_anunciados_sem_repetir_exercicio(self):
+        """O que sobra, com UMA variante por letra (27/09/2026), dos dois
+        testes que liam as OPÇÕES: "nenhuma passagem repete enquanto houver
+        opção" (as duas versões não compartilhavam exercício com o grupo
+        sobrando) e "cada passagem recebe uma fatia equilibrada" (as versões
+        diferiam em ≤ 1 série por grupo). Sem segunda versão, os dois ficavam
+        vácuos. O que continua valendo, varrido de 1 a 7 dias nas três
+        preferências: a lista da letra treina TODO grupo que o título promete
+        e não traz o mesmo exercício duas vezes."""
         for preferencia in SplitPreference.values:
-          for dias in range(1, 8):
-            with self.subTest(preferencia=preferencia, dias=dias):
-                _, plano = perfil(dias, preferencia=preferencia, sufixo="-var")
-                modelos = {t.label: t for t in services.templates_for(plano.split)}
-
-                for letra, sessao in sessoes_por_letra(plano).items():
-                    opcoes = opcoes_da_letra(sessao)
-                    if len(opcoes) < 2:
-                        continue
-                    if plano.sessions.filter(label=letra).count() > 2:
-                        # A letra três vezes na semana: o teto semanal (pior
-                        # caso × 3) tira exercício EXCLUSIVO de uma opção
-                        # depois da repartição, e o que sobra compartilhado
-                        # parece "repetido com exercício sem usar" — o sem
-                        # usar foi aparado, não esquecido. Medido a 7 dias
-                        # em ABC (15/09/2026).
-                        continue
-                    disponivel = defaultdict(set)
-                    for item in modelos[letra].items.all():
-                        if item.exercise.is_active:
-                            disponivel[item.exercise.muscle_group].add(
-                                item.exercise.name)
-
-                    usados = defaultdict(list)
-                    for itens in opcoes:
-                        for item in itens:
-                            usados[item.exercise.name].append(item.exercise.muscle_group)
-                    for nome, grupos in usados.items():
-                        if len(grupos) == 1:
-                            continue
-                        grupo = grupos[0]
-                        sem_usar = disponivel[grupo] - set(usados)
-                        self.assertEqual(
-                            sem_usar, set(),
-                            "%s repetiu nas duas opções de %s com %s do grupo sem usar"
-                            % (nome, letra, sorted(sem_usar)),
-                        )
-
-    def test_cada_passagem_recebe_uma_fatia_equilibrada_de_cada_grupo(self):
-        """Repartir não é só "não repetir" — é repartir DIREITO.
-
-        Era "com G exercícios de um grupo e N passagens, cada passagem leva
-        entre G//N e G//N + 1". Desde 15/09/2026 as fatias são as OPÇÕES da
-        letra, e a régua de "repartir direito" é a EQUIVALÊNCIA de
-        `opcoes.py`: as duas versões diferem em no máximo UMA série por grupo
-        (`TOLERANCIA_DE_SERIES`) e treinam os mesmos grupos anunciados. Sem
-        isto, repartir a lista inteira sem olhar o grupo passa: as opções não
-        repetem e cobrem os grupos, mas uma leva três peitos e a outra um.
-
-        A faixa começa em 4 dias como antes — é onde a letra repete e a
-        equivalência importa para a SEMANA — e cobre só as letras que saíram
-        com duas opções: a letra de opção única é o modelo inteiro e não tem
-        o que equilibrar.
-        """
-        from workouts.opcoes import TOLERANCIA_DE_SERIES
-
-        for preferencia in SplitPreference.values:
-            for dias in range(4, 8):
+            for dias in range(1, 8):
                 with self.subTest(preferencia=preferencia, dias=dias):
-                    _, plano = perfil(dias, preferencia=preferencia, sufixo="-eq")
+                    _, plano = perfil(dias, preferencia=preferencia, sufixo="-var")
                     for letra, sessao in sessoes_por_letra(plano).items():
-                        opcoes = opcoes_da_letra(sessao)
-                        if len(opcoes) < 2:
-                            continue
-                        series = []
-                        for itens in opcoes:
-                            por_grupo = defaultdict(int)
-                            for item in itens:
-                                # Por FAMÍLIA: entre as duas versões, posterior
-                                # e glúteo são a mesma cadeia (21/09/2026).
-                                por_grupo[familia_de_opcoes(item.exercise.muscle_group)] += item.sets
-                            series.append(por_grupo)
-                        grupos = set().union(*(v.keys() for v in series))
-                        for grupo in grupos:
-                            valores = [v.get(grupo, 0) for v in series]
-                            self.assertLessEqual(
-                                max(valores) - min(valores), TOLERANCIA_DE_SERIES,
-                                "%s: as opções levam %s séries de %s"
-                                % (letra, valores, grupo),
-                            )
-                        anunciados = {familia_de_opcoes(g) for g in (sessao.main_groups or ())}
-                        for numero, itens in enumerate(opcoes, start=1):
-                            presentes = {familia_de_opcoes(i.exercise.muscle_group) for i in itens}
-                            self.assertEqual(
-                                anunciados - presentes, set(),
-                                "%s opção %d não treina %s, que o título promete"
-                                % (letra, numero, sorted(anunciados - presentes)),
-                            )
+                        self.assertEqual(sessao.opcoes, [1], "%s com mais de uma variante" % letra)
+                        nomes = [i.exercise.name for i in sessao.da_opcao(1)]
+                        self.assertEqual(len(nomes), len(set(nomes)), "%s repetiu exercício" % letra)
+                        # Por GRUPO do título, e não por família: todo grupo
+                        # do título tem pelo menos um exercício (dono,
+                        # 27/09/2026) — o glúteo inclusive.
+                        anunciados = set(sessao.main_groups or ())
+                        presentes = {i.exercise.muscle_group for i in sessao.da_opcao(1)}
+                        self.assertEqual(
+                            anunciados - presentes, set(),
+                            "%s não treina %s, que o título promete" % (letra, sorted(anunciados - presentes)),
+                        )
 
     def test_a_ficha_segue_a_ordem_do_modelo(self):
         """A ordem agrupa por REGIÃO, e o grau de prioridade sai dela.
@@ -876,6 +836,13 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
         `abc` é a divisão de quem pede TRÊS grupos por dia; `abc2` é a de quem
         pede dois. As duas passam pelo mesmo contrato, porque as duas têm um
         dia de puxar e um de empurrar.
+
+        LETRA REPETIDA SEGUE A TABELA A (28/09/2026, decisão do dono, que
+        autorizou ajustar a expectativa SÓ para ela). No `abc` de cinco dias
+        a letra A ("Peito, tríceps e ombro") cai duas vezes: a tabela A dá
+        dois tríceps por sessão, e a semana entrega dois (mergulho no banco e
+        polia com corda) — o contrato de três vale só para a letra que cai
+        uma vez (`minimo_do_contrato`). Todo o resto do contrato fica.
         """
         for preferencia in (SplitPreference.TRES, SplitPreference.DOIS):
             with self.subTest(preferencia=preferencia):
@@ -889,6 +856,7 @@ class AQuartaCostasEntrouNoModeloDeTresGruposTests(TestCase):
                         distintos[item.exercise.muscle_group].add(item.exercise.name)
 
                 for grupo, minimo in MINIMOS_SEMANAIS.items():
+                    minimo = minimo_do_contrato(plano, grupo, minimo)
                     self.assertGreaterEqual(
                         len(distintos[grupo]), minimo,
                         "%s: %s tem %s"

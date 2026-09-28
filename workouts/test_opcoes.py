@@ -1,20 +1,15 @@
-"""Uma letra, até duas opções completas e intercambiáveis (15/09/2026).
+"""Uma letra, UMA variante (27/09/2026); até ali, até duas opções.
 
-O problema, medido em produção no intermediário de cinco dias e dois grupos
-por dia: A1 com 4 exercícios, 13 séries e ~36 minutos; A2 com 4, 13 e ~29 —
-a mesma letra com conteúdos diferentes em dias diferentes, nomeada como dois
-treinos obrigatórios. Aqui: o calendário só diz letras; cada letra oferece
-até duas opções equivalentes (mesmos grupos, ≤ 1 série por grupo, ≤ 5 min,
-metade dos exercícios próprios), a pessoa escolhe qual faz, repetir a
-preferida cabe no teto semanal, a versão rápida sai da opção escolhida sem
-tirar principal, e trocar depois da primeira série pede confirmação sem
-apagar nada.
+De 15 a 27/09/2026 cada letra saía com até duas opções equivalentes e a
+pessoa alternava. Desde 27/09/2026 (decisão do dono: "Fichas novas com uma
+variante só"; "letra repetida faz sempre o mesmo treino") a letra de ficha
+nova é UMA lista montada por cota (`opcoes.variante_unica`), e a ficha
+LEGADA com opção 2 continua lida (`FichaLegadaComDuasOpcoesTests`, fixture
+`ficha_legada`). Os testes das réguas de equivalência, da repartição por
+padrão e do aparo em lockstep saíram junto com o código que testavam.
 
-Os cinco perfis do brief são medidos um a um, e os números que o motor
-entrega hoje (com o catálogo de hoje) ficam escritos nos testes, não em
-promessa. Até 16/09/2026 a sessão de "peito e tríceps" tinha 4 exercícios
-porque o catálogo tinha 4 peitos e 3 tríceps; desde 17/09, com 63 ativos e
-a doutrina do `TREINO.md`, ela tem 4 de peito e 3 de tríceps POR OPÇÃO — o
+Os perfis do brief são medidos um a um, e os números que o motor entrega
+hoje (com o catálogo de hoje) ficam escritos nos testes, não em promessa. O
 teste dourado (`test_ficha_de_verdade`) é quem cobra a ficha de academia.
 """
 from datetime import timedelta
@@ -27,7 +22,7 @@ from django.utils import timezone
 from accounts.models import DuracaoTreino, SplitPreference, TrainingDay
 from plans.tests import create_complete_user
 from workouts import opcoes, services
-from workouts.models import EscolhaDeTreino, ExerciseLog, SessionExercise, TrainingPlan, familia_de_opcoes
+from workouts.models import EscolhaDeTreino, ExerciseLog, SessionExercise, TrainingPlan
 
 PERFIS = {
     "iniciante_3d_2g": ("iniciante", SplitPreference.DOIS, [0, 2, 4]),
@@ -95,61 +90,19 @@ class CincoPerfisTests(Catalogo):
                 plan = services.create_routine(pessoa(nome))
                 self.assertEqual(letras(plan), calendario)
 
-    def test_cada_letra_com_catalogo_tem_duas_opcoes_equivalentes(self):
-        """Onde há catálogo, duas opções: mesmos grupos anunciados, ≤ 1 série
-        por grupo de diferença, ≤ 5 min, metade dos exercícios próprios. O
-        grupo é a FAMÍLIA (`models.FAMILIA_DE_OPCOES`): posterior e glúteo
-        são uma cadeia entre as duas versões — o stiff numa, a elevação
-        pélvica na outra (21/09/2026)."""
-        for nome in PERFIS:
-            plan = services.create_routine(pessoa(nome))
-            for label, sessao in por_letra(plan).items():
-                if not sessao.tem_duas_opcoes:
-                    continue
-                with self.subTest(perfil=nome, letra=label):
-                    op1, op2 = sessao.da_opcao(1), sessao.da_opcao(2)
-                    anunciados = {familia_de_opcoes(g) for g in sessao.main_groups}
-                    for op in (op1, op2):
-                        self.assertTrue(anunciados <= {familia_de_opcoes(i.exercise.muscle_group) for i in op},
-                                        "um grupo anunciado ficou órfão")
-                    direto = [opcoes._volume_direto([(i, i.sets, 0) for i in op]) for op in (op1, op2)]
-                    for grupo in set(direto[0]) | set(direto[1]):
-                        self.assertLessEqual(abs(direto[0].get(grupo, 0) - direto[1].get(grupo, 0)), 1, grupo)
-                    self.assertLessEqual(abs(sessao.minutos_da_opcao(1) - sessao.minutos_da_opcao(2)), 5)
-                    proprios = {i.exercise_id for i in op1} ^ {i.exercise_id for i in op2}
-                    for op in (op1, op2):
-                        self.assertGreaterEqual(
-                            sum(1 for i in op if i.exercise_id in proprios) / len(op), 0.5,
-                            "as opções são praticamente as mesmas",
-                        )
-
     def test_quantas_opcoes_cada_perfil_recebe_hoje(self):
         """O número de hoje, com o catálogo de hoje — escrito, não prometido.
 
-        "Inferior" de dois dias (`ab B`) TINHA duas opções até 16/09/2026, e
-        elas não eram intercambiáveis: o stiff — a única extensão de quadril
-        do modelo — ficava numa e a mesa flexora na outra. A régua dos
-        padrões compostos compartilha o stiff e a letra caía para UMA opção;
-        voltou a duas no mesmo dia, porque o modelo passou a listar a
-        elevação pélvica (ativa) como segunda extensão de quadril. "Superior"
-        (`ab A`) ganhou duas pelo mesmo caminho. `abcd C` esperou o
-        "Desenvolvimento na máquina" até 17/09/2026, quando os 28 com foto
-        conferida entraram ativos: hoje TODA letra tem duas, e é o gate de
-        `opcoes_em_producao` (por letra) que impede uma de voltar a uma.
+        Até 27/09/2026 era 2 em toda letra de todo perfil (o gate de 16/09).
+        Desde a decisão do dono ("Fichas novas com uma variante só") é UMA em
+        toda letra, e o gate invertido de `opcoes_em_producao` é quem impede
+        uma letra de ganhar a segunda.
         """
-        esperado = {
-            "iniciante_3d_2g": {"A": 2, "B": 2, "C": 2},
-            "intermediario_5d_2g": {"A": 2, "B": 2, "C": 2},
-            "avancado_6d_2g": {"A": 2, "B": 2, "C": 2},
-            "intermediario_4d_3g": {"A": 2, "B": 2, "C": 2},
-            "intermediario_2d": {"A": 2, "B": 2},
-            "intermediario_4d_1g": {"A": 2, "B": 2, "C": 2, "D": 2},
-        }
-        for nome, por_label in esperado.items():
+        for nome in PERFIS:
             plan = services.create_routine(pessoa(nome))
             for label, sessao in por_letra(plan).items():
                 with self.subTest(perfil=nome, letra=label):
-                    self.assertEqual(len(sessao.opcoes), por_label[label])
+                    self.assertEqual(len(sessao.opcoes), 1)
 
     def test_o_tamanho_das_sessoes_hoje(self):
         """Com Padrão (até 60), o intermediário de cinco dias recebe sessões
@@ -202,15 +155,19 @@ class CincoPerfisTests(Catalogo):
                                 self.assertTrue(len(diretos) <= 1 or not cedem,
                                                 f"{grupo} passa do teto ({volume} > {teto}) com o que ceder")
 
-    def test_as_opcoes_nao_sao_somadas_no_volume(self):
+    def test_as_opcoes_da_ficha_legada_nao_sao_somadas_no_volume(self):
+        """`volume_da_semana` é o pior caso por ocorrência, nunca a soma das
+        opções — ninguém faz os dois treinos no mesmo dia. Com a variante
+        única as duas contas coincidem; a diferença mora na ficha LEGADA com
+        opção 2, que continua sendo lida (27/09/2026)."""
         plan = services.create_routine(pessoa("intermediario_5d_2g"))
+        ficha_legada(plan, "A")
         pior = services.volume_da_semana(plan)
         soma = {}
         for sessao in plan.sessions.all():
             for item in sessao.exercises.select_related("exercise"):
                 soma[item.exercise.muscle_group] = soma.get(item.exercise.muscle_group, 0) + item.sets
-        # Somar as duas opções dá um número maior que o pior caso em todo
-        # grupo com duas opções — é o treino que ninguém faz.
+        # Somar as duas opções dá mais que o pior caso — é o treino que ninguém faz.
         self.assertGreater(soma["chest"], pior["chest"])
         self.assertLessEqual(pior["chest"], services.tetos_da_semana(plan)["chest"])
 
@@ -224,14 +181,15 @@ class CincoPerfisTests(Catalogo):
         self.assertEqual(assinatura(a1), assinatura(a2))
 
     def test_sem_catalogo_para_duas_a_letra_sai_com_uma_e_inteira(self):
-        """Sem catálogo para duas opções distintas, a letra sai com UMA: o
-        modelo inteiro no tempo, não a metade que sobrou.
+        """Com o catálogo de peito reduzido a um supino e um crucifixo, a
+        letra "Peito" de cinco dias sai com UMA lista — o que sobrou do
+        modelo, inteiro.
 
-        Até 16/09/2026 o exemplo real era `abcd C` (uma pressão vertical
-        ativa); com os 63 ativos toda letra tem duas, então o estado é
-        FABRICADO: "Peito" de cinco dias com o catálogo de peito reduzido a
-        um supino e um crucifixo — os dois compartilhados, zero próprio, e
-        a régua de `distintas_o_bastante` recusa a segunda opção."""
+        Até 27/09/2026 o teste provava a régua que recusava a segunda opção
+        sem exercícios próprios o bastante (apagada com a variante única).
+        Hoje toda letra sai com uma lista só; o que continua valendo é que a
+        cota não inventa exercício quando o catálogo não tem: dois peitos
+        ativos, dois peitos na ficha, mais o complementar."""
         from workouts.models import Exercise
 
         sobram = ("Supino reto com barra", "Crucifixo na máquina (voador)")
@@ -273,11 +231,12 @@ class CincoPerfisTests(Catalogo):
         user = pessoa("intermediario_5d_2g")
         plan = services.create_routine(user)
         self.assertTrue(services.routine_is_current(plan, user))
-        # Uma linha da opção 2 mexida à mão: a ficha deixa de ser atual —
-        # quando a conferência exata roda, que desde 17/09/2026 é só para
-        # ficha nascida de OUTRO catálogo (a impressão digital igual responde
-        # "atual" sem represcrever).
-        item = SessionExercise.objects.filter(session__plan=plan, opcao=2).first()
+        # Uma linha mexida à mão: a ficha deixa de ser atual — quando a
+        # conferência exata roda, que desde 17/09/2026 é só para ficha
+        # nascida de OUTRO catálogo (a impressão digital igual responde
+        # "atual" sem represcrever). Era uma linha da opção 2; desde
+        # 27/09/2026 a ficha nova só tem a 1.
+        item = SessionExercise.objects.filter(session__plan=plan).first()
         SessionExercise.objects.filter(pk=item.pk).update(sets=item.sets + 1)
         self.assertTrue(services.routine_is_current(plan, user), "mesmo catálogo: não represcreve")
         with mock.patch.object(services, "versao_do_catalogo", return_value="catalogo-novo"):
@@ -344,103 +303,6 @@ class Falso:
         self.rest_seconds = rest
 
 
-class EquivalenciaPuraTests(TestCase):
-    """As réguas de equivalência e o equilíbrio, sobre itens de mentira —
-    para a sabotagem que ignora a régua não passar por vacuidade quando os
-    perfis reais já nascem equilibrados."""
-
-    def _op(self, *linhas):
-        return [(Falso(pk, grupo, sets=sets, composto=composto), sets, grau)
-                for pk, grupo, sets, composto, grau in linhas]
-
-    def test_duas_series_de_diferenca_num_grupo_reprovam(self):
-        op1 = self._op((1, "chest", 4, True, 2), (2, "chest", 4, False, 0), (3, "triceps", 3, False, 0))
-        op2 = self._op((4, "chest", 4, True, 2), (5, "chest", 2, False, 0), (6, "triceps", 3, False, 0))
-        self.assertFalse(opcoes.equivalentes([op1, op2], ["chest", "triceps"]))
-        op2[1] = (op2[1][0], 3, 0)
-        self.assertTrue(opcoes.equivalentes([op1, op2], ["chest", "triceps"]))
-
-    def test_os_mesmos_padroes_compostos_em_cada_grupo_anunciado(self):
-        """Puxada + remada numa opção e duas puxadas na outra têm o MESMO
-        volume, os MESMOS minutos e o grupo presente nas duas — e não são
-        intercambiáveis: uma semana sem remada horizontal não é a mesma
-        semana. A régua compara os padrões COMPOSTOS por grupo anunciado."""
-        op1 = [
-            (Falso(1, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
-            (Falso(2, "back", sets=3, composto=True, padrao="remada_horizontal"), 3, 1),
-        ]
-        op2 = [
-            (Falso(3, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
-            (Falso(4, "back", sets=3, composto=True, padrao="puxada_vertical"), 3, 1),
-        ]
-        self.assertEqual(opcoes._minutos(op1), opcoes._minutos(op2))
-        self.assertFalse(opcoes.equivalentes([op1, op2], ["back"]))
-        # Com a remada dos dois lados, passa.
-        op2[1] = (Falso(4, "back", sets=3, composto=True, padrao="remada_horizontal"), 3, 1)
-        self.assertTrue(opcoes.equivalentes([op1, op2], ["back"]))
-
-    def test_tres_supinos_contra_tres_crucifixos_reprovam(self):
-        supinos = [
-            (Falso(pk, "chest", sets=3, composto=True, padrao="pressao_de_peito"), 3, 1)
-            for pk in (1, 2, 3)
-        ]
-        crucifixos = [
-            (Falso(pk, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0)
-            for pk in (4, 5, 6)
-        ]
-        self.assertFalse(opcoes.equivalentes([supinos, crucifixos], ["chest"]))
-
-    def test_isoladores_diferentes_com_os_mesmos_compostos_passam(self):
-        op1 = [
-            (Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito"), 4, 2),
-            (Falso(2, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0),
-        ]
-        op2 = [
-            (Falso(3, "chest", sets=4, composto=True, padrao="pressao_de_peito"), 4, 2),
-            (Falso(4, "chest", sets=3, composto=False, padrao="crucifixo"), 3, 0),
-        ]
-        self.assertTrue(opcoes.equivalentes([op1, op2], ["chest"]))
-
-    def test_grupo_complementar_nao_entra_na_regua_de_padrao(self):
-        """A régua é dos grupos ANUNCIADOS: o trapézio complementar pode ter
-        encolhimento numa opção e remada alta na outra, como
-        `repartir_ocorrencia` sempre fez com B1 e B2."""
-        op1 = [
-            (Falso(1, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
-            (Falso(2, "traps", sets=3, composto=False, padrao="elevacao_escapular"), 3, 0),
-        ]
-        op2 = [
-            (Falso(3, "back", sets=4, composto=True, padrao="puxada_vertical"), 4, 2),
-            (Falso(4, "traps", sets=3, composto=False, padrao="remada_alta"), 3, 0),
-        ]
-        self.assertTrue(opcoes.equivalentes([op1, op2], ["back"]))
-
-    def test_grupo_anunciado_ausente_reprova(self):
-        op1 = self._op((1, "chest", 4, True, 2), (3, "triceps", 3, False, 0))
-        op2 = self._op((4, "chest", 4, True, 2), (5, "chest", 3, False, 0))
-        self.assertFalse(opcoes.equivalentes([op1, op2], ["chest", "triceps"]))
-
-    def test_mais_de_cinco_minutos_reprova(self):
-        curta = self._op((1, "chest", 4, True, 2), (3, "triceps", 3, False, 0))
-        longa = self._op((4, "chest", 4, True, 2), (5, "triceps", 3, False, 0))
-        longa[1] = (Falso(5, "triceps", sets=3, rest=300), 3, 0)
-        self.assertGreater(abs(opcoes._minutos(curta) - opcoes._minutos(longa)), 5)
-        self.assertFalse(opcoes.equivalentes([curta, longa], ["chest", "triceps"]))
-
-    def test_equilibrar_da_serie_a_leve_antes_de_tirar_da_pesada(self):
-        op1 = self._op((1, "chest", 4, True, 2), (2, "chest", 4, False, 0), (3, "triceps", 3, False, 0))
-        op2 = self._op((4, "chest", 4, True, 2), (5, "chest", 2, False, 0), (6, "triceps", 3, False, 0))
-        equilibradas = opcoes.equilibrar([op1, op2], ["chest", "triceps"], 65)
-        self.assertTrue(opcoes.equivalentes(equilibradas, ["chest", "triceps"]))
-        # A leve recebeu (2 → 3); a pesada ficou como estava.
-        self.assertEqual(equilibradas[1][1][1], 3)
-        self.assertEqual(equilibradas[0][1][1], 4)
-        # Só tirando: a pesada cede.
-        so_tirando = opcoes.equilibrar([op1, op2], ["chest", "triceps"], 65, dar=False)
-        self.assertTrue(opcoes.equivalentes(so_tirando, ["chest", "triceps"]))
-        self.assertEqual(so_tirando[0][1][1], 3)
-
-
 class EscolhaDoDiaTests(Catalogo):
     def setUp(self):
         self.user = pessoa("intermediario_5d_2g", email="escolha@exemplo.com")
@@ -469,9 +331,12 @@ class EscolhaDoDiaTests(Catalogo):
         """Ficha única (17/09/2026): a ficha de hoje desenha a variação do
         dia, sem "Opção", sem selo, sem botão de escolher; a execução abre
         exatamente essa lista — e um exercício que só está na outra versão
-        não é executável hoje (`AEscolhaDoExercicioEEstritaTests`)."""
+        não é executável hoje (`AEscolhaDoExercicioEEstritaTests`). Sobre
+        uma ficha LEGADA desde 27/09/2026: a nova não tem outra versão."""
         from workouts.tests import sem_scripts
 
+        ficha_legada(self.plan, self.sessao.label)
+        self.sessao = services.sessao_do_dia(self.plan, timezone.localdate())
         opcao = services.opcao_do_dia(self.user, self.sessao, timezone.localdate())
         html = sem_scripts(self.client.get(reverse("workouts:ficha", args=[self.sessao.pk])).content.decode())
         self.assertNotIn("Opção 1", html)
@@ -527,154 +392,651 @@ class PlanoAntigoTests(Catalogo):
             self.assertEqual(sessao.opcoes, [1])
 
 
-class RepartirPorPadraoTests(TestCase):
-    """`montar_opcoes` reparte o grupo ANUNCIADO por padrão composto —
-    cada opção leva pelo menos um de cada — e o padrão composto único é
-    compartilhado. Os isoladores continuam em rodízio, e podem diferir."""
-
-    def _itens(self, *linhas):
-        return [Falso(pk, grupo, composto=composto, padrao=padrao) for pk, grupo, composto, padrao in linhas]
-
-    def test_cada_opcao_leva_uma_pressao_de_peito_sem_compartilhar(self):
-        # Pressão nas posições 0 e 2: o rodízio cego por grupo daria as duas
-        # pressões a uma opção e os dois crucifixos à outra — os "três
-        # supinos contra três crucifixos" da régua.
-        itens = self._itens(
-            (1, "chest", True, "pressao_de_peito"), (2, "chest", False, "crucifixo"),
-            (3, "chest", True, "pressao_de_peito"), (4, "chest", False, "crucifixo"),
-        )
-        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["chest"])
-        for op in ops:
-            self.assertTrue(any(i.exercise.padrao == "pressao_de_peito" for i in op), op)
-        self.assertEqual(compartilhados, set())
-        self.assertEqual(sorted(len(op) for op in ops), [2, 2])
-
-    def test_o_padrao_composto_unico_e_compartilhado(self):
-        itens = self._itens(
-            (1, "triceps", False, "extensao_de_cotovelo"), (2, "triceps", False, "extensao_de_cotovelo"),
-            (3, "triceps", True, "pressao_fechada"),
-        )
-        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["triceps"])
-        self.assertEqual(compartilhados, {3})
-        for op in ops:
-            self.assertIn(3, [i.exercise_id for i in op])
-        proprios = [[i.exercise_id for i in op if i.exercise_id != 3] for op in ops]
-        self.assertEqual(sorted(sum(proprios, [])), [1, 2])
-
-    def test_grupo_nao_anunciado_segue_o_rodizio_de_sempre(self):
-        """Sem estar em `principais`, nada muda: é o rodízio por grupo, com o
-        grupo ímpar emprestando o último."""
-        itens = self._itens(
-            (1, "traps", False, "elevacao_escapular"), (2, "traps", True, "remada_alta"),
-            (3, "traps", False, "elevacao_escapular"), (4, "traps", True, "remada_alta"),
-        )
-        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["back"])
-        self.assertEqual(compartilhados, set())
-        self.assertEqual([[i.exercise_id for i in op] for op in ops], [[1, 3], [2, 4]])
-
-    def test_dois_compostos_diferentes_com_um_de_cada_ficam_nas_duas_opcoes(self):
-        """Costas com UMA puxada e UMA remada: as duas são compartilhadas — e
-        aí a régua de metade própria decide se a letra sai com duas opções."""
-        itens = self._itens(
-            (1, "back", True, "puxada_vertical"), (2, "back", True, "remada_horizontal"),
-            (3, "back", False, "deltoide_posterior"), (4, "back", False, "deltoide_posterior"),
-        )
-        ops, compartilhados = opcoes.montar_opcoes(itens, n=2, principais=["back"])
-        self.assertEqual(compartilhados, {1, 2})
-        self.assertFalse(opcoes.distintas_o_bastante(ops, compartilhados))
-
-
-class AparoEmLockstepTests(TestCase):
-    """`aparar_opcoes` cede sem desfazer a equivalência: a irmã acompanha
-    pelo volume DIRETO, e nenhuma opção perde o penúltimo exercício direto
-    de um grupo — o excesso que só isso resolveria fica (teto de aparo)."""
+class AparoDaVarianteTests(TestCase):
+    """`aparar_opcoes` sobre UMA lista por letra (27/09/2026): a letra que
+    cai três vezes (abc2 a 7 dias) passa do teto na pior semana, e o aparo
+    cede SÉRIE antes de exercício — "4 exercícios a 3 séries são 36, vale o
+    teto de 45, e a sessão NÃO perde o quarto exercício" (TREINO.md, as três
+    regras de leitura da tabela B). O principal nunca cede."""
 
     def _linhas(self, *itens):
         return [(Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao), sets, grau)
                 for pk, grupo, sets, composto, padrao, grau in itens]
 
-    def test_a_irma_acompanha_a_remocao_pelo_volume_direto(self):
-        """Uma opção carrega o supino (tríceps secundário) e por isso puxa o
-        teto; o corte tira o acessório dela e deixa a irmã DUAS séries
-        diretas acima — a irmã cede também, senão a letra perde a segunda
-        opção por um corte que só uma delas pagou."""
-        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
-        supino.exercise.secondary_muscles = ["triceps"]
-        op1 = [(supino, 4, 2)] + self._linhas(
-            (2, "triceps", 3, True, "pressao_fechada", 2),
-            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
-            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
+    def test_o_acessorio_composto_desce_a_tres_antes_de_o_exercicio_sair(self):
+        op = self._linhas(
+            (1, "chest", 4, True, "pressao_de_peito", 2),
+            (2, "chest", 4, True, "pressao_de_peito", 1),
+            (3, "chest", 4, True, "pressao_de_peito", 1),
+            (4, "chest", 3, False, "crucifixo", 0),
         )
-        op2 = self._linhas(
-            (5, "chest", 4, False, "crucifixo", 2),
-            (6, "triceps", 3, True, "pressao_fechada", 2),
-            (7, "triceps", 2, False, "extensao_de_cotovelo", 0),
-            (8, "triceps", 2, False, "extensao_de_cotovelo", 0),
-        )
-        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 1}, teto=8, dose_do_catalogo=lambda i: i.sets)
-        diretos = [opcoes._volume_direto(op).get("triceps") for op in aparado["A"]]
-        self.assertEqual(diretos, [5, 5])
-        self.assertTrue(opcoes.equivalentes(aparado["A"], ["triceps"]))
+        # 15 séries × 3 ocorrências = 45 contra um teto de 40.
+        aparado = opcoes.aparar_opcoes({"A": [op]}, {"A": 3}, teto=40, dose_do_catalogo=lambda i: i.sets)
+        lista = aparado["A"][0]
+        self.assertEqual([i.exercise_id for i, _, _ in lista], [1, 2, 3, 4], "o quarto peito ficou")
+        self.assertEqual(lista[0][1], 4, "o principal não cede")
+        self.assertLessEqual(sum(s for _, s, _ in lista) * 3, 40)
+        self.assertTrue(all(s >= 3 for _, s, g in lista if g >= 1), "composto no piso de três")
 
-    def _peito_e_triceps(self):
-        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
-        supino.exercise.secondary_muscles = ["triceps"]
-        op1 = [(supino, 4, 2)] + self._linhas(
-            (2, "triceps", 3, True, "pressao_fechada", 2),
-            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
+    def test_so_depois_do_piso_um_exercicio_sai_e_nunca_o_ultimo_direto(self):
+        op = self._linhas(
+            (1, "chest", 4, True, "pressao_de_peito", 2),
+            (2, "chest", 3, True, "pressao_de_peito", 1),
+            (3, "chest", 2, False, "crucifixo", 0),
         )
-        op2 = self._linhas(
-            (5, "chest", 4, False, "crucifixo", 2),
-            (2, "triceps", 3, True, "pressao_fechada", 2),
-            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
-        )
-        return op1, op2
+        aparado = opcoes.aparar_opcoes({"A": [op]}, {"A": 3}, teto=12, dose_do_catalogo=lambda i: i.sets)
+        self.assertEqual([i.exercise_id for i, _, _ in aparado["A"][0]], [1], "sobra o principal, e o excesso fica")
 
-    def test_o_penultimo_direto_nao_sai_por_um_excesso_de_uma_serie(self):
-        """Com duas opções, a corda não sai de uma opção que só tem mergulho
-        e corda para cobrir UMA série de excesso: o tríceps ficaria só no
-        composto compartilhado nas duas, e a semana com UM tríceps distinto.
-        Pior caso: op1 = 3 + 2 + 2 (secundário do supino) = 7 por ocorrência,
-        ×2 = 14 contra o teto 13 — um excesso de UMA série, muito abaixo de
-        um quarto do teto. O excesso fica."""
-        op1, op2 = self._peito_e_triceps()
-        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=13, dose_do_catalogo=lambda i: i.sets)
-        self.assertEqual([len(op) for op in aparado["A"]], [3, 3])
-        # Com UMA opção a trava é a de sempre: o último direto fica, o penúltimo sai.
-        op1, _ = self._peito_e_triceps()
-        sozinha = opcoes.aparar_opcoes({"A": [op1]}, {"A": 2}, teto=13, dose_do_catalogo=lambda i: i.sets)
-        self.assertEqual(len(sozinha["A"][0]), 2)
 
-    def test_o_penultimo_direto_sai_quando_o_excesso_e_grande(self):
-        """O iniciante (teto 12) com o ombro em 21 não é o caso de uma série:
-        14 contra um teto de 6 é mais que um quarto acima, o aparo que o
-        nível pede acontece — a corda sai, a irmã acompanha, e o que sobra
-        é o secundário dos pressões, irredutível."""
-        op1, op2 = self._peito_e_triceps()
-        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 2}, teto=6, dose_do_catalogo=lambda i: i.sets)
-        self.assertEqual([len(op) for op in aparado["A"]], [2, 2])
-        self.assertTrue(opcoes.equivalentes(aparado["A"], ["triceps"]))
+class PreencherEmRodizioPorGrupoTests(TestCase):
+    """As séries que sobram até a faixa vão em RODÍZIO pelos grupos
+    anunciados (decisão do dono, 27/09/2026): uma para o peito, uma para o
+    tríceps, e não as duas para o peito. Com a lista única, o peito do
+    perfil do dourado chegava a 16 séries por sessão — 26,7 na média do
+    ciclo, acima do teto de 26 —, porque o acessório de peito (a flexão) e
+    o crucifixo recebiam primeiro."""
 
-    def test_a_concessao_que_a_irma_nao_acompanha_nao_acontece(self):
-        """Ensaiada numa cópia: se depois dela a irmã ficar mais de uma
-        série direta acima SEM ter o que ceder, a concessão não vale e o
-        excesso fica — cortar de um lado só era o que derrubava a letra
-        para uma opção."""
-        supino = Falso(1, "chest", sets=4, composto=True, padrao="pressao_de_peito")
-        supino.exercise.secondary_muscles = ["triceps"]
-        op1 = [(supino, 4, 2)] + self._linhas(
-            (2, "triceps", 3, True, "pressao_fechada", 2),
-            (3, "triceps", 2, False, "extensao_de_cotovelo", 0),
-            (4, "triceps", 2, False, "extensao_de_cotovelo", 0),
+    def test_as_series_de_sobra_alternam_entre_os_grupos(self):
+        def linha(pk, grupo, sets, composto, grau):
+            return (Falso(pk, grupo, sets=sets, composto=composto), sets, grau)
+
+        linhas = [
+            linha(1, "chest", 4, True, 2), linha(2, "chest", 4, True, 1),
+            linha(3, "chest", 3, True, 1), linha(4, "chest", 3, False, 0),
+            linha(5, "triceps", 3, True, 2), linha(6, "triceps", 3, False, 0),
+            linha(7, "triceps", 3, False, 0),
+        ]
+        cheias = opcoes.preencher_ate_a_faixa(linhas, None, ["chest", "triceps"], faixa=(21, 25))
+        por_grupo = {}
+        for item, series, _ in cheias:
+            por_grupo[item.exercise.muscle_group] = por_grupo.get(item.exercise.muscle_group, 0) + series
+        self.assertEqual(por_grupo, {"chest": 15, "triceps": 10})
+        # Dentro do grupo, o acessório antes do isolador, como sempre.
+        self.assertEqual([s for _, s, _ in cheias], [4, 4, 4, 3, 3, 4, 3])
+
+
+class CorpoInteiroPrecisaDe75MinutosTests(Catalogo):
+    """Corpo inteiro uma vez por semana EXIGE 75 minutos (decisão do dono,
+    27/09/2026, literal: "(c) 1 série pra panturrilha e core se couber em 60
+    min; se não couber, (b) EXIGIR 75 min, com o texto na tela e na
+    doutrina. NÃO (a)" — (a) era aceitar os dois grupos fora a 60 min com
+    aviso). A saída (c) foi medida primeiro: os dez grupos no piso, com
+    panturrilha e core em UMA série, dão 62,7 minutos e não cabem em 60.
+
+    OS DOIS CAMINHOS (28/09/2026, decisão do dono). O princípio: essa sessão
+    é a semana inteira da pessoa, e os dez grupos só cabem a partir de 75.
+    (ii) Onde a duração se escolhe — a área de Treino; o cadastro e o Perfil
+    não perguntam a duração desde 10/09 —, quem treina o corpo inteiro uma
+    vez por semana não recebe oferta abaixo de 75, e a tela diz por quê com
+    a palavra "tempo". (i) Quem JÁ tinha uma faixa menor recebe a ficha
+    montada com 75, e a nota avisa, também com "tempo" e o motivo."""
+
+    FRASE = "Sua ficha tem 75 minutos: corpo inteiro uma vez por semana precisa desse tempo para caber todos os grupos."
+    REGRA = "Corpo inteiro uma vez por semana precisa de pelo menos 75 minutos de tempo de treino para caber todos os grupos."
+
+    def _pessoa(self, email, dias, duracao):
+        user = create_complete_user(
+            email=email, experiencia="intermediario", split_preference=SplitPreference.DOIS,
+            split_preference_confirmada=True, duracao_treino=duracao,
         )
-        # A irmã: composto principal e um acessório (grau 1) no piso de três
-        # — nada que `_ceder` possa tirar sem passar do penúltimo direto.
-        op2 = self._linhas(
-            (5, "chest", 4, False, "crucifixo", 2),
-            (6, "triceps", 4, True, "pressao_fechada", 2),
-            (7, "triceps", 3, True, "pressao_fechada", 1),
+        TrainingDay.objects.filter(user=user).delete()
+        for d in range(dias):
+            TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
+        return user
+
+    @staticmethod
+    def _oferta(resposta, valor):
+        return '<input type="radio" name="duracao_treino" value="%s"' % valor in resposta.content.decode()
+
+    def test_a_tela_nao_oferece_menos_de_75_e_diz_por_que(self):
+        """(ii) A oferta: só faixas de 75 para cima (hoje, "Completo"), a
+        regra escrita com "tempo" e o teto em vigor, 75."""
+        uma_vez = self._pessoa("corpo-1x@exemplo.com", 1, DuracaoTreino.PADRAO)
+        plan = services.create_routine(uma_vez)
+        self.assertEqual((plan.split, plan.days_per_week), ("full", 1))
+        self.client.force_login(uma_vez)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertContains(resposta, self.REGRA)
+        self.assertContains(resposta, 'até <span class="num">75</span> min por sessão')
+        self.assertFalse(self._oferta(resposta, DuracaoTreino.RAPIDO))
+        self.assertFalse(self._oferta(resposta, DuracaoTreino.PADRAO))
+        self.assertTrue(self._oferta(resposta, DuracaoTreino.COMPLETO))
+        # Controle: quem treina três vezes vê as três faixas, não lê a regra,
+        # e o teto é o dele.
+        tres = self._pessoa("corpo-3x@exemplo.com", 3, DuracaoTreino.PADRAO)
+        services.create_routine(tres)
+        self.client.force_login(tres)
+        resposta = self.client.get(reverse("workouts:routine"))
+        self.assertNotContains(resposta, self.REGRA)
+        self.assertContains(resposta, 'até <span class="num">60</span> min por sessão')
+        for faixa in (DuracaoTreino.RAPIDO, DuracaoTreino.PADRAO, DuracaoTreino.COMPLETO):
+            self.assertTrue(self._oferta(resposta, faixa), faixa)
+
+    def test_um_envio_abaixo_de_75_nao_e_aceito(self):
+        """(ii) no servidor: a lista fechada é a mesma da tela. Um formulário
+        velho (ou forjado) com "Rápido" não grava a faixa e diz a regra."""
+        uma_vez = self._pessoa("corpo-envio@exemplo.com", 1, DuracaoTreino.COMPLETO)
+        services.create_routine(uma_vez)
+        self.client.force_login(uma_vez)
+        resposta = self.client.post(reverse("workouts:duracao"), {"duracao_treino": DuracaoTreino.RAPIDO}, follow=True)
+        uma_vez.profile.refresh_from_db()
+        self.assertEqual(uma_vez.profile.duracao_treino, DuracaoTreino.COMPLETO)
+        # A mensagem, e não a página: a regra já está escrita no formulário.
+        self.assertIn(self.REGRA, [str(m) for m in resposta.context["messages"]])
+        # Controle: a mesma pessoa pode ficar no "Completo", e quem treina
+        # três vezes pode escolher "Rápido".
+        tres = self._pessoa("corpo-envio-3x@exemplo.com", 3, DuracaoTreino.PADRAO)
+        services.create_routine(tres)
+        self.client.force_login(tres)
+        self.client.post(reverse("workouts:duracao"), {"duracao_treino": DuracaoTreino.RAPIDO})
+        tres.profile.refresh_from_db()
+        self.assertEqual(tres.profile.duracao_treino, DuracaoTreino.RAPIDO)
+
+    def test_com_padrao_a_ficha_nasce_com_75_minutos_e_todos_os_grupos(self):
+        """Autorizado pelo dono (27/09/2026): este teste prendia a saída (a) —
+        "em 60 minutos o corpo inteiro tem de ceder algum grupo". Agora prende
+        a (b): com "Padrão" (60) ou "Rápido" (30), o corpo inteiro de uma vez
+        por semana é montado com 75 minutos, com os dez grupos, e a nota diz
+        por quê. É o caminho (i) de 28/09/2026: a conta que JÁ tinha uma faixa
+        menor — a tela não a oferece mais, mas ela continua gravada."""
+        modelo = {i.exercise.muscle_group for t in services.templates_for("full") for i in t.items.all() if i.exercise.is_active}
+        for duracao in (DuracaoTreino.PADRAO, DuracaoTreino.RAPIDO):
+            with self.subTest(duracao=duracao):
+                user = self._pessoa("corpo-%s@exemplo.com" % duracao, 1, duracao)
+                plan = services.create_routine(user)
+                presentes = {i.exercise.muscle_group for s in plan.sessions.all() for i in s.exercises.all()}
+                self.assertEqual(modelo - presentes, set(), "nenhum grupo fora")
+                minutos = max(s.estimated_minutes for s in plan.sessions.all())
+                self.assertGreater(minutos, 60)
+                self.assertLessEqual(minutos, 75)
+                self.assertIn(self.FRASE, plan.notes)
+        # Com "Completo" (90) a faixa já passa do mínimo: nada muda, e a nota
+        # não fala dos 75.
+        completo = self._pessoa("corpo-90@exemplo.com", 1, DuracaoTreino.COMPLETO)
+        plan = services.create_routine(completo)
+        presentes = {i.exercise.muscle_group for s in plan.sessions.all() for i in s.exercises.all()}
+        self.assertEqual(modelo - presentes, set())
+        self.assertLessEqual(max(s.estimated_minutes for s in plan.sessions.all()), 90)
+        self.assertNotIn(self.FRASE, plan.notes)
+        # E a ficha nascida com 75 é a que o motor produz hoje (não fica
+        # "desatualizada" na conferência exata).
+        from unittest import mock
+
+        user = self._pessoa("corpo-confere@exemplo.com", 1, DuracaoTreino.PADRAO)
+        plan = services.create_routine(user)
+        with mock.patch.object(services, "versao_do_catalogo", return_value="catalogo-novo"):
+            self.assertFalse(services.rotina_desatualizada(plan, user))
+
+
+class OCorteDoRelogioTests(TestCase):
+    """Duas regras do corte por tempo (`services.escolher_para_o_tempo`),
+    decisões do dono de 27/09/2026, lidas LITERALMENTE:
+
+    1. o complementar de fora do título (panturrilha, antebraço, core…)
+       desce a UMA série antes de qualquer PRINCIPAL perder série — o
+       isolador e o acessório do título continuam cedendo primeiro, até o
+       piso de sempre;
+    2. o exercício de um grupo acima do contrato semanal sai antes SÓ
+       quando a alternativa é um principal perder série (o caso do dono: o
+       supino fica em quatro e a letra A perde o ombro).
+    """
+
+    @staticmethod
+    def _minutos(itens, ficam):
+        return services._segundos_da_sessao(
+            [(s, itens[i][2], itens[i][3] >= services.ACESSORIO) for i, s in ficam]
+        ) / 60
+
+    @staticmethod
+    def _pernas():
+        return [
+            ("quads", 4, 80, services.PRINCIPAL), ("quads", 3, 60, services.ISOLADOR),
+            ("hamstrings", 4, 80, services.PRINCIPAL), ("hamstrings", 3, 60, services.ISOLADOR),
+            ("calves", 3, 60, services.ISOLADOR), ("core", 3, 60, services.ISOLADOR),
+        ]
+
+    def _cheio(self, itens):
+        return services._segundos_da_sessao([(s, r, g >= services.ACESSORIO) for _, s, r, g in itens]) / 60
+
+    def test_sem_principal_em_jogo_o_complementar_fica_no_piso_de_sempre(self):
+        """Seis minutos a cortar: os quatro isoladores descem ao piso de
+        duas — o título e o complementar juntos — e ninguém vai a uma."""
+        itens = self._pernas()
+        series = dict(services.escolher_para_o_tempo(itens, int(self._cheio(itens) - 6), principais=["quads", "hamstrings"]))
+        self.assertEqual((series[0], series[2]), (4, 4), "os principais na dose")
+        self.assertEqual((series[1], series[3], series[4], series[5]), (2, 2, 2, 2))
+
+    def test_antes_de_o_principal_perder_serie_o_complementar_desce_a_uma(self):
+        """Nove minutos: com todo isolador no piso ainda passa, e a próxima
+        concessão seria o agachamento. Antes dela, o complementar desce a
+        UMA série — e o principal fica na dose."""
+        itens = self._pernas()
+        series = dict(services.escolher_para_o_tempo(itens, int(self._cheio(itens) - 9), principais=["quads", "hamstrings"]))
+        self.assertEqual((series[0], series[2]), (4, 4), "os principais na dose")
+        self.assertEqual((series[4], series[5]), (1, 1), "o complementar desceu a uma série")
+        self.assertEqual((series[1], series[3]), (2, 2), "o isolador do título no piso de sempre")
+
+    def test_o_composto_complementar_fica_no_piso_de_composto(self):
+        """A remada alta do trapézio é complementar em "Costas e bíceps", mas
+        é composto: cede antes do principal do título, e desce a três, nunca a
+        uma — abaixo de três o composto vira aquecimento (`PISO_COMPOSTO`)."""
+        itens = [
+            ("back", 4, 80, services.PRINCIPAL), ("biceps", 3, 60, services.ISOLADOR),
+            ("traps", 4, 80, services.PRINCIPAL), ("forearms", 3, 60, services.ISOLADOR),
+        ]
+        ficam = dict(services.escolher_para_o_tempo(itens, 30, principais=["back", "biceps"]))
+        self.assertEqual(ficam.get(2), 3, "o composto complementar cedeu até três, e não abaixo")
+        self.assertEqual(ficam.get(0), 4, "e cedeu ANTES do principal do título")
+
+    def _peito_triceps_ombro(self):
+        return [
+            ("chest", 4, 80, services.PRINCIPAL), ("chest", 3, 80, services.ACESSORIO),
+            ("chest", 3, 80, services.ACESSORIO), ("shoulders", 3, 80, services.PRINCIPAL),
+            ("chest", 2, 60, services.ISOLADOR), ("shoulders", 2, 60, services.ISOLADOR),
+            ("triceps", 2, 60, services.ISOLADOR), ("triceps", 3, 80, services.PRINCIPAL),
+            ("triceps", 2, 60, services.ISOLADOR),
+        ]
+
+    def test_na_sessao_de_academia_o_supino_fica_em_quatro_e_sai_o_segundo_ombro(self):
+        itens = self._peito_triceps_ombro()
+        ficam = services.escolher_para_o_tempo(itens, 60, principais=["chest", "triceps", "shoulders"])
+        series = dict(ficam)
+        self.assertEqual(series[0], 4, "o supino manteve as quatro séries")
+        self.assertNotIn(5, series, "o segundo exercício de ombro saiu")
+        grupos = [itens[i][0] for i, _ in ficam]
+        self.assertEqual((grupos.count("chest"), grupos.count("triceps"), grupos.count("shoulders")), (4, 3, 1))
+        self.assertLessEqual(self._minutos(itens, ficam), 60)
+
+    def test_o_unico_exercicio_de_um_grupo_do_titulo_nao_e_excedente(self):
+        """O glúteo é família do posterior para o relógio, mas é GRUPO do
+        título: a elevação pélvica, único glúteo, não é "excedente sem
+        contrato" do posterior (dono, 27/09/2026: todo grupo do título tem
+        pelo menos um exercício). Quem sai é o segundo quadríceps."""
+        itens = [
+            ("quads", 4, 80, services.PRINCIPAL), ("quads", 3, 80, services.ACESSORIO),
+            ("hamstrings", 4, 80, services.PRINCIPAL), ("glutes", 3, 80, services.ACESSORIO),
+            ("shoulders", 3, 80, services.PRINCIPAL), ("calves", 3, 60, services.ISOLADOR),
+            ("core", 3, 60, services.ISOLADOR),
+        ]
+        ficam = dict(services.escolher_para_o_tempo(
+            itens, 45, principais=["quads", "hamstrings", "glutes", "shoulders"],
+        ))
+        self.assertIn(3, ficam, "a elevação pélvica ficou")
+        self.assertNotIn(1, ficam, "saiu o segundo quadríceps")
+        self.assertEqual((ficam[0], ficam[2]), (4, 4), "os principais na dose")
+
+    def test_sem_principal_para_perder_serie_o_complementar_nao_desce_a_uma(self):
+        """O ALCANCE da regra 1, lido literalmente: "desce a 1 série antes de
+        qualquer PRINCIPAL perder série". Com todo principal já no piso
+        (três), não há principal para perder série e a regra não fala — vale
+        a ordem de sempre: o complementar sai inteiro (camada 3) em vez de
+        ficar com uma série. É um efeito que o dono não viu: está no
+        relatório da rodada 3."""
+        itens = [
+            ("chest", 3, 80, services.PRINCIPAL), ("chest", 2, 60, services.ISOLADOR),
+            ("triceps", 2, 60, services.ISOLADOR), ("core", 2, 60, services.ISOLADOR),
+        ]
+        total = services._segundos_da_sessao([(s, r, g >= services.ACESSORIO) for _, s, r, g in itens])
+        teto = (total - 1) // 60
+        self.assertLessEqual(total - 100, teto * 60, "uma série a menos no core caberia")
+        ficam = dict(services.escolher_para_o_tempo(itens, teto, principais=["chest", "triceps"]))
+        self.assertNotIn(3, ficam, "o complementar saiu inteiro")
+
+    def test_no_rapido_a_ordem_e_a_de_sempre(self):
+        """Controle que DISCRIMINA: abaixo de 45 minutos o principal desce a
+        três antes de um exercício anunciado sair. O caso é montado para que
+        tirar o segundo ombro também coubesse — se a regra 2 valesse no
+        Rápido, o supino ficaria em quatro e este teste ficaria vermelho."""
+        itens = [
+            ("chest", 4, 80, services.PRINCIPAL), ("chest", 3, 80, services.ACESSORIO),
+            ("shoulders", 3, 80, services.PRINCIPAL), ("shoulders", 2, 60, services.ISOLADOR),
+            ("triceps", 2, 60, services.ISOLADOR),
+        ]
+        total = services._segundos_da_sessao([(s, r, g >= services.ACESSORIO) for _, s, r, g in itens])
+        teto = (total - 1) // 60
+        self.assertLess(teto, 45)
+        self.assertLessEqual(total - 200, teto * 60, "tirar o segundo ombro também caberia")
+        ficam = dict(services.escolher_para_o_tempo(itens, teto, principais=["chest", "triceps", "shoulders"]))
+        self.assertEqual(ficam[0], 3)
+        self.assertIn(3, ficam, "o segundo ombro ficou")
+
+    def test_sem_principal_para_perder_serie_o_segundo_ombro_nao_sai_antes_do_complementar(self):
+        """A regra 2 dispara SÓ quando a alternativa é um principal perder
+        série. Com todo principal já no piso (três), a ordem de sempre vale:
+        o complementar sai inteiro (camada 3) antes de o título perder
+        variedade — e aqui isso basta."""
+        itens = [
+            ("chest", 3, 80, services.PRINCIPAL), ("chest", 3, 80, services.ACESSORIO),
+            ("shoulders", 3, 80, services.PRINCIPAL), ("shoulders", 2, 60, services.ISOLADOR),
+            ("back", 3, 80, services.PRINCIPAL), ("back", 3, 80, services.ACESSORIO),
+            ("core", 1, 60, services.ISOLADOR),
+        ]
+        total = services._segundos_da_sessao([(s, r, g >= services.ACESSORIO) for _, s, r, g in itens])
+        sem_core = services._segundos_da_sessao([(s, r, g >= services.ACESSORIO) for _, s, r, g in itens[:-1]])
+        teto = -(-sem_core // 60)
+        self.assertGreaterEqual(teto, 45)
+        self.assertLess(teto * 60, total)
+        ficam = dict(services.escolher_para_o_tempo(itens, teto, principais=["chest", "shoulders", "back"]))
+        self.assertNotIn(6, ficam, "o complementar saiu")
+        self.assertIn(3, ficam, "o segundo ombro ficou")
+
+    def test_ab_b_em_30_minutos_guarda_um_de_cada_grupo_do_titulo(self):
+        """"Inferior" em Rápido: agachamento, stiff e elevação pélvica — os
+        três grupos do título —, e não dois quadríceps com o glúteo fora. O
+        glúteo é família do posterior, mas é GRUPO do título: a camada 4
+        conta por grupo de verdade (revisão B, 27/09/2026)."""
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        user = create_complete_user(
+            email="ab-b-30@exemplo.com", experiencia="intermediario", split_preference=SplitPreference.DOIS,
+            split_preference_confirmada=True, duracao_treino=DuracaoTreino.RAPIDO,
         )
-        aparado = opcoes.aparar_opcoes({"A": [op1, op2]}, {"A": 1}, teto=8, dose_do_catalogo=lambda i: i.sets)
-        self.assertEqual([len(op) for op in aparado["A"]], [4, 3])
-        diretos = [opcoes._volume_direto(op).get("triceps") for op in aparado["A"]]
-        self.assertEqual(diretos, [7, 7])
+        TrainingDay.objects.filter(user=user).delete()
+        for d in (1, 4):
+            TrainingDay.objects.create(user=user, weekday=d, duration_min=30)
+        plan = services.create_routine(user)
+        b = next(s for s in plan.sessions.prefetch_related("exercises__exercise") if s.label == "B")
+        nomes = {i.exercise.name for i in b.da_opcao(1)}
+        for nome in ("Agachamento livre", "Stiff com barra", "Elevação pélvica"):
+            self.assertIn(nome, nomes)
+        self.assertLessEqual(b.minutos_da_opcao(1), 30)
+
+
+def ficha_legada(plano, letra):
+    """Devolve à letra de uma ficha nova a forma de ANTES de 27/09/2026: uma
+    segunda opção gravada em `opcao=2`, com os exercícios do modelo que a
+    opção 1 não usa (mesmo grupo, a dose do modelo) e, esgotado o grupo, o
+    mesmo exercício — como `montar_opcoes` fazia. As 12 fichas ativas com
+    opção 2 em 27/09/2026 têm esta forma; o motor não gera mais nenhuma."""
+    modelo = next(t for t in services.templates_for(plano.split) if t.label == letra)
+    do_modelo = [i for i in modelo.items.all() if i.exercise.is_active]
+    for sessao in plano.sessions.filter(label=letra):
+        op1 = list(sessao.exercises.filter(opcao=1).select_related("exercise").order_by("order"))
+        usados = {linha.exercise_id for linha in op1}
+        novas = []
+        for linha in op1:
+            troca = next(
+                (i for i in do_modelo
+                 if i.exercise.muscle_group == linha.exercise.muscle_group and i.exercise_id not in usados),
+                None,
+            )
+            origem = troca or linha
+            if troca is not None:
+                usados.add(troca.exercise_id)
+            novas.append(SessionExercise(
+                session=sessao, exercise_id=origem.exercise_id, sets=origem.sets,
+                rep_min=origem.rep_min, rep_max=origem.rep_max, measure=origem.measure,
+                rest_seconds=origem.rest_seconds, order=linha.order, opcao=2,
+            ))
+        SessionExercise.objects.bulk_create(novas)
+
+
+class FichaLegadaComDuasOpcoesTests(Catalogo):
+    """"Motor lê as duas formas até a última sumir, com teste" (decisão do
+    dono, 27/09/2026). A ficha NOVA sai só com `opcao=1`; a ficha LEGADA —
+    linhas `opcao=2` gravadas antes — continua lida por `TrainingSession.
+    opcoes`/`da_opcao`, pela variação por presença (`variacao_do_dia`), pela
+    opção do dia (`opcao_do_dia`) e pela ficha renderizada."""
+
+    def test_a_ficha_nova_so_tem_a_opcao_1(self):
+        plan = services.create_routine(pessoa("intermediario_5d_2g", email="nova-uma@exemplo.com"))
+        self.assertEqual(
+            set(SessionExercise.objects.filter(session__plan=plan).values_list("opcao", flat=True)), {1},
+        )
+        for sessao in plan.sessions.all():
+            self.assertEqual(sessao.opcoes, [1])
+
+    def test_a_ficha_legada_continua_lendo_a_opcao_2(self):
+        from workouts.test_sequencia import fazer
+
+        user = pessoa("intermediario_5d_2g", email="legada@exemplo.com")
+        plan = services.create_routine(user)
+        ficha_legada(plan, "A")
+        sessoes = list(plan.sessions.prefetch_related("exercises__exercise"))
+        a = sorted((s for s in sessoes if s.label == "A"), key=lambda s: s.order)[0]
+        self.assertEqual(a.opcoes, [1, 2])
+        so_na_2 = {i.exercise_id for i in a.da_opcao(2)} - {i.exercise_id for i in a.da_opcao(1)}
+        self.assertTrue(so_na_2, "a opção 2 legada precisa diferir para o teste medir")
+
+        hoje = timezone.localdate()
+        # Sem histórico, a primeira; com a letra feita uma vez, a SEGUNDA.
+        self.assertEqual(services.variacao_do_dia(plan, hoje, a, sessoes, user=user), 1)
+        fazer(user, plan, "A", hoje - timedelta(days=1))
+        self.assertEqual(services.variacao_do_dia(plan, hoje, a, sessoes, user=user), 2)
+        self.assertEqual(services.opcao_do_dia(user, a, hoje, sessoes=sessoes), 2)
+
+        # A ficha da letra desenha a opção 2 — o exercício que só ela tem.
+        self.client.force_login(user)
+        html = self.client.get(reverse("workouts:ficha", args=[a.pk])).content.decode()
+        nomes_so_na_2 = [i.exercise.name for i in a.da_opcao(2) if i.exercise_id in so_na_2]
+        self.assertTrue(any(nome in html for nome in nomes_so_na_2), nomes_so_na_2)
+
+
+class VarianteUnicaPorCotaTests(TestCase):
+    """A variante única (27/09/2026): UMA lista por letra, montada pela cota
+    de exercícios por grupo do `TREINO.md` (tabela A, "Tipos de dia") — o
+    principal de cada grupo primeiro, todo grupo anunciado coberto, o resto
+    da cota na ordem do modelo, e um exercício de cada complementar (o
+    principal dele, quando tem). Substitui "N opções de meio modelo"."""
+
+    def test_as_cotas_saem_da_tabela_a_e_dos_tipos_de_dia(self):
+        from workouts import doutrina
+
+        casos = (
+            (["chest", "triceps"], doutrina.DOIS_GRUPOS, {("chest",): 4, ("triceps",): 3}),
+            # Quadríceps e posterior dividem o grande; o glúteo anunciado tem
+            # a vaga DELE (dono, 27/09/2026: todo grupo do título tem pelo
+            # menos um exercício — não come a cota do grande).
+            (["quads", "hamstrings", "glutes", "shoulders"], doutrina.DOIS_GRUPOS,
+             {("quads", "hamstrings"): 4, ("glutes",): 1, ("shoulders",): 3}),
+            (["biceps", "triceps"], doutrina.DOIS_GRUPOS, {("biceps",): 3, ("triceps",): 3}),
+            # O contrato semanal 4/4/3/3 vence a tabela A (dono, 27/09/2026):
+            # a mesma lista em toda ocorrência, então a variedade da semana é
+            # a da lista — três bíceps, e não os dois da tabela.
+            (["back", "biceps", "forearms", "traps"], doutrina.TRES_GRUPOS,
+             {("back",): 4, ("biceps",): 3, ("forearms", "traps"): 2}),
+            (["chest", "triceps", "shoulders"], doutrina.TRES_GRUPOS,
+             {("chest",): 4, ("triceps",): 3, ("shoulders",): 2}),
+            (["quads", "hamstrings", "glutes", "calves"], doutrina.TRES_GRUPOS,
+             {("quads", "hamstrings"): 4, ("glutes",): 1, ("calves",): 2}),
+            (["quads", "hamstrings", "glutes"], doutrina.INFERIOR, {("quads",): 3, ("hamstrings", "glutes"): 3}),
+            (["chest", "back", "shoulders", "biceps", "triceps"], doutrina.SUPERIOR,
+             {("chest",): 2, ("back",): 2, ("shoulders",): 1, ("biceps",): 1, ("triceps",): 1}),
+            # Posterior e glúteo dividem UMA cota de grande, mas os dois são
+            # anunciados: a cota sobe para cobrir os dois.
+            (["quads", "chest", "back", "hamstrings", "glutes", "shoulders", "biceps", "triceps"], doutrina.FULL,
+             {("quads",): 1, ("chest",): 1, ("back",): 1, ("hamstrings", "glutes"): 2,
+              ("shoulders",): 1, ("biceps",): 1, ("triceps",): 1}),
+            # "Ombros": o trapézio anunciado tem cota 0 de pequeno e entra
+            # como complementar — um.
+            (["shoulders", "traps"], doutrina.UM_GRUPO, {("shoulders",): 4, ("traps",): 1}),
+            # `abcd D`, fora do contrato: o máximo do complementar, dois.
+            (["hamstrings", "glutes", "traps", "calves", "forearms", "core"], None,
+             {("hamstrings", "glutes"): 2, ("traps",): 2, ("calves",): 2, ("forearms",): 2, ("core",): 2}),
+        )
+        for principais, tipo, esperado in casos:
+            with self.subTest(principais=principais, tipo=tipo):
+                self.assertEqual(dict(opcoes.cotas(principais, tipo, "intermediario")), esperado)
+        # "Semanal vence: 3 de tríceps QUANDO A LETRA É 1× POR SEMANA" (dono,
+        # 27/09/2026, literal): a letra que repete fica com a tabela A.
+        self.assertEqual(dict(opcoes.cotas(["chest", "triceps", "shoulders"], doutrina.TRES_GRUPOS, "intermediario", vezes=2)),
+                         {("chest",): 4, ("triceps",): 2, ("shoulders",): 2})
+        # O nível muda a dose: o iniciante tem 3 de grande em dois grupos —
+        # e o contrato 4/4/3/3 é do intermediário para cima.
+        self.assertEqual(dict(opcoes.cotas(["chest", "triceps"], doutrina.DOIS_GRUPOS, "iniciante")),
+                         {("chest",): 3, ("triceps",): 2})
+        self.assertEqual(dict(opcoes.cotas(["chest", "triceps", "shoulders"], doutrina.TRES_GRUPOS, "iniciante")),
+                         {("chest",): 3, ("triceps",): 2, ("shoulders",): 2})
+
+    def _itens(self, *linhas):
+        return [Falso(pk, grupo, sets=sets, composto=composto) for pk, grupo, sets, composto in linhas]
+
+    def test_o_principal_primeiro_todo_anunciado_coberto_e_o_padrao_novo_antes_do_repetido(self):
+        """"Pernas e ombros": a cota do grande (4) é de quadríceps e
+        posterior, e o glúteo anunciado tem a vaga DELE (dono, 27/09/2026).
+        O agachamento e o stiff (principais) entram, e o resto da cota é do
+        grupo menos servido preferindo um PADRÃO que o grupo ainda não tem: a
+        cadeira extensora (extensão de joelho) e a mesa flexora (flexão de
+        joelho), e não o leg press (outro agachamento). No ombro, a elevação
+        e o deltoide posterior antes do segundo desenvolvimento — três
+        padrões, três porções do ombro. A opção 1 de antes perdia o stiff
+        para a opção 2."""
+        from workouts import doutrina
+
+        linhas = (
+            (1, "quads", 4, True, "agachamento"), (2, "quads", 4, True, "agachamento"),
+            (3, "quads", 3, False, "extensao_de_joelho"), (4, "hamstrings", 4, True, "extensao_de_quadril"),
+            (5, "hamstrings", 3, False, "flexao_de_joelho"), (6, "glutes", 3, True, "extensao_de_quadril"),
+            (7, "shoulders", 3, True, "pressao_vertical"), (8, "shoulders", 3, False, "elevacao"),
+            (9, "shoulders", 3, True, "pressao_vertical"), (10, "shoulders", 3, False, "deltoide_posterior"),
+            (11, "calves", 4, False, "flexao_plantar"), (12, "calves", 3, False, "flexao_plantar"),
+            (13, "core", 3, False, "anti_extensao"), (14, "core", 3, False, "flexao_de_tronco"),
+        )
+        itens = [Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao)
+                 for pk, grupo, sets, composto, padrao in linhas]
+        variante = opcoes.variante_unica(
+            itens, ["quads", "hamstrings", "glutes", "shoulders"], doutrina.DOIS_GRUPOS, "intermediario",
+        )
+        self.assertEqual([i.exercise_id for i in variante], [1, 3, 4, 5, 6, 7, 8, 10, 11, 13])
+
+    def test_quadriceps_e_posterior_dividem_o_grande_e_o_gluteo_tem_a_vaga_dele(self):
+        """"Pernas completo" (`abc C`): a cota do grande (4) é de quadríceps
+        e posterior — dois de cada, o principal e um padrão novo (a mesa
+        flexora; a cadeira extensora) — e o glúteo anunciado tem a vaga DELE
+        (dono, 27/09/2026: todo grupo do título tem pelo menos um exercício;
+        TREINO.md: "o glúteo direto é UM exercício por letra de perna").
+        Quando o glúteo comia uma das quatro vagas, a semana de três dias
+        ficava com UM quadríceps ou UM posterior."""
+        from workouts import doutrina
+
+        linhas = (
+            (1, "quads", 4, True, "agachamento"), (2, "quads", 4, True, "agachamento"),
+            (3, "hamstrings", 4, True, "extensao_de_quadril"), (4, "hamstrings", 3, False, "flexao_de_joelho"),
+            (5, "calves", 4, False, "flexao_plantar"), (6, "calves", 3, False, "flexao_plantar"),
+            (7, "core", 3, False, "anti_extensao"), (8, "quads", 4, True, "agachamento"),
+            (9, "quads", 3, False, "extensao_de_joelho"), (10, "glutes", 3, True, "extensao_de_quadril"),
+        )
+        itens = [Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao)
+                 for pk, grupo, sets, composto, padrao in linhas]
+        variante = opcoes.variante_unica(
+            itens, ["quads", "hamstrings", "glutes", "calves"], doutrina.TRES_GRUPOS, "intermediario",
+        )
+        self.assertEqual([i.exercise_id for i in variante], [1, 3, 4, 5, 6, 7, 9, 10])
+
+    def test_no_grande_de_um_grupo_so_a_ordem_do_modelo_fica(self):
+        """"Peito e tríceps" do iniciante (3 + 2): o peito é o grande de UM
+        grupo só, e a ordem do modelo — supino reto, inclinado, flexão — é a
+        curadoria da ficha e fica; o crucifixo (padrão novo) não passa na
+        frente da flexão. Com o padrão novo primeiro também aqui, a letra A do
+        iniciante caía a 38 minutos e o dourado (40) reprovava. No tríceps
+        (pequeno) o padrão novo vem antes: mergulho e testa, não dois
+        mergulhos."""
+        from workouts import doutrina
+
+        linhas = (
+            (1, "chest", 4, True, "pressao_de_peito"), (2, "chest", 4, True, "pressao_de_peito"),
+            (3, "chest", 3, True, "pressao_de_peito"), (4, "chest", 3, False, "crucifixo"),
+            (5, "triceps", 3, True, "pressao_fechada"), (6, "triceps", 3, True, "pressao_fechada"),
+            (7, "triceps", 3, False, "extensao_de_cotovelo"),
+        )
+        itens = [Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao)
+                 for pk, grupo, sets, composto, padrao in linhas]
+        variante = opcoes.variante_unica(itens, ["chest", "triceps"], doutrina.DOIS_GRUPOS, "iniciante")
+        self.assertEqual([i.exercise_id for i in variante], [1, 2, 3, 5, 7])
+
+    def test_o_iniciante_comeca_pelo_degrau_mais_baixo_da_escada(self):
+        """TREINO.md, "O degrau do iniciante": no peso do corpo ele começa
+        pelo degrau mais fácil. Entre flexões do mesmo grupo, depois do
+        principal, a de joelhos apoiados (degrau 1) vem antes da flexão
+        (degrau 3) — o intermediário segue a ordem do modelo."""
+        from workouts import doutrina
+
+        linhas = ((1, 4, 3), (2, 4, 2), (3, 3, 3), (4, 4, 1))
+        itens = []
+        for pk, sets, degrau in linhas:
+            item = Falso(pk, "chest", sets=sets, composto=True, padrao="pressao_de_peito")
+            item.exercise.progressao = {"nivel": degrau, "movimento": "flexao"}
+            itens.append(item)
+        iniciante = opcoes.variante_unica(itens, ["chest"], doutrina.DOIS_GRUPOS, "iniciante")
+        self.assertEqual([i.exercise_id for i in iniciante], [1, 2, 4])
+        intermediario = opcoes.variante_unica(itens, ["chest"], doutrina.DOIS_GRUPOS, "intermediario")
+        self.assertEqual([i.exercise_id for i in intermediario], [1, 2, 3, 4])
+
+    def test_esgotados_os_padroes_o_segundo_composto_do_mesmo_padrao_vem_por_ultimo(self):
+        """"Peito, tríceps e ombro" com o contrato semanal (3 tríceps): depois
+        do mergulho (principal) e da corda (padrão novo), o terceiro repete um
+        padrão — e repetir a extensão de cotovelo (a testa) vem antes do
+        SEGUNDO composto de pressão fechada (o supino fechado). O modelo
+        lista dois de cada padrão composto porque cada antiga opção
+        precisava de um: esse segundo não é variedade, é a opção 2 que não
+        existe mais. Com o supino fechado a letra A não cabia em 60 minutos
+        e o relógio tirava o quarto peito."""
+        from workouts import doutrina
+
+        linhas = (
+            (1, "chest", 4, True, "pressao_de_peito"), (2, "chest", 4, True, "pressao_de_peito"),
+            (3, "chest", 3, True, "pressao_de_peito"), (4, "chest", 3, False, "crucifixo"),
+            (5, "triceps", 3, False, "extensao_de_cotovelo"), (6, "triceps", 3, True, "pressao_fechada"),
+            (7, "triceps", 3, True, "pressao_fechada"), (8, "triceps", 3, False, "extensao_de_cotovelo"),
+        )
+        itens = [Falso(pk, grupo, sets=sets, composto=composto, padrao=padrao)
+                 for pk, grupo, sets, composto, padrao in linhas]
+        variante = opcoes.variante_unica(itens, ["chest", "triceps"], doutrina.TRES_GRUPOS, "intermediario")
+        self.assertEqual([i.exercise_id for i in variante], [1, 2, 3, 4, 5, 6, 8])
+
+    def test_o_complementar_nao_anunciado_fica_em_ate_tres_series(self):
+        """TREINO.md, tabela A: "o complementar não anunciado (zero a dois por
+        opção, de duas a três séries)". A panturrilha em pé do catálogo pede
+        quatro — a dose de quem a ANUNCIA ("Pernas completo", até quatro);
+        em "Pernas e ombros" ela é complementar e entra com três."""
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        user = pessoa("intermediario_5d_2g", email="complementar-3@exemplo.com")
+        from accounts.models import Profile
+
+        Profile.objects.filter(user=user).update(duracao_treino=DuracaoTreino.COMPLETO)
+        user.refresh_from_db()
+        plan = services.create_routine(user)
+        c = por_letra(plan)["C"]
+        complementares = [i for i in c.da_opcao(1) if i.exercise.muscle_group not in c.main_groups]
+        self.assertTrue(complementares)
+        for item in complementares:
+            with self.subTest(exercicio=item.exercise.name):
+                self.assertLessEqual(item.sets, 3)
+
+    def test_o_complementar_entra_pelo_principal_dele(self):
+        """Trapézio complementar em "Costas e bíceps": o encolhimento vem
+        antes no modelo, mas a remada alta é o PRINCIPAL do grupo — e o
+        principal da divisão tem de aparecer na semana."""
+        from workouts import doutrina
+
+        itens = self._itens(
+            (1, "back", 4, True), (2, "back", 4, True), (3, "back", 3, True), (4, "back", 3, True),
+            (5, "back", 3, True), (6, "biceps", 3, False), (7, "biceps", 3, False), (8, "biceps", 3, False),
+            (9, "biceps", 3, False), (10, "traps", 3, False), (11, "traps", 3, True),
+            (12, "forearms", 3, False), (13, "forearms", 3, False),
+        )
+        variante = opcoes.variante_unica(itens, ["back", "biceps"], doutrina.DOIS_GRUPOS, "intermediario")
+        self.assertEqual([i.exercise_id for i in variante], [1, 2, 3, 4, 6, 7, 8, 11, 12])
+
+    def test_toda_letra_de_ficha_nova_e_uma_lista_com_a_cota(self):
+        """O perfil do dourado com o catálogo real: uma opção por letra, a
+        MESMA em toda ocorrência, com a cota da tabela A nos anunciados e o
+        principal de cada grupo do modelo presente."""
+        call_command("seed_catalog", verbosity=0)
+        call_command("seed_workouts", verbosity=0)
+        plan = services.create_routine(pessoa("intermediario_5d_2g", email="cota@exemplo.com"))
+        sessoes = sorted(plan.sessions.prefetch_related("exercises__exercise"), key=lambda s: s.order)
+        for letra in ("A", "B", "C"):
+            da_letra = [s for s in sessoes if s.label == letra]
+            assinaturas = {tuple((i.opcao, i.exercise_id, i.sets) for i in s.exercises.all()) for s in da_letra}
+            with self.subTest(letra=letra):
+                self.assertEqual(len(assinaturas), 1, "a letra repetida é o mesmo treino")
+                self.assertEqual(da_letra[0].opcoes, [1])
+        a = next(s for s in sessoes if s.label == "A")
+        grupos = [i.exercise.muscle_group for i in a.da_opcao(1)]
+        self.assertEqual((grupos.count("chest"), grupos.count("triceps")), (4, 3))
+        nomes = {i.exercise.name for s in sessoes for i in s.exercises.all()}
+        for principal in ("Supino reto com barra", "Barra fixa assistida", "Remada alta com barra",
+                          "Agachamento livre", "Stiff com barra", "Desenvolvimento com halteres"):
+            self.assertIn(principal, nomes)
