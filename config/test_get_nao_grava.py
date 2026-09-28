@@ -33,7 +33,7 @@ ROTAS = [
     "plans:today", "plans:alimentacao", "plans:history", "plans:hydration",
     "plans:shopping", "workouts:routine", "workouts:now", "workouts:corridas",
     "achievements:list", "accounts:profile", "avisos:preferencias",
-    "ajuda:index", "ajuda:mudancas",
+    "ajuda:index", "ajuda:mudancas", "privacidade", "termos",
 ]
 
 ESCRITA = re.compile(r'^\s*(INSERT INTO|UPDATE|DELETE FROM)\s+"?([a-z_]+)"?', re.I)
@@ -67,6 +67,21 @@ class NenhumGetGravaTests(TestCase):
                     resposta = self.client.get(reverse(nome))
                 self.assertIn(resposta.status_code, (200, 302))
                 self.assertEqual(escritas(consultas.captured_queries), [], nome)
+
+    def test_a_tela_de_consentimento_abre_sem_gravar(self):
+        """M-2 da revisão final LGPD (28/09/2026): quem consentiu uma versão
+        ANTERIOR dos legais cai em `/conta/consentimento/`, e a régua acima
+        não a via — o perfil da fixture não tem versão e nunca é barrado, e o
+        302 também passava. Aqui a tela precisa DESENHAR (200) as caixas e
+        não gravar nada: o consentimento só nasce no POST."""
+        perfil = self.user.profile
+        perfil.consentimento_versao = "2000-01-01"
+        perfil.save(update_fields=["consentimento_versao"])
+
+        with CaptureQueriesContext(connection) as consultas:
+            resposta = self.client.get(reverse("accounts:consentimento"))
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(escritas(consultas.captured_queries), [])
 
     def test_a_regua_enxerga_uma_escrita(self):
         """Controle positivo: uma escrita de verdade é pega pela régua."""

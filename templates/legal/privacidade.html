@@ -28,7 +28,7 @@
     <p class="lead">
       O que o NutriPlan guarda sobre você, por quê, e como você tira isso daqui.
     </p>
-    <p class="muted">Última atualização: 21 de setembro de 2026.</p>
+    <p class="muted">Versão {{ versao_dos_legais }} · última atualização em {{ data_dos_legais }}.</p>
   </div>
 
   {% if not legal_publicado %}
@@ -73,6 +73,15 @@
         <dt>Responsável</dt><dd>{{ legal_responsavel }}</dd>
         <dt>Contato para assuntos de privacidade</dt><dd>{{ legal_contato }}</dd>
       </dl>
+      {# [REVISAR] §3.1, rascunho do dono, 28/09/2026: encarregado (art. 41 da LGPD). #}
+      {# [NOME] é {{ legal_responsavel }}, que o contexto já traz. #}
+      {# [CONTATO] é o contato de privacidade que o app já publica (LEGAL_CONTATO, decisão do dono de 28/09/2026); sem ele a página nem publica. #}
+      <p>
+        <strong>Encarregado pelo tratamento de dados (art. 41 da LGPD):</strong>
+        {{ legal_responsavel }}, que responde pelo NutriPlan em qualquer
+        assunto sobre os seus dados pelo e-mail {{ legal_contato }}.
+        Respondemos em até 15 dias.
+      </p>
     {% else %}
       <p class="legal__pendencia">
         A identificação do responsável e o endereço de contato ainda não foram
@@ -195,12 +204,15 @@
       bruto vive <strong>90 dias</strong>; depois fica só a contagem agregada,
       que não guarda ninguém.
     </p>
+    {# [REVISAR] rascunho do dono, 28/09/2026: o opt-out do Perfil passou a bloquear o registro inteiro, não só a atribuição — atualiza o que a Política dizia sobre "agregado anônimo". #}
     <p>
       Você controla. Se o seu navegador envia <strong>Do-Not-Track</strong>, o
-      evento não é atribuído a você. E no
-      <a href="{% url 'accounts:profile' %}">Perfil</a> dá para desligar a
-      atribuição: o uso continua contando só no agregado anônimo. Excluir a conta
-      apaga o rastro identificado.
+      evento não é atribuído a você, mas continua contando no agregado
+      anônimo. Já desligar <strong>"rastrear uso"</strong> no
+      <a href="{% url 'accounts:profile' %}">Perfil</a> é mais forte: a partir
+      dali nada do seu uso é registrado, nem anonimamente, e o que este
+      aparelho gerou antes de você entrar não é ligado à sua conta no login.
+      Excluir a conta apaga o rastro identificado.
     </p>
   </section>
 
@@ -346,15 +358,22 @@
           de quem está logado baixar o próprio histórico de saúde sem um clique.
           O link direto respondia 405 para quem clicasse aqui.
         {% endcomment %}
-        Você pode baixar uma cópia em
-        <a href="{% url 'accounts:profile' %}#exportar">Exportar meus dados</a>.
-        O arquivo sai em JSON, sem senha nem dados internos.
+        {# [REVISAR] §3.2, rascunho do dono, 28/09/2026: exportação completa. #}
+        {# O texto nomeia "Baixar meus dados"; a tela de hoje diz "Exportar meus dados" (Perfil › exportar) — divergência de nome a revisar junto com o rascunho. #}
+        Em <a href="{% url 'accounts:profile' %}#exportar">Perfil › Sua
+        conta › "Baixar meus dados"</a> você recebe um arquivo JSON com tudo
+        o que o NutriPlan guarda sobre você: perfil, pesagens, refeições,
+        água (cada registro), treinos e séries, corridas e planos de corrida
+        (inclusive os importados do Apple Saúde ou do Health Connect), lista
+        de compras, conquistas, avisos e e-mails que enviamos, as permissões
+        que você deu (com data e versão do texto) e, se você não desligou,
+        os eventos de uso ligados à sua conta.
       </dd>
       <dt>Revogar o consentimento</dt>
       <dd>
-        Apagar a conta é a forma de retirar o consentimento por inteiro. Não é
-        possível manter a conta sem os dados de saúde, porque sem eles não
-        existe cálculo — e um app de dieta que não calcula não é nada.
+        {# [REVISAR] §3.4 a, rascunho do dono, 28/09/2026: revogação do consentimento de dados de saúde = excluir a conta. #}
+        Retirar o consentimento para dados de saúde é excluir a conta: sem
+        esses dados o app não calcula nada.
       </dd>
       <dt>Reclamar à autoridade</dt>
       <dd>

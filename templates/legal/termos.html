@@ -21,7 +21,7 @@
   <div class="page-head">
     <h1>Termos de Uso</h1>
     <p class="lead">As regras de usar o NutriPlan, em português claro.</p>
-    <p class="muted">Última atualização: 21 de setembro de 2026.</p>
+    <p class="muted">Versão {{ versao_dos_legais }} · última atualização em {{ data_dos_legais }}.</p>
   </div>
 
   {% if not legal_publicado %}
@@ -67,10 +67,23 @@
       conhece seu histórico clínico, suas medicações, seus exames.
     </p>
     <p>
+      {# [REVISAR] §4, rascunho do dono, 28/09/2026: acrescenta a Lei 9.696/1998 (Educação Física, CONFEF/CREF) ao lado da Lei 8.234/1991 já citada. #}
       Prescrição dietética é atividade privativa do nutricionista
-      (Lei 8.234/1991). O NutriPlan não faz isso e não substitui nutricionista
-      nem médico: o cardápio é um exemplo montado a partir de um catálogo, e a
-      meta é uma conta feita com fórmulas públicas.
+      (Lei 8.234/1991), e orientar o exercício físico é atividade privativa
+      do profissional de Educação Física, registrado no CREF
+      (Lei 9.696/1998). O NutriPlan não faz isso e não substitui
+      nutricionista nem médico: o cardápio é um exemplo montado a partir de
+      um catálogo, e a meta é uma conta feita com fórmulas públicas.
+    </p>
+    {# [REVISAR] §4, rascunho do dono, 28/09/2026: aviso CRN/CREF. #}
+    {# A frase original terminava em "antes de seguir o plano" — "plano" é palavra proibida nas telas da alimentação (config/test_linguagem.py, decisão de 21/09/2026) — e foi adaptada para "antes de seguir o que o app sugere"; divergência declarada aqui, não corrigida em silêncio. #}
+    <p>
+      O NutriPlan calcula e organiza — não prescreve. Ele não substitui a
+      orientação de um nutricionista (registrado no CRN) nem de um
+      profissional de Educação Física (registrado no CREF), e não serve
+      para tratar doença. Gestante, lactante, menor de idade ou quem tem
+      condição de saúde: procure um profissional antes de seguir o que o
+      app sugere.
     </p>
     <p>
       <strong>Procure um médico ou nutricionista</strong> antes de mudar sua
