@@ -102,12 +102,34 @@ _PADRAO_DESCADASTRO = re.compile(r"(/avisos/sair/)[^/?#]+")
 
 
 def _sem_segredo_na_rota(texto):
-    """`route`/`referrer` do analytics, sem o que `config.observabilidade`
-    já sabe redigir (token de senha, `?code=`/`?token=`...) e sem a chave de
+    """Uma STRING de rota/URL, sem o que `config.observabilidade` já sabe
+    redigir (token de senha, `?code=`/`?token=`...) e sem a chave de
     descadastro, que é específica deste app e não mora lá."""
     if not texto:
         return texto
     return _PADRAO_DESCADASTRO.sub(r"\1[REDIGIDO]", _redigir_padroes_conhecidos(texto))
+
+
+def _sem_segredo(valor):
+    """A mesma redação, RECURSIVA — para `analytics.Event.props`.
+
+    `route`/`referrer` são colunas fixas; `props` é `JSONField` com forma
+    livre por evento (a taxonomia declara os NOMES, não o formato). Round 2
+    da revisão, 28/09/2026: `erro.js` leva `{"mensagem": ..., "rota":
+    location.pathname}` — um erro de JavaScript na tela de descadastro
+    grava a URL com a chave dentro de `props.rota`, e `mensagem` também pode
+    carregar uma URL (a exceção do navegador costuma citar o arquivo/linha,
+    às vezes a própria URL da página). Redigir só `rota` teria sido
+    específico demais; aplicar a toda STRING dentro de `props` — em
+    qualquer profundidade de dict/lista — não depende de saber o nome do
+    campo de antemão."""
+    if isinstance(valor, str):
+        return _sem_segredo_na_rota(valor)
+    if isinstance(valor, dict):
+        return {k: _sem_segredo(v) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return [_sem_segredo(v) for v in valor]
+    return valor
 
 
 #: Nomes de campo que NUNCA saem no arquivo, em model nenhum — credencial,
@@ -435,6 +457,9 @@ def reunir_dados(user) -> dict:
     for evento in dados["eventos_analytics"]:
         evento["route"] = _sem_segredo_na_rota(evento["route"])
         evento["referrer"] = _sem_segredo_na_rota(evento["referrer"])
+        # `props` é forma livre (round 2 da revisão): `erro.js` grava a
+        # rota E a mensagem do erro, e as duas podem carregar a chave.
+        evento["props"] = _sem_segredo(evento["props"])
 
     return dados
 

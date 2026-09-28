@@ -350,6 +350,34 @@ class RedacaoDaRotaDeDescadastroTests(TestCase):
         dados = exportacao.reunir_dados(self.user)
         self.assertEqual(dados["eventos_analytics"][0]["route"], "")
 
+    def test_a_chave_nao_sai_dentro_de_props(self):
+        """Round 2 da revisão: `route`/`referrer` são colunas fixas, mas
+        `erro.js` (`analytics/catalogo.py`) grava a rota E a mensagem do
+        erro dentro de `props` — forma livre, `JSONField`. Um erro de
+        JavaScript disparado na tela `/avisos/sair/<chave>/` carrega a
+        chave nos DOIS campos."""
+        url = "/avisos/sair/%s/" % self.chave
+        AnalyticsEvent.objects.create(
+            user=self.user,
+            name="erro.js",
+            props={
+                "mensagem": "TypeError em %s: x is not a function" % url,
+                "rota": url,
+            },
+        )
+
+        import json
+
+        corpo = json.dumps(exportacao.reunir_dados(self.user), ensure_ascii=False)
+        self.assertNotIn(self.chave, corpo)
+
+        evento = [
+            e for e in exportacao.reunir_dados(self.user)["eventos_analytics"]
+            if e["name"] == "erro.js"
+        ][0]
+        self.assertIn("[REDIGIDO]", evento["props"]["rota"])
+        self.assertIn("[REDIGIDO]", evento["props"]["mensagem"])
+
 
 class VarreduraDeNomesDeSegredoTests(TestCase):
     """I2 da revisão: `SEGREDOS` é uma lista fechada de nomes conferidos
