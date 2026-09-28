@@ -67,8 +67,9 @@ class ADataPorExtensoTests(SimpleTestCase):
 @override_settings(LEGAL_PUBLICADO=True, LEGAL_RESPONSAVEL="Fulana de Tal", LEGAL_CONTATO="contato@exemplo.com")
 class APoliticaNomeiaOEncarregadoTests(TestCase):
     """Art. 41 da LGPD: quem responde pelo tratamento tem de estar nomeado,
-    não só "quem mantém o app". O contato é um PLACEHOLDER declarado —
-    ainda não existe caixa própria para o encarregado."""
+    não só "quem mantém o app". O e-mail do encarregado é o MESMO contato de
+    privacidade que o app já publica (`LEGAL_CONTATO`, decisão do dono de
+    28/09/2026) — e a página nunca publica placeholder."""
 
     def setUp(self):
         self.html = _sem_quebra_de_linha(self.client.get(reverse("privacidade")).content.decode())
@@ -79,8 +80,13 @@ class APoliticaNomeiaOEncarregadoTests(TestCase):
     def test_usa_o_responsavel_do_contexto_como_nome(self):
         self.assertIn("Fulana de Tal", self.html)
 
-    def test_o_email_e_o_placeholder_marcado(self):
-        self.assertIn("encarregado@[REVISAR]", self.html)
+    def test_o_email_e_o_contato_de_privacidade(self):
+        self.assertIn("pelo e-mail contato@exemplo.com", self.html)
+
+    def test_a_pagina_nao_publica_placeholder(self):
+        self.assertNotIn("[REVISAR]", self.html)
+        self.assertNotIn("[CONTATO]", self.html)
+        self.assertNotIn("pelo e-mail .", self.html)
 
 
 class APoliticaDescreveAExportacaoCompletaTests(TestCase):

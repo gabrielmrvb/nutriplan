@@ -75,11 +75,11 @@
       </dl>
       {# [REVISAR] §3.1, rascunho do dono, 28/09/2026: encarregado (art. 41 da LGPD). #}
       {# [NOME] é {{ legal_responsavel }}, que o contexto já traz. #}
-      {# [CONTATO] é um e-mail PLACEHOLDER — ainda não existe caixa própria para o encarregado. #}
+      {# [CONTATO] é o contato de privacidade que o app já publica (LEGAL_CONTATO, decisão do dono de 28/09/2026); sem ele a página nem publica. #}
       <p>
         <strong>Encarregado pelo tratamento de dados (art. 41 da LGPD):</strong>
         {{ legal_responsavel }}, que responde pelo NutriPlan em qualquer
-        assunto sobre os seus dados pelo e-mail encarregado@[REVISAR].
+        assunto sobre os seus dados pelo e-mail {{ legal_contato }}.
         Respondemos em até 15 dias.
       </p>
     {% else %}
