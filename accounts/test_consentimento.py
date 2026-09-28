@@ -194,10 +194,15 @@ class ConsentimentoTests(TestCase):
         return user
 
     def test_conta_antiga_e_levada_ao_consentimento_antes_de_qualquer_tela(self):
+        """ALTERADO em 28/09/2026 (LGPD parte 2, Task F, achado 2 da revisão):
+        o redirecionamento agora carrega `?next=<rota>` — "com volta", como o
+        brief da corrida pedia — em vez de mandar sempre para o mesmo lugar
+        sem dizer de onde a pessoa veio."""
         self._completa_sem_consentimento()
         for rota in (reverse("plans:today"), reverse("workouts:routine"), reverse("accounts:profile")):
             with self.subTest(rota=rota):
-                self.assertRedirects(self.client.get(rota), reverse("accounts:consentimento"), fetch_redirect_response=False)
+                esperado = "%s?next=%s" % (reverse("accounts:consentimento"), rota)
+                self.assertRedirects(self.client.get(rota), esperado, fetch_redirect_response=False)
 
     def test_a_tela_de_consentimento_grava_e_devolve_para_o_dia(self):
         user = self._completa_sem_consentimento()
@@ -210,10 +215,13 @@ class ConsentimentoTests(TestCase):
         self.assertEqual(self.client.get(reverse("plans:today")).status_code, 200)
 
     def test_a_tela_de_consentimento_sem_as_caixas_nao_libera(self):
+        """Ver nota em `test_conta_antiga_e_levada_ao_consentimento_antes_de_qualquer_tela`
+        (28/09/2026): o redirecionamento de volta carrega `?next=`."""
         self._completa_sem_consentimento()
         resposta = self.client.post(reverse("accounts:consentimento"), {"termos": "on"})
         self.assertEqual(resposta.status_code, 200)
-        self.assertRedirects(self.client.get(reverse("plans:today")), reverse("accounts:consentimento"), fetch_redirect_response=False)
+        esperado = "%s?next=%s" % (reverse("accounts:consentimento"), reverse("plans:today"))
+        self.assertRedirects(self.client.get(reverse("plans:today")), esperado, fetch_redirect_response=False)
 
     def test_excluir_a_conta_nao_exige_consentimento(self):
         """Ninguém precisa consentir para ir embora."""

@@ -7,15 +7,18 @@ from django.test import TestCase
 from django.utils import timezone
 
 from workouts.models import Corrida
+from workouts.tests import create_user
 
 User = get_user_model()
 
 
 class SalvarCorridaTests(TestCase):
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="corredora@exemplo.com", password="senha-bem-forte-123"
-        )
+        # `create_user` (onboarding completo) e não `User.objects.create_user`
+        # cru: desde 28/09/2026 (LGPD parte 2, item 11) `SalvarCorridaView` usa
+        # `OnboardingRequiredMixin`, como toda outra tela de corrida — uma
+        # conta sem perfil cai no redirect de onboarding antes de chegar na view.
+        self.pessoa = create_user(email="corredora@exemplo.com")
         self.client.force_login(self.pessoa)
         self.comecou = timezone.now() - timedelta(minutes=50)
         self.terminou = timezone.now()
@@ -71,9 +74,8 @@ class SalvarCorridaTests(TestCase):
         """A chave nasce no navegador. Global, ela faria a corrida de uma
         pessoa bloquear a de outra."""
         self._postar()
-        outra = User.objects.create_user(
-            email="outro@exemplo.com", password="senha-bem-forte-123"
-        )
+        # Ver nota em `SalvarCorridaTests.setUp` (28/09/2026).
+        outra = create_user(email="outro@exemplo.com")
         self.client.force_login(outra)
 
         self._postar()
@@ -288,9 +290,8 @@ class CsrfDeVerdadeTests(TestCase):
     def setUp(self):
         from django.test import Client
 
-        self.pessoa = User.objects.create_user(
-            email="csrf@exemplo.com", password="senha-bem-forte-123"
-        )
+        # Ver nota em `SalvarCorridaTests.setUp` (28/09/2026).
+        self.pessoa = create_user(email="csrf@exemplo.com")
         self.client = Client(enforce_csrf_checks=True)
         self.client.force_login(self.pessoa)
         self.comecou = timezone.now() - timedelta(minutes=30)
@@ -352,9 +353,9 @@ class OServidorRecusaOImpossivelTests(TestCase):
     """
 
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="impossivel@exemplo.com", password="senha-bem-forte-123"
-        )
+        # Ver nota em `SalvarCorridaTests.setUp` (28/09/2026): a view agora
+        # exige onboarding completo, não só login.
+        self.pessoa = create_user(email="impossivel@exemplo.com")
         self.client.force_login(self.pessoa)
         self.comecou = timezone.now() - timedelta(minutes=50)
         self.terminou = timezone.now()
@@ -446,9 +447,8 @@ class DuracaoZeroNaoAtravessaAGuardaDeVelocidadeTests(TestCase):
     """
 
     def setUp(self):
-        self.pessoa = User.objects.create_user(
-            email="zero-segundos@exemplo.com", password="senha-bem-forte-123"
-        )
+        # Ver nota em `SalvarCorridaTests.setUp` (28/09/2026).
+        self.pessoa = create_user(email="zero-segundos@exemplo.com")
         self.client.force_login(self.pessoa)
         self.instante = timezone.now()
 

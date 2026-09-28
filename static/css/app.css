@@ -6719,6 +6719,7 @@ body.montando { overflow: hidden; }
 .demo {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: var(--espaco-4);
   margin-bottom: var(--espaco-3);
@@ -6836,6 +6837,8 @@ body.montando { overflow: hidden; }
 
 /* "Buscar no YouTube" é a única saída da execução sem vídeo, e media 21 px
    de altura (auditoria visual de 27/09/2026). */
+.agora__sem-media + .demo__cue { padding: 0 var(--espaco-3) var(--espaco-3); }
+
 .agora__sem-media a {
   display: inline-flex;
   align-items: center;
@@ -6843,7 +6846,12 @@ body.montando { overflow: hidden; }
   min-height: 2.75rem;
 }
 
+/* SEM VÍDEO, O AVISO TOMA A LINHA E A DICA DESCE (28/09/2026, caça-bugs
+   BA9): sem largura fixa, ele crescia até o texto caber e a dica ao lado
+   ficava com 49 px, uma sílaba por linha. `flex: 1 1 100%` o põe sozinho na
+   linha (`.demo` quebra); a dica, com `flex: 1`, vai inteira para baixo. */
 .agora__sem-media {
+  flex: 1 1 100%;
   display: grid;
   place-content: center;
   gap: .3rem;

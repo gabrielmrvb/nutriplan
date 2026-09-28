@@ -69,6 +69,13 @@
     /* Carimbo de fim. Declarado aqui, e nao criado no meio do caminho: e ele
      * que a retomada le para saber se a corrida acabou e so falta subir. */
     terminou: null,
+    /* SÓ o redirecionamento de consentimento liga isto (achado M3 da revisão
+     * de 28/09/2026, restrito pelo controlador na rodada seguinte): é o que
+     * `comecar()` olha para recusar sobrescrever a corrida pendente. Um 4xx
+     * ou uma falha de rede NÃO ligam — nesses dois, "Começar" por cima da
+     * corrida pendente já era o comportamento de antes desta tarefa, e trocar
+     * isso é decisão do dono, não desta correção (ver `salvar()`). */
+    pendeConsentimento: false,
     pausada: false,
     comecou: null,
     ancora: null,
@@ -92,6 +99,7 @@
     tempo: raiz.querySelector("[data-corrida-tempo]"),
     pace: raiz.querySelector("[data-corrida-pace]"),
     recado: raiz.querySelector("[data-corrida-estado]"),
+    consentir: raiz.querySelector("[data-corrida-consentir]"),
     comecar: raiz.querySelector("[data-corrida-comecar]"),
     pausar: raiz.querySelector("[data-corrida-pausar]"),
     retomar: raiz.querySelector("[data-corrida-retomar]"),
@@ -307,6 +315,32 @@
      * — a corrida em andamento perdia a identidade com que seria salva. */
     if (estado.correndo || estado.enviando) return;
 
+    /* Nem por cima de uma corrida pendente de CONSENTIMENTO (achado M3 da
+     * revisão de 28/09/2026, restrito pela rodada seguinte do controlador).
+     * `estado.pendeConsentimento` só liga dentro do ramo `opaqueredirect` de
+     * `salvar()` — a corrida existe, o servidor nunca a recusou, só falta a
+     * pessoa confirmar os termos. O reset abaixo chama `guardar()`, que usa
+     * a MESMA vaga do `localStorage`: um segundo toque em "Começar" aqui
+     * apagaria essa corrida antes dela ter uma segunda chance de subir.
+     * "Retomar" não existe para uma corrida que já terminou; a única ação
+     * que faz sentido é tentar salvar de novo — a mesma que "Encerrar"
+     * chamaria.
+     *
+     * De propósito NÃO cobre 4xx nem falha de rede: um 4xx é uma recusa
+     * definitiva do CONTEÚDO ("insistir não conserta", `salvar()` abaixo) —
+     * bloquear "Começar" aí prenderia a pessoa numa corrida que o servidor
+     * nunca vai aceitar, mesmo depois de recarregar (`recuperar()` traria o
+     * mesmo registro de volta). Rede/offline já deixava "Começar" sobrescrever
+     * antes desta tarefa — quem está sem sinal e quer gravar uma SEGUNDA
+     * corrida perderia essa opção. Os dois são o mesmo trade-off
+     * (perder a corrida 1 × não registrar a corrida 2) que já existia antes
+     * desta PR, e a troca é decisão pendente do dono, não desta correção. */
+    if (estado.pendeConsentimento) {
+      el.comecar.hidden = true;
+      salvar();
+      return;
+    }
+
     /* Corrida nova começa do ZERO, e isto não é obviedade.
      *
      * Antes, `comecar()` só era chamada uma vez por carregamento de página:
@@ -463,6 +497,13 @@
       parciais: estado.marcas
     };
     estado.enviando = true;
+    /* Limpa a CADA tentativa, e não só quando dá certo: se esta tentativa
+     * for de novo um redirecionamento de consentimento, o ramo abaixo liga
+     * de novo. Sem isto, uma corrida que já passou por aqui uma vez ficaria
+     * bloqueando "Começar" mesmo depois de um sucesso ou de uma recusa de
+     * conteúdo que não tem nada a ver com consentimento. */
+    estado.pendeConsentimento = false;
+    el.consentir.hidden = true;
     dizer("Salvando...");
     fetch(raiz.dataset.salvar, {
       method: "POST",
@@ -471,9 +512,27 @@
         "X-CSRFToken": tokenCsrf()
       },
       body: JSON.stringify(corpo),
-      credentials: "same-origin"
+      credentials: "same-origin",
+      /* Sem seguir redirect. `OnboardingRequiredMixin` manda 302 para o
+       * consentimento (ou para o login, se a sessão caiu) quando a conta não
+       * está em dia — e o `fetch` sem isto SEGUE o redirect até uma resposta
+       * 200, que `r.ok` abaixo leria como sucesso e `esquecer()` apagaria a
+       * ÚNICA cópia local da corrida sem o servidor nunca ter gravado nada
+       * (achado da revisão de 28/09/2026). Mesma guarda de `fila.js:431`. */
+      redirect: "manual"
     }).then(function (r) {
       estado.enviando = false;
+      if (r.type === "opaqueredirect") {
+        /* Nem sucesso nem recusa de conteúdo: a conta precisa confirmar os
+         * termos antes de qualquer gravação. NÃO apaga — a única cópia
+         * continua sendo esta, no aparelho. SÓ este ramo liga a bandeira que
+         * `comecar()` olha — 4xx e falha de rede, abaixo, não ligam. */
+        estado.pendeConsentimento = true;
+        el.comecar.hidden = false;
+        el.consentir.hidden = false;
+        dizer("Confirme os termos para salvar a corrida. Ela continua guardada neste aparelho.");
+        return;
+      }
       if (r.ok) {
         /* Só agora o registro local deixa de fazer sentido. Apagá-lo antes da
          * confirmação seria trocar "a corrida não subiu" por "a corrida não
@@ -484,7 +543,10 @@
       }
       /* 4xx que não seja de rede é problema do conteúdo, e insistir não
        * conserta. Guardar mesmo assim é melhor que descartar: a corrida fica
-       * onde alguém pode olhar. */
+       * onde alguém pode olhar. NÃO liga `pendeConsentimento` — bloquear
+       * "Começar" aqui prenderia a pessoa numa corrida que o servidor nunca
+       * vai aceitar, mesmo depois de recarregar (decisão pendente do dono,
+       * fora do escopo desta correção; ver `comecar()`). */
       /* So agora o botao volta. Enquanto o envio estava em voo, ele ficou
        * escondido: um toque ali comecaria uma corrida NOVA por cima da que
        * ainda estava tentando subir, e o `reload()` do sucesso mataria a nova
@@ -492,6 +554,9 @@
       el.comecar.hidden = false;
       dizer("Não conseguimos salvar. A corrida está guardada neste aparelho.");
     }).catch(function () {
+      /* Falha de rede/offline: MESMA régua do 4xx acima — não liga
+       * `pendeConsentimento`. "Começar" sobrescrever aqui já era o
+       * comportamento de antes desta tarefa (decisão pendente do dono). */
       estado.enviando = false;
       el.comecar.hidden = false;
       dizer("Sem conexão. A corrida está guardada e sobe quando o sinal voltar.");
