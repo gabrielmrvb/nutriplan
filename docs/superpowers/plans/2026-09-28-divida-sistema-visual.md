@@ -37,7 +37,7 @@
 - [x] Testes de texto exato atualizados para o token novo de mesmo valor em px.
 - [x] Sabotagem 10/10 vermelha.
 - [x] Captura antes/depois: 129 × 2, zero queda de Ti/Es/Cc.
-- [ ] Suíte rápida (pre-push), revisão de código, PR, fila.
+- [x] Suíte rápida (pre-push), revisão de código, PR #187, fila — em produção (`d998ee4`).
 
 ### Lote 2: botão primário único (`sistema/lote-2-botao`)
 
@@ -90,6 +90,45 @@
 - [ ] Marca 16,8 px → degrau; links do desktop 14 px → `--texto-md`; a barra anônima a 390 não quebra palavra ("NutriPla/n", "Entra/r" — medido).
 - [ ] Sabotagem, captura (todas as telas: é cromo), notas, suíte, revisão, PR, fila.
 
-### Fecho
+### Fecho — FEITO (28/09/2026)
 
-- [ ] Mapa de calor remedido das telas tocadas, ao lado do da auditoria; lista do que ficou para `workouts/` (ledger); personas apagadas pela tela, com prova.
+Lotes 2–6 como planejado, cada um com régua vermelha antes, sabotagem 100 % vermelha, captura antes/depois (129 × 2), revisão de código e um PR pela fila: #188 (botão), #189 (cartão), #191 (`h2`), e os PRs do lote 5 (escolha) e 6 (cromo). Nenhuma nota medida caiu em lote nenhum.
+
+Desvios do plano, decididos e registrados: dias em fila que QUEBRA, não em 7 colunas (a 390 px seriam 42 px, abaixo do alvo); `choice-cards--lista` e `--par` (a lista antiga tinha 50 px, o cartão com ícone pede 68; o sexo sem ícone não cabe no `--duas`); caixa da lista com o quadrado vazio à vista (consentimento tem de parecer que se marca); foco do `choice-card` em anel com vão (a decisão de 16/09 para o chip de dia e o segmented); abaixo de 24rem a barra com ações mostra só o símbolo (a 320 px ela pediria 374 de 305). A lista de "só rótulo, sem display acima" (lote 4) saiu vazia.
+
+#### Mapa de calor remedido (a função de nota da auditoria; Ti/Es/Cc medidos nas capturas finais, os observados são os da auditoria)
+
+| tela | Ti | Es | Cc | média (auditoria) | Ti | Es | Cc | média (depois) |
+|---|---|---|---|---|---|---|---|---|
+| Landing | 2 | 0 | 3 | 1.95 | 3 | 3 | 3 | **2.52** |
+| Cadastro | 2 | 2 | 3 | 2.57 | 3 | 3 | 3 | **2.86** |
+| Entrar | 2 | 2 | 3 | 2.57 | 3 | 3 | 3 | **2.86** |
+| Onboarding 1 | 1 | 1 | 3 | 2.00 | 3 | 3 | 3 | **2.52** |
+| Onboarding 2 | 0 | 0 | 2 | 1.27 | 3 | 3 | 3 | **2.08** |
+| Onboarding 3 | 1 | 0 | 3 | 1.43 | 3 | 3 | 3 | **2.14** |
+| Home | 1 | 1 | 3 | 1.83 | 2 | 3 | 3 | **2.17** |
+| Treino · dia de treino | 0 | 1 | 1 | 1.42 | 1 | 3 | 3 | **2.05** |
+| Treino · descanso | 1 | 1 | 3 | 2.12 | 1 | 3 | 3 | **2.38** |
+| Treino · sem musculação | 2 | 1 | 3 | 2.04 | 3 | 3 | 3 | **2.25** |
+| Ficha | 3 | 2 | 3 | 2.26 | 3 | 3 | 3 | **2.29** |
+| Alimentação · fechada | 1 | 2 | 2 | 1.93 | 3 | 3 | 3 | **2.39** |
+| Alimentação · refeição aberta | 1 | 2 | 2 | 1.83 | 3 | 3 | 3 | **2.29** |
+| Alimentação · comi outra coisa | 1 | 2 | 2 | 1.72 | 3 | 3 | 3 | **2.12** |
+| Corrida | 1 | 0 | 3 | 2.13 | 3 | 3 | 3 | **2.25** |
+| Progresso | 2 | 2 | 2 | 1.87 | 3 | 3 | 3 | **2.09** |
+| Conquistas | 1 | 0 | 3 | 1.83 | 3 | 3 | 3 | **2.30** |
+| Histórico (exercícios que já fiz) | 2 | 0 | 3 | 2.36 | 3 | 3 | 3 | **2.57** |
+| Conta · Mais | 3 | 3 | 3 | 3.00 | 3 | 3 | 3 | **3.00** |
+| Conta · Perfil | 2 | 2 | 3 | 1.71 | 3 | 3 | 3 | **2.00** |
+| Ajuda | 0 | 0 | 3 | 1.60 | 3 | 3 | 3 | **2.33** |
+| /demo/ | 1 | 0 | 3 | 1.67 | 3 | 3 | 3 | **2.29** |
+
+Ti da Home ainda é 2 — o número do anel do cartão de Alimentação a 18,4 px em display (a display nunca desce de 20) e um `<b>` em Big Shoulders 700 — e o do treino é 1: as regras da Fase A não foram tocadas. O anel da Home fica como achado para um próximo lote (não é de treino).
+
+#### O que ficou para `templates/workouts/` (ledger, 27/09 21:57)
+
+- `btn--hoje` (display 16 px, routine.html) e "Compartilhar o que já fiz" (Archivo 14,4) → `btn--primary` canônico;
+- 14 `h2` do treino ainda no legado de 20,8 px, mais `hoje__nome`, `agora__confirmar-titulo`, `folha-troca__titulo`;
+- cartões `agora`, `agora--com-descanso`, `fim recompensa`, `opcao`, `hoje` → `.card` / `.card--prato`;
+- a duração da sessão em `choice-list` (routine.html) → `choice_cards`; depois disso `choice-list` sai do CSS;
+- nas regras só de treino: 22 `font-size` crus, 14 entrelinhas cruas e 129 usos de `--espaco-*` (legado datado).
