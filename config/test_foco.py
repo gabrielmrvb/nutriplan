@@ -152,4 +152,4 @@ class FocoUnicoTests(TestCase):
         de 16/09/2026). Decisão do dono: 6 px — escrito como `calc` sobre o
         token para não subir a catraca de espaçamento cru."""
         corpo = re.search(r"\.segmented\s*\{([^}]*)\}", self.css).group(1)
-        self.assertIn("padding: calc(var(--espaco-1) * 1.5)", corpo)
+        self.assertIn("padding: calc(var(--e1) * 1.5)", corpo)

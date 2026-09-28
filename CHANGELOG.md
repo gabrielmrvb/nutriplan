@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-09-28
+
+- **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
+
 ## 2026-09-27
 
 - **Hoje e Progresso contam as refeições do mesmo jeito.** A Home dizia "1/5 refeições" enquanto o Progresso dizia "1/1 · hoje, até agora". Agora as duas telas, e o topo da Alimentação, contam só as refeições que já passaram: "1/1 até agora".

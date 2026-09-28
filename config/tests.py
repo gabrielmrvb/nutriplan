@@ -1716,7 +1716,9 @@ class GymReadyTests(TestCase):
         marca e #0c6b40, e o hex fixo apareceria la como uma cor que nao
         pertence a paleta de lugar nenhum."""
         regra = self.css.split(chr(10) + ".today-hero,", 1)[1].split("}", 1)[0]
-        self.assertIn("var(--brand)", regra)
+        # Desde 28/09/2026 a borda é a tinta com nome (`--brand-linha`), que
+        # é receita de `var(--brand)` no :root.
+        self.assertRegex(regra, r"var\(--brand(-[\w-]+)?\)")
         self.assertNotIn("16, 185, 129", regra)
 
     def test_only_the_three_summary_cards_carry_the_accent_edge(self):

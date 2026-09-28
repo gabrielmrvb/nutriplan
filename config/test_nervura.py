@@ -148,7 +148,7 @@ class AAbaAPontaEANervuraTests(SimpleTestCase):
         com 40 px (24 + 16) sobram 8 px."""
         faixa = _regra(self.css, ".demo-aviso")
         self.assertIsNotNone(faixa)
-        self.assertRegex(faixa, r"margin:\s*0 0 calc\(var\(--espaco-7\) \+ var\(--espaco-6\)\)")
+        self.assertRegex(faixa, r"margin:\s*0 0 calc\(var\(--e6\) \+ var\(--e4\)\)")
 
     def test_a_nervura_e_decoracao_atras_do_texto(self):
         corpo = _regra(self.css, ".page-head h1::after,\n.today-hero::after")
