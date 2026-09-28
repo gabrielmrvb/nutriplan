@@ -111,9 +111,10 @@ class FocoUnicoTests(TestCase):
         já tem o fundo em `--brand`, e o anel colado (`box-shadow 0 0 0 2px`)
         só engordava a pílula: em rádio a seta move foco e marcação juntos, e
         o foco sumia exatamente no caso mais comum de teclado."""
+        # Desde 28/09/2026 o chip de dia e o segmented são o `choice-card`
+        # (dívida visual, lote 5), e a decisão foi junto para ele.
         for seletor in (
-            r"\.segmented--envolve input:focus-visible ~ \.segmented__fundo",
-            r"\.segmented input:focus-visible ~ \.segmented__fundo",
+            r"\.choice-card > input:focus-visible ~ \.choice-card__frame",
         ):
             with self.subTest(seletor=seletor):
                 casou = re.search(seletor + r"\s*\{([^}]*)\}", self.css)
@@ -146,10 +147,10 @@ class FocoUnicoTests(TestCase):
         corpo = re.search(r"\.btn--primary:focus-visible\s*\{([^}]*)\}", self.css).group(1)
         self.assertIn("var(--halo)", corpo)
 
-    def test_o_segmented_tem_folga_para_o_anel_com_vao(self):
-        """Anel de 2 px + vão de 2 px = 4 px para fora da opção; com o padding
-        de 4 px do contêiner o anel encostava na borda dele (medido na captura
-        de 16/09/2026). Decisão do dono: 6 px — escrito como `calc` sobre o
-        token para não subir a catraca de espaçamento cru."""
-        corpo = re.search(r"\.segmented\s*\{([^}]*)\}", self.css).group(1)
-        self.assertIn("padding: calc(var(--e1) * 1.5)", corpo)
+    def test_os_dias_tem_vao_para_dois_aneis(self):
+        """Anel de 2 px + vão de 2 px = 4 px para fora de cada dia; dois dias
+        vizinhos pedem 8 px entre eles, ou um anel pisa no outro. Era a
+        folga de 6 px do segmented (captura de 16/09/2026); desde o lote 5
+        da dívida visual os dias são cartões numa fila, e a folga é o vão."""
+        corpo = re.search(r"\.choice-cards--dias\s*\{([^}]*)\}", self.css).group(1)
+        self.assertIn("gap: var(--e2)", corpo)

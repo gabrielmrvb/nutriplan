@@ -19,8 +19,9 @@
   a última conta social de quem não tem senha utilizável — a pessoa não
   consegue se trancar para fora daqui.
 
-  `.choice-list` em vez de classe nova: ela já dá `min-height: 3.1rem`, acima
-  da régua de 44px, e já é o jeito de o app fazer escolha em lista.
+  O `choice-card` em lista (`choice-cards--lista`) em vez de classe nova: ele
+  dá `min-height: 3.1rem`, acima da régua de 44px, e é o jeito de o app fazer
+  escolha (dívida visual, lote 5; era a `.choice-list`).
 {% endcomment %}
 
 {% block title %}Contas conectadas · NutriPlan{% endblock %}
@@ -46,13 +47,15 @@
           </ul>
         {% endif %}
 
-        <ul class="choice-list">
+        <ul class="choice-cards choice-cards--lista">
           {% for conta in form.accounts %}
             <li>
-              <label for="conta-{{ conta.pk }}">
-                <input type="radio" name="account" id="conta-{{ conta.pk }}"
+              <label class="choice-card" for="conta-{{ conta.pk }}">
+                <input class="choice-card__input" type="radio" name="account" id="conta-{{ conta.pk }}"
                        value="{{ conta.pk }}"{% if forloop.first %} checked{% endif %}>
-                <span>{{ conta }}</span>
+                <span class="choice-card__frame" aria-hidden="true"></span>
+                <span class="choice-card__text">{{ conta }}</span>
+                <span class="choice-card__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
               </label>
             </li>
           {% endfor %}

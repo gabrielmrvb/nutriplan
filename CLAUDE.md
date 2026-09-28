@@ -2880,6 +2880,24 @@ oculto) e declara o tamanho. O
 acima dos rótulos (medido nas 43 telas capturadas; gestão e analytics, no
 template): nenhum título foi inventado.
 
+**UMA ESCOLHA SÓ (28/09/2026, dívida visual, lote 5).** Eram cinco desenhos
+para "escolha uma opção": cartão com ícone, cartão largo com visto, rádio
+redondo em `choice-list`, `segmented` e chips de dia. Fora do treino, hoje
+é o `choice-card` (`partials/choice_cards.html` e a mesma marcação à mão nos
+consentimentos, nos Termos do cadastro, na análise de uso e na conta do
+Google). `partials/field.html` desenha o cartão com o input do Django dentro
+(`{{ subwidget.tag }}`, que traz o `aria-label` de cada dia), e o CSS alcança
+esse input pelo filho direto (`.choice-card > input`). Modificadores:
+`--lista` (opção sem ícone nem dica, 3,1rem — a altura da lista antiga, para
+o cadastro não crescer), `--par` (duas curtas lado a lado: o sexo), `--dias`
+(fila que QUEBRA: sete colunas a 390 px dariam 42 px, abaixo do alvo) e o
+`--duas` de sempre, para cartão com ícone. O foco virou ANEL COM VÃO, a
+decisão de 16/09 do dono para o chip de dia e o segmented, que viraram este
+cartão. `segmented` saiu do CSS; `choice-list` é LEGADO datado do treino
+(a duração da sessão). Caixas que não são escolha ficam nomeadas
+(`CAIXAS_QUE_NAO_SAO_ESCOLHA`: o item da lista de compras e o som das
+conquistas). `UmControleDeEscolhaSoTests`.
+
 **O sistema visual já existe, é enforcado por teste, e a primeira coisa a fazer
 antes de criar componente é procurar o equivalente.** Auditado em 05/09/2026:
 70 tokens no `:root` — oito degraus de texto, sete de espaçamento, quatro de

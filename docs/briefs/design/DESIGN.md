@@ -258,7 +258,9 @@ contorno de `--traco`, caixa alta .16em; o escolhido cheio de `--brand`)
 meta em Archivo) · `data-list` (`dt`/`dd`) · `empty-state` · `hint` ·
 `field` (rótulo em caixa alta, ajuda, erro; campo reto com régua embaixo
 em `--fio-forte`, que vira `--brand` no foco; rádios e caixas quadrados)
-· `choice_cards` (rádio como caixa de contorno com o visto quadrado) ·
+· `choice_cards` (rádio e caixa como cartão de contorno com o visto
+quadrado; é a ÚNICA escolha fora do treino — sexo lado a lado, dias numa
+fila que quebra, o resto em lista; foco em anel com vão) ·
 `marca` e `marca_de_entrada` · `_conquista` (aviso ancorado embaixo, não
 modal) · anel de progresso (calorias, água, treino: trilha em `--fio`, arco
 em `--folha` — o círculo é a única curva) · barra de progresso (reta, com
