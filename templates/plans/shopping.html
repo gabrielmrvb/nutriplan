@@ -50,7 +50,7 @@
   <div class="stack stack--duas-colunas">
       <section class="card">
         <div class="card__head">
-          <h2>Baseada na opção</h2>
+          <h2 class="sobretitulo">Baseada na opção</h2>
         </div>
         <div class="chip-row">
           {% for value, nome in labels %}
@@ -68,7 +68,7 @@
       {% for aisle in aisles %}
         <section class="card">
           <div class="card__head">
-            <h2>{{ aisle.name }}</h2>
+            <h2 class="sobretitulo">{{ aisle.name }}</h2>
             <span class="chip">{{ aisle.count }}</span>
           </div>
           <ul class="shopping">
@@ -146,7 +146,7 @@
       {% endcomment %}
       <section class="card" id="seus-itens">
         <div class="card__head">
-          <h2>Seus itens</h2>
+          <h2 class="sobretitulo">Seus itens</h2>
           {% if avulsos %}<span class="chip">{{ avulsos|length }}</span>{% endif %}
         </div>
         {% if avulsos %}
@@ -194,7 +194,7 @@
 
     <aside class="stack">
       <section class="card">
-        <div class="card__head"><h2>Como usar</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Como usar</h2></div>
         <p class="hint">
           A lista soma os {{ days }} dias e converte para o que se compra: arroz e
           feijão viram peso CRU, ovo vira unidade, atum e sardinha viram lata. O
@@ -218,7 +218,7 @@
       </section>
 
       <section class="card">
-        <div class="card__head"><h2>Seu cardápio</h2></div>
+        <div class="card__head"><h2 class="sobretitulo">Seu cardápio</h2></div>
         <dl class="data-list">
           <div><dt>Meta diária</dt><dd>{{ plan.target_kcal }} kcal</dd></div>
           <div><dt>Proteína</dt><dd>{{ plan.protein_g }} g</dd></div>

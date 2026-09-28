@@ -42,7 +42,7 @@
            placeholder="82,5"{% if houve_recusa %} aria-invalid="true" aria-describedby="peso_error"{% endif %}
            value="{% if houve_recusa %}{{ peso_recusado }}{% elif peso_atual %}{{ peso_atual|floatformat:1 }}{% endif %}">
   </label>
-  <button type="submit" class="pesagem__salvar">Salvar</button>
+  <button type="submit" class="btn btn--primary btn--sm">Salvar</button>
   {% comment %}
     O erro mora AQUI, embaixo do campo, e não só na faixa do topo: a recusa
     viaja pela sessão com a mensagem (22/09/2026). `pwa.js` ("FOCO NO ERRO")

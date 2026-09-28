@@ -191,67 +191,50 @@ class OsComplementaresSeDistribuemTests(TestCase):
     """O falso dilema das "sessões de onze exercícios", medido.
 
     O modelo `abc2 B` tem onze itens e o `abc2 C` tem doze. Se cada passagem
-    recebesse o modelo inteiro, a objeção estaria certa. Ela não está: a
-    repartição em OPÇÕES divide os itens, e o que uma versão da letra não
-    leva a outra leva — a pessoa alterna.
+    recebesse o modelo inteiro, a objeção estaria certa. Ela não está: de 15
+    a 27/09/2026 a repartição em OPÇÕES dividia os itens e a pessoa
+    alternava; desde 27/09 a letra é UMA variante pela cota do TREINO.md, e
+    os complementares entram nela — um de cada grupo — sem inflar a sessão.
     """
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def _complementares_por_opcao(self, plano, letra):
-        """[{complementares da opção 1}, {da opção 2}] da letra."""
+    def _complementares(self, plano, letra):
+        """{grupo complementar: [exercícios]} da variante da letra."""
         sessao = sessoes_por_letra(plano)[letra]
-        return [
-            {
-                item.exercise.name
-                for item in sessao.da_opcao(opcao)
-                if item.exercise.muscle_group in COMPLEMENTARES
-            }
-            for opcao in sessao.opcoes
-        ]
+        self.assertEqual(sessao.opcoes, [1], "%s com mais de uma variante" % letra)
+        grupos = defaultdict(list)
+        for item in sessao.da_opcao(1):
+            if item.exercise.muscle_group in COMPLEMENTARES:
+                grupos[item.exercise.muscle_group].append(item.exercise.name)
+        return grupos
 
-    def test_as_duas_opcoes_de_B_levam_complementares_DIFERENTES(self):
-        """Cinco dias: a letra B cai duas vezes, e o trapézio não é o mesmo.
-
-        Era "B1 e B2": desde 15/09/2026 as duas ocorrências carregam as mesmas
-        linhas, e quem se reveza são as OPÇÕES da letra — quem faz B na terça
-        e na sexta alterna a versão, e não repete o encolhimento.
-        """
+    def test_a_variante_de_B_leva_trapezio_E_antebraco(self):
+        """Cinco dias: a letra B cai duas vezes, e é o MESMO treino (dono,
+        27/09/2026: "letra repetida faz sempre o mesmo treino"). Era "as duas
+        opções de B levam complementares DIFERENTES" — o trapézio numa, o
+        antebraço na outra, e a pessoa alternava. Com uma variante, os dois
+        complementares de "Costas e bíceps" entram na lista, um de cada: o
+        que a alternância cobria na quinzena, a lista cobre em toda sessão."""
         _, plano = perfil(5, sufixo="-b1b2")
 
-        opcoes = self._complementares_por_opcao(plano, "B")
+        grupos = self._complementares(plano, "B")
 
-        self.assertEqual(len(opcoes), 2, "B saiu com uma opção só")
-        primeira, segunda = opcoes
-        self.assertTrue(primeira, "a opção 1 de B ficou sem complementar nenhum")
-        self.assertTrue(segunda, "a opção 2 de B ficou sem complementar nenhum")
-        self.assertEqual(
-            primeira & segunda, set(),
-            "as opções de B repetiram %s" % sorted(primeira & segunda),
-        )
+        self.assertEqual(set(grupos), {MuscleGroup.TRAPS, MuscleGroup.FOREARMS})
+        self.assertTrue(all(len(nomes) == 1 for nomes in grupos.values()), grupos)
 
-    def test_as_duas_opcoes_de_C_levam_complementares_DIFERENTES(self):
-        """Seis dias: a letra C cai duas vezes, e a panturrilha se reveza.
-
-        Era "C1 e C2"; a leitura por opções é a mesma da letra B acima. Seis
-        dias continua sendo o cenário, porque é onde C repete: se a letra
-        sair com UMA opção, quem treina C duas vezes na semana faz a mesma
-        panturrilha nas duas — que é o que este teste existe para proibir.
-        """
+    def test_a_variante_de_C_leva_panturrilha_E_abdomen_em_seis_dias(self):
+        """Seis dias: a letra C cai duas vezes. Era "as duas opções de C
+        levam complementares DIFERENTES"; com uma variante, panturrilha e
+        abdômen entram os dois na lista de "Pernas e ombros", um de cada."""
         _, plano = perfil(6, sufixo="-c1c2")
 
-        opcoes = self._complementares_por_opcao(plano, "C")
+        grupos = self._complementares(plano, "C")
 
-        self.assertEqual(len(opcoes), 2, "C saiu com uma opção só em seis dias")
-        primeira, segunda = opcoes
-        self.assertTrue(primeira, "a opção 1 de C ficou sem complementar nenhum")
-        self.assertTrue(segunda, "a opção 2 de C ficou sem complementar nenhum")
-        self.assertEqual(
-            primeira & segunda, set(),
-            "as opções de C repetiram %s" % sorted(primeira & segunda),
-        )
+        self.assertEqual(set(grupos), {MuscleGroup.CALVES, MuscleGroup.CORE})
+        self.assertTrue(all(len(nomes) == 1 for nomes in grupos.values()), grupos)
 
     def test_no_tempo_informado_a_sessao_nao_incha(self):
         """A objeção, refutada onde ela foi feita — e com o recorte certo.
@@ -299,6 +282,16 @@ class OsComplementaresSeDistribuemTests(TestCase):
         do grande + 3 do pequeno + 2 complementares por opção (24–26 séries,
         57–60 minutos, dentro do teto de 60) — e o rápido continua em 4. O
         que este teste proíbe segue sendo o modelo inteiro numa versão (18).
+
+        DEZ para a letra com TRÊS grupos no título, e só para ela, desde
+        27/09/2026 (decisão do dono, literal: "teto de 10 exercícios só em
+        letra com 3 grupos no título; o limite é o tempo"). "Grupos no
+        título" são os GRUPOS de verdade de `main_groups`, contados como a
+        vaga própria do glúteo os conta — três ou mais. No abc2 só "Pernas e
+        ombros" (quadríceps, posterior, glúteo e ombro: 4 pernas + 1 glúteo +
+        3 ombros + 2 complementares) chega lá. A razão: o limite de verdade é
+        o TEMPO (a segunda asserção), e a letra que precisa de uma vaga por
+        grupo carrega um exercício a mais. Toda outra letra continua em nove.
         """
         maximos = {DuracaoTreino.RAPIDO: 4, DuracaoTreino.PADRAO: 9}
         for duracao, teto_de_itens in maximos.items():
@@ -306,17 +299,15 @@ class OsComplementaresSeDistribuemTests(TestCase):
                 with self.subTest(duracao=duracao, dias=dias):
                     _, plano = perfil(dias, duracao=duracao, sufixo="-onze")
                     sessoes = list(plano.sessions.prefetch_related("exercises__exercise"))
-                    maior = max(
-                        len(sessao.da_opcao(opcao))
-                        for sessao in sessoes
-                        for opcao in sessao.opcoes
-                    )
-
-                    self.assertLessEqual(
-                        maior, teto_de_itens,
-                        "uma opção de %d dias saiu com %d exercícios"
-                        % (dias, maior),
-                    )
+                    for sessao in sessoes:
+                        grupos_do_titulo = set(sessao.main_groups or ())
+                        teto = 10 if duracao == DuracaoTreino.PADRAO and len(grupos_do_titulo) >= 3 else teto_de_itens
+                        for opcao in sessao.opcoes:
+                            self.assertLessEqual(
+                                len(sessao.da_opcao(opcao)), teto,
+                                "uma opção de %d dias saiu com %d exercícios em %s"
+                                % (dias, len(sessao.da_opcao(opcao)), sessao.label),
+                            )
                     for sessao in sessoes:
                         for opcao in sessao.opcoes:
                             self.assertLessEqual(
@@ -357,35 +348,33 @@ class OsComplementaresSeDistribuemTests(TestCase):
                         )
 
     def test_a_ficha_cheia_so_vai_para_quem_pediu_tempo_para_ela(self):
-        """Doze exercícios existem, e chegam inteiros a quem pediu tempo.
+        """Tempo é TETO, não cota — com "Completo" e três dias.
 
-        Com "Completo" e três dias, a letra C não repete e os doze itens do
-        modelo chegam à pessoa. ATÉ 15/09/2026 chegavam numa sessão só — 88
-        minutos, dentro do teto de 90 que "Completo" tinha então. Hoje chegam
-        como DUAS versões equivalentes de ~50 minutos, e a união delas é o
-        modelo inteiro: a pessoa que alterna faz os doze na quinzena. É a
-        mesma doutrina de sempre — tempo é TETO, não cota —, e o que este
-        teste proíbe é o contrário: uma versão da ficha cheia estourando o
-        tempo combinado, que é o teto de `Completo` em `TETO_POR_DURACAO`
-        (65 em 16/09/2026, 90 desde 17/09), e não um número escrito à mão.
+        ATÉ 15/09/2026 os doze itens de `abc2 C` chegavam numa sessão só —
+        88 minutos. De 15 a 27/09 chegavam como DUAS versões de ~50 minutos,
+        e a união delas era o modelo inteiro. Desde 27/09/2026 (dono: "fichas
+        novas com uma variante só"; "variação é troca por exercício na linha,
+        escolha da pessoa") a letra é UMA lista pela cota do TREINO.md: 4 do
+        grande (quadríceps e posterior), 1 do glúteo, 3 de ombro e um de
+        cada complementar — o resto do modelo é o que a pessoa alcança
+        trocando o exercício da linha, não uma segunda ficha. O que este teste
+        proíbe continua o mesmo: uma sessão estourando o tempo combinado, que
+        é o teto de `Completo` em `TETO_POR_DURACAO`, e não um número escrito
+        à mão.
         """
         _, plano = perfil(3, duracao=DuracaoTreino.COMPLETO, sufixo="-cheia")
-        modelo = {t.label: t for t in services.templates_for(plano.split)}["C"]
         sessao = sessoes_por_letra(plano)["C"]
-
-        oferecidos = {
-            item.exercise_id for opcao in sessao.opcoes for item in sessao.da_opcao(opcao)
-        }
-        self.assertEqual(
-            oferecidos,
-            {item.exercise_id for item in modelo.items.all() if item.exercise.is_active},
-            "a letra C não oferece o modelo inteiro entre as opções",
-        )
-        # 13 em 16/09/2026 (cadeira flexora como segunda flexão de joelho,
-        # os 28 novos inativos); 18 desde 17/09, com o modelo redimensionado
-        # pelo TREINO.md: 4 quadríceps, 4 posteriores, 6 ombros, 2
-        # panturrilhas e 2 abdominais — 9 por opção.
-        self.assertEqual(len(oferecidos), 18)
+        self.assertEqual(sessao.opcoes, [1])
+        por_grupo = defaultdict(int)
+        for item in sessao.da_opcao(1):
+            por_grupo[item.exercise.muscle_group] += 1
+        # 4 do grande de quadríceps e posterior + a vaga PRÓPRIA do glúteo
+        # anunciado (dono, 27/09/2026: todo grupo do título tem pelo menos um
+        # exercício, e o glúteo não come a cota do grande).
+        self.assertEqual(por_grupo[MuscleGroup.QUADS] + por_grupo[MuscleGroup.HAMSTRINGS], 4)
+        self.assertEqual(por_grupo[MuscleGroup.GLUTES], 1)
+        self.assertEqual(por_grupo[MuscleGroup.SHOULDERS], 3)
+        self.assertEqual((por_grupo[MuscleGroup.CALVES], por_grupo[MuscleGroup.CORE]), (1, 1))
         for s in plano.sessions.prefetch_related("exercises__exercise"):
             for opcao in s.opcoes:
                 self.assertLessEqual(

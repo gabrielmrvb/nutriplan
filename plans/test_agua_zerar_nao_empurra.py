@@ -63,7 +63,7 @@ class ZerarNaoEmpurraONumeroTests(SimpleTestCase):
         caber. Número solto é o que não entra."""
         for seletor in (".agua__botoes", ".painel .agua__botoes"):
             botoes = regra(self.css, seletor)
-            self.assertRegex(botoes, r"gap:\s*var\(--espaco-[13]\)", seletor)
+            self.assertRegex(botoes, r"gap:\s*var\(--e[12]\)", seletor)
             self.assertNotIn(".4rem", botoes)
 
     def test_os_tres_passos_quebram_em_vez_de_espremer(self):

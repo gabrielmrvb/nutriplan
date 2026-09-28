@@ -282,8 +282,8 @@ class ATelaNaoParteOsCartoesTests(TestCase):
         # elas; e Alimentação passou a vir antes de Treino porque era a única
         # área que a faixa do topo media — a tela nunca tinha falado das
         # outras por si.
-        marcos = ['class="periodo"', 'class="tiles tiles--tendencia"', "<h2>Peso",
-                  "<h2>Alimentação", "<h2>Treino", "<h2>Água", "Dia a dia"]
+        marcos = ['class="periodo"', 'class="tiles tiles--tendencia"', '<h2 class="sobretitulo">Peso',
+                  '<h2 class="sobretitulo">Alimentação', '<h2 class="sobretitulo">Treino', '<h2 class="sobretitulo">Água', "Dia a dia"]
         posicoes = [self.html.index(m) for m in marcos]
 
         self.assertEqual(posicoes, sorted(posicoes), marcos)

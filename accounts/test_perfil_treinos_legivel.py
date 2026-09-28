@@ -23,7 +23,7 @@ class OCartaoDeTreinosDoPerfilTests(TestCase):
         self.user = create_complete_user()
         self.client.force_login(self.user)
         html = self.client.get(reverse("accounts:profile")).content.decode()
-        inicio = html.index("<h2>Treinos</h2>")
+        inicio = html.index('<h2 class="sobretitulo">Treinos</h2>')
         fim = html.index("</section>", inicio)
         self.cartao = html[inicio:fim]
 
@@ -42,7 +42,7 @@ class OCartaoDeTreinosDoPerfilTests(TestCase):
     def test_sem_dias_o_convite_continua_e_a_janela_do_dia_tambem(self):
         self.user.training_days.all().delete()
         html = self.client.get(reverse("accounts:profile")).content.decode()
-        inicio = html.index("<h2>Treinos</h2>")
+        inicio = html.index('<h2 class="sobretitulo">Treinos</h2>')
         cartao = html[inicio:html.index("</section>", inicio)]
         self.assertIn("Cadastrar dias de treino", cartao)
         self.assertIn("<dt>Acorda</dt>", cartao)

@@ -2,8 +2,10 @@
 """Ficha ÚNICA por letra: a variação entre as ocorrências é do ciclo, não da
 pessoa (decisão do dono, 17/09/2026).
 
-O motor continua montando as duas opções equivalentes de cada letra
-(`workouts/opcoes.py`); o que muda é quem escolhe. Até 17/09 a ficha
+De 17 a 27/09/2026 o motor montava as duas opções equivalentes de cada
+letra (`workouts/opcoes.py`); desde 27/09 a ficha nova tem UMA variante e
+este arquivo prende a LEITURA da ficha legada (`_legada`). O que mudou em
+17/09 foi quem escolhe. Até 17/09 a ficha
 mostrava "Opção 1 / Opção 2", recomendava a menos usada e pedia um toque.
 Agora `services.variacao_do_dia` diz a opção pela POSIÇÃO no ciclo — na
 rotação contínua, a primeira ocorrência de A faz a 1, a segunda a 2, a
@@ -49,6 +51,16 @@ def _congelar(dia):
     return relogio.Relogio(dia).ligar()
 
 
+def _legada(plano):
+    """A variação por opção só existe em ficha LEGADA desde 27/09/2026 (a
+    nova tem uma variante só); a leitura das duas formas continua até a
+    última sumir, e é ela que este arquivo prende (`test_opcoes.ficha_legada`)."""
+    from workouts.test_opcoes import ficha_legada
+
+    for letra in sorted({s.label for s in plano.sessions.all()}):
+        ficha_legada(plano, letra)
+
+
 def _pessoa(email, dias=5):
     user = create_complete_user(
         email=email, experiencia="intermediario", split_preference="two",
@@ -76,6 +88,7 @@ class AVariacaoEDoCicloTests(TestCase):
         self.addCleanup(self.relogio.desligar)
         self.user = _pessoa("variacao@exemplo.com")
         self.plan = services.create_routine(self.user)
+        _legada(self.plan)
         self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
 
     def _sessao(self, letra):
@@ -181,6 +194,7 @@ class ATelaNaoFalaDeOpcaoTests(TestCase):
 
         plan_services.create_plan(self.user)
         self.plan = services.create_routine(self.user)
+        _legada(self.plan)
         self.client.force_login(self.user)
         self.linhas = list(self.plan.sessions.prefetch_related("exercises__exercise"))
         # Presença: A, B, C feitos seg/ter/qua -> hoje (quinta) recomenda A (a

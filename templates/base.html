@@ -173,7 +173,7 @@
   {% endif %}
   {% if not shell_offline %}{% include "partials/icones.html" %}{% endif %}
   {% block header %}
-    <header class="app-bar">
+    <header class="app-bar{% if not tela_de_entrada and not shell_offline %}{% if request.demo or not user.is_authenticated %} app-bar--acoes{% endif %}{% endif %}">
       <a class="app-bar__brand" href="{% if request.demo %}/demo/{% else %}{% url 'plans:today' %}{% endif %}">
         <span class="app-bar__mark">{% include "partials/marca.html" %}</span>
         <span class="app-bar__word">Nutri<span class="app-bar__accent">Plan</span></span>

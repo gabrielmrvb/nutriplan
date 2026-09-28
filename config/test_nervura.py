@@ -148,16 +148,16 @@ class AAbaAPontaEANervuraTests(SimpleTestCase):
         com 40 px (24 + 16) sobram 8 px."""
         faixa = _regra(self.css, ".demo-aviso")
         self.assertIsNotNone(faixa)
-        self.assertRegex(faixa, r"margin:\s*0 0 calc\(var\(--espaco-7\) \+ var\(--espaco-6\)\)")
+        self.assertRegex(faixa, r"margin:\s*0 0 calc\(var\(--e6\) \+ var\(--e4\)\)")
 
     def test_a_nervura_e_decoracao_atras_do_texto(self):
-        corpo = _regra(self.css, ".page-head h1::after,\n.today-hero::after")
+        corpo = _regra(self.css, ".page-head h1::after,\n.card--prato::after")
         self.assertIsNotNone(corpo, "a nervura sumiu do prato e do título")
         self.assertIn("transform: rotate(var(--nervura))", corpo)
         self.assertIn("pointer-events: none", corpo)
         self.assertIn("z-index: var(--camada-fundo)", corpo)
         self.assertIn("height: var(--traco)", corpo)
-        donos = _regra(self.css, ".page-head h1,\n.today-hero")
+        donos = _regra(self.css, ".page-head h1,\n.card--prato")
         self.assertIsNotNone(donos)
         self.assertIn("isolation: isolate", donos, "sem contexto próprio o z-index cai atrás da página")
         # Nenhum template conta com ela: é `::after`, sem markup.

@@ -42,6 +42,7 @@ from accounts.models import (
 )
 from workouts import services
 from workouts.models import MuscleGroup
+from workouts.test_reparticao_semanal import minimo_do_contrato
 
 # (rótulo, sexo, nascimento, peso, objetivo, atividade, dias, experiência, duração, preferência)
 PERFIS = [
@@ -157,8 +158,17 @@ class CincoPerfisTests(TestCase):
                         ).add(i.exercise.name)
 
                 # o contrato de variedade, de três dias para cima e do padrão para cima
+                #
+                # LETRA REPETIDA SEGUE A TABELA A (28/09/2026, decisão do
+                # dono, que autorizou ajustar a expectativa SÓ para ela): o
+                # contrato vale só para a letra treinada uma vez por semana.
+                # No "d-ganho-6d" (ABC, seis dias) a letra A cai duas vezes e
+                # a tabela A dá dois tríceps por sessão — a semana deve dois,
+                # não três (`minimo_do_contrato`). O resto do contrato fica.
                 if len(dias) >= 3 and dur != DuracaoTreino.RAPIDO:
+                    plano = user.training_plans.get(is_active=True)
                     for grupo, minimo in GRUPOS_DO_CONTRATO.items():
+                        minimo = minimo_do_contrato(plano, grupo, minimo)
                         self.assertGreaterEqual(
                             len(por_grupo_na_semana.get(grupo, ())), minimo,
                             "%s: %s tem %d distintos, contrato pede %d" % (

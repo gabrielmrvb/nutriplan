@@ -811,7 +811,8 @@ class AuthScreenTests(TestCase):
         """
         for nome, html in (("entrar", self.login), ("cadastro", self.cadastro)):
             with self.subTest(tela=nome):
-                self.assertNotIn('<header class="app-bar"', html)
+                # Por prefixo: desde 28/09/2026 a barra pode levar `app-bar--acoes`.
+                self.assertNotIn('<header class="app-bar', html)
                 # A marca está lá, e é a do bloco de entrada.
                 self.assertIn("entrada__marca", html)
                 self.assertIn("entrada__wordmark", html)
@@ -834,7 +835,7 @@ class AuthScreenTests(TestCase):
         # rolar e `vh` continua contando a altura de antes.
         self.assertIn("dvh", regra)
 
-        cartao = self.css.split(chr(10) + ".auth--entrada .card {", 1)[1].split("}", 1)[0]
+        cartao = self.css.split(chr(10) + ".entrada__cartao {", 1)[1].split("}", 1)[0]
         # O VIDRO SAIU NO REDESIGN V2, e a ausência é a decisão.
         #
         # A entrada era marca + um painel translúcido com desfoque contendo um
@@ -845,9 +846,11 @@ class AuthScreenTests(TestCase):
         # Desfocar o que está atrás só faz sentido quando há painel na frente;
         # sem painel, o filtro custa composição de camada para não produzir
         # efeito nenhum. O que este teste guarda agora é que o painel NÃO
-        # voltou — sem fundo, sem borda e sem sombra.
-        self.assertIn("background: none", cartao)
-        self.assertIn("box-shadow: none", cartao)
+        # voltou — sem fundo, sem borda e sem sombra. Desde 28/09/2026 a
+        # entrada nem é mais `.card` (dívida visual, lote 3): não há o que
+        # desfazer, e a regra só dá o respiro.
+        for caixa in ("background", "border", "box-shadow"):
+            self.assertNotIn(caixa, cartao)
         self.assertNotIn("backdrop-filter", cartao)
 
     def test_a_browser_without_backdrop_filter_still_reads_the_card(self):
@@ -2208,7 +2211,7 @@ class OnboardingV21Tests(TestCase):
         """
         html = self.client.get(step_url(2)).content.decode()
 
-        self.assertIn("segmented--envolve", html)
+        self.assertIn("choice-cards--dias", html)
         self.assertIn(">Qua<", html)
         self.assertIn('aria-label="Quarta-feira"', html)
         # E o nome completo continua sendo o do model, para o resto do app.

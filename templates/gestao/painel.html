@@ -6,7 +6,7 @@
   <h1>Painel</h1>
 
   <section class="card">
-    <div class="card__head"><h2>Contas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Contas</h2></div>
     {% comment %}
       Só a classificação entra nesta lista, e o total fecha embaixo.
 
@@ -60,7 +60,7 @@
     reidentificaria alguém num balde de tamanho 1.
   {% endcomment %}
   <section class="card">
-    <div class="card__head"><h2>O que as pessoas vieram cuidar</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">O que as pessoas vieram cuidar</h2></div>
 
     {% if declararam_areas %}
       <h3 class="card__subtitulo">Áreas de interesse</h3>
@@ -92,7 +92,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Cadastros</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Cadastros</h2></div>
     <dl class="data-list">
       <div><dt>Últimos {{ janela_curta }} dias</dt><dd>{{ contas.novas_na_semana }}</dd></div>
       <div><dt>Últimos {{ janela_longa }} dias</dt><dd>{{ contas.novas_no_mes }}</dd></div>
@@ -100,7 +100,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Do cadastro ao uso</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Do cadastro ao uso</h2></div>
     <dl class="data-list">
       <div><dt>Criaram conta</dt><dd>{{ contas.total }}</dd></div>
       <div><dt>Terminaram o onboarding</dt><dd>{{ onboarding_completo }}</dd></div>
@@ -116,7 +116,7 @@
   </section>
 
   <section class="card">
-    <div class="card__head"><h2>Registraram algo nos últimos {{ janela_curta }} dias</h2></div>
+    <div class="card__head"><h2 class="sobretitulo">Registraram algo nos últimos {{ janela_curta }} dias</h2></div>
     <dl class="data-list data-list--total">
       <div><dt>Contas</dt><dd>{{ ativas_na_semana }}</dd></div>
     </dl>

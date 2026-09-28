@@ -229,7 +229,7 @@ class OOnboardingEOPerfilConcordamTests(BaseDaNomenclatura):
         # três etapas as restrições alimentares moram na mesma tela e vêm
         # antes, com a mesma classe.
         areas = html.split("O que você quer acompanhar?", 1)[1]
-        cartoes = areas.split('class="choice-list', 1)[1].split("</ul>", 1)[0]
+        cartoes = areas.split('class="choice-cards', 1)[1].split("</ul>", 1)[0]
 
         for pilar in Pilar:
             with self.subTest(pilar=pilar.value):
