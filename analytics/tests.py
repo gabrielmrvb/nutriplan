@@ -85,7 +85,9 @@ class IngestaoTests(TestCase):
         self._post(corpo([{"name": "agua.registrada"}]), HTTP_DNT="1")
         e = Event.objects.get()
         self.assertIsNone(e.user)
-        self.assertTrue(e.anon_id)  # ainda conta, anônimo
+        # Ainda conta, anônimo — e SEM `anon_id`: o alias de outra pessoa no
+        # mesmo navegador não pode costurá-lo (I-1, 28/09/2026).
+        self.assertEqual(e.anon_id, "")
 
     def test_post_de_outra_origem_e_recusado(self):
         r = self._post(corpo([{"name": "tela.vista"}]),
