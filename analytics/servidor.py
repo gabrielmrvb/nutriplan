@@ -18,13 +18,29 @@ import os
 
 from .catalogo import existe
 from .identidade import COOKIE_ANON
-from .privacidade import pode_identificar
+from .privacidade import pode_identificar, pode_registrar
 
 logger = logging.getLogger("nutriplan.analytics")
 
 
 def _commit():
     return os.environ.get("RENDER_GIT_COMMIT", "")[:7]
+
+
+def _anon_gravavel(request, user):
+    """O `anon_id` que a linha pode levar.
+
+    Pessoa LOGADA cujo evento não fica com ela (DNT, ou `evento_anonimo`
+    como `conta.excluida`) grava `anon_id` VAZIO: o cookie do aparelho dura
+    dois anos e atravessa logout, e o `alias` do próximo login naquele
+    navegador costuraria a linha a OUTRA pessoa — que a receberia na
+    exportação como "seus dados" (I-1 da revisão final, 28/09/2026). A linha
+    continua contando no agregado; só não pode mais ser costurada.
+    Visitante não logado mantém o cookie: o alias do login dele é o funil."""
+    autenticado = getattr(getattr(request, "user", None), "is_authenticated", False)
+    if autenticado and user is None:
+        return ""
+    return request.COOKIES.get(COOKIE_ANON, "")
 
 
 def _gravar(request, nome, props, user):
@@ -37,7 +53,7 @@ def _gravar(request, nome, props, user):
             name=nome,
             props=props or {},
             user=user,
-            anon_id=request.COOKIES.get(COOKIE_ANON, ""),
+            anon_id=_anon_gravavel(request, user),
             route=request.path[:200],
             app_version=_commit(),
         )
@@ -49,7 +65,14 @@ def _gravar(request, nome, props, user):
 
 
 def evento(request, nome, props=None):
-    """Grava um evento atribuído à pessoa (quando logada e sem opt-out)."""
+    """Grava um evento atribuído à pessoa (quando logada e sem opt-out).
+
+    Quem desligou o rastreio (`pode_registrar` == False) não gera linha
+    NENHUMA — nem anônima (decisão 2 do plano de 28/09/2026, Lote 1 da
+    missão LGPD). `evento_anonimo` não passa por aqui: `conta.excluida`
+    continua sem essa guarda, de propósito."""
+    if not pode_registrar(request):
+        return None
     user = None
     if request.user.is_authenticated and pode_identificar(request):
         user = request.user

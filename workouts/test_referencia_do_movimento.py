@@ -71,7 +71,9 @@ class AReferenciaDoMovimentoTests(TestCase):
         trecho = html.split("Primeira vez neste", 1)[1].split("</p>", 1)[0]
         self.assertIn(self.item.exercise.get_padrao_display(), trecho)
         self.assertIn(self.irmao.name.lower(), trecho)
-        self.assertIn("22,50 kg", trecho)  # `floatformat:-2`, como toda carga desta tela
+        # Formato único (28/09/2026, item 5 da parte 2): "22,5 kg", não mais
+        # "22,50 kg" — o filtro `carga` substituiu o `floatformat:'-2'` desta tela.
+        self.assertIn("22,5 kg", trecho)
         self.assertIn("× 9", trecho)
         self.assertIn((self.hoje - timedelta(days=3)).strftime("%d/%m"), trecho)
         # É dica: o campo de carga continua em branco.

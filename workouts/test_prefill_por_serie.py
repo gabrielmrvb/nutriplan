@@ -81,10 +81,10 @@ class AOrdemDoPrefillTests(TestCase):
     def test_na_abertura_a_serie_1_vem_da_mesma_serie_da_ultima_sessao_quando_nao_ha_sugestao(self):
         # Uma série só na última sessão: sem faixa fechada em todas, a
         # adaptação não sugere, e o que sobra é a mesma série da última vez.
-        # `floatformat:'-2'` mantém as duas casas quando há fração — "57,50",
-        # não "57,5" (conferido em `test_pastilha.py::…cita_o_mesmo_numero`).
+        # Formato único (28/09/2026, item 5 da parte 2): o filtro `carga`
+        # descarta o zero à direita — "57,5", não mais "57,50".
         self._log(7, 1, 57.5, 9)
-        self.assertEqual(self._campos(), ("57,50", "9"))
+        self.assertEqual(self._campos(), ("57,5", "9"))
 
     def test_a_mesma_serie_da_ultima_sessao_vence_a_mais_pesada(self):
         self._log(7, 1, 50, 10)
@@ -95,7 +95,8 @@ class AOrdemDoPrefillTests(TestCase):
         self._log(7, 1, 60, 10)
         self._log(7, 2, 55, 10)
         self._log(0, 1, 62.5, 8)  # hoje a pessoa subiu
-        self.assertEqual(self._campos(), ("62,50", "8"))  # a 2ª abre com a 1ª de hoje, não com 55
+        # Formato único (28/09/2026): "62,5", não "62,50".
+        self.assertEqual(self._campos(), ("62,5", "8"))  # a 2ª abre com a 1ª de hoje, não com 55
 
     def test_a_sugestao_da_adaptacao_vence_a_mesma_serie_da_ultima_sessao(self):
         # A faixa fechou na última sessão (todas as séries no rep_max, mesma
