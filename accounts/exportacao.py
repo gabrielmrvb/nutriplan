@@ -90,24 +90,16 @@ def _valor_json(valor):
     return valor
 
 
-#: A chave de descadastro de e-mail (`avisos.Preferencia.chave`) anda na
-#: PRÓPRIA URL (`avisos/urls.py`: `sair/<str:chave>/`), e essa URL pode ter
-#: sido gravada em `analytics.Event.route`/`referrer` — quem clica o link do
-#: rodapé do e-mail com o navegador logado grava um evento comum, e
-#: `static/js/analytics.js` manda `location.pathname` inteiro. `SEGREDOS`
-#: filtra `chave` pelo NOME do campo; aqui o problema é outro — o valor de
-#: um campo que não é segredo (`route`) carrega um que é. Achado I1 da
-#: revisão, 28/09/2026.
-_PADRAO_DESCADASTRO = re.compile(r"(/avisos/sair/)[^/?#]+")
-
-
 def _sem_segredo_na_rota(texto):
-    """Uma STRING de rota/URL, sem o que `config.observabilidade` já sabe
-    redigir (token de senha, `?code=`/`?token=`...) e sem a chave de
-    descadastro, que é específica deste app e não mora lá."""
-    if not texto:
-        return texto
-    return _PADRAO_DESCADASTRO.sub(r"\1[REDIGIDO]", _redigir_padroes_conhecidos(texto))
+    """Uma STRING de rota/URL, sem o que `config.observabilidade` sabe
+    redigir: token de senha, `?code=`/`?token=`... e a chave de descadastro
+    (`avisos.Preferencia.chave`), que anda na própria URL e pode ter sido
+    gravada em `analytics.Event.route`/`referrer` por quem clicou o link do
+    e-mail logado. `SEGREDOS` filtra `chave` pelo NOME do campo; aqui o valor
+    de um campo que não é segredo (`route`) carrega um que é (I1 da revisão).
+    A chave morava só aqui e vazava pelo log e pelo Sentry: desde M1 da
+    revisão final (28/09/2026) é uma lista só, a de `PADROES`."""
+    return _redigir_padroes_conhecidos(texto) if texto else texto
 
 
 def _sem_segredo(valor):
