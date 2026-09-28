@@ -272,10 +272,10 @@
         <p class="aviso-regenerar__texto">O catálogo de exercícios cresceu desde que sua ficha foi montada. Regenerar monta uma ficha nova com ele; a atual continua no histórico.</p>
         <div class="aviso-regenerar__acoes">
           <form method="post" action="{% url 'workouts:regenerar' %}">{% csrf_token %}
-            <button type="submit" class="btn btn--primary">Regenerar treino</button>
+            <button type="submit" class="btn btn--ghost">Regenerar treino</button>
           </form>
           <form method="post" action="{% url 'workouts:dispensar_aviso' %}">{% csrf_token %}
-            <button type="submit" class="btn btn--ghost">Agora não</button>
+            <button type="submit" class="btn btn--quiet">Agora não</button>
           </form>
         </div>
       </section>
