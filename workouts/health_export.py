@@ -118,9 +118,13 @@ def resumo_da_sessao(user, dia=None, sessao=None, escolha=NAO_INFORMADA) -> Resu
     # para exercício fora dela (ou sem ficha), 90 segundos, que é a mediana
     # das prescrições do catálogo.
     if sessao is None:
-        from .services import get_active_routine, sessao_do_dia
+        from .services import escolha_do_dia, get_active_routine, sessao_do_dia
 
-        sessao = sessao_do_dia(get_active_routine(user), dia, user=user)
+        # A escolha é lida UMA vez e passada (28/09/2026): a guarda do
+        # descanso em `sessao_do_dia` (R4) a consultaria de novo.
+        if escolha is NAO_INFORMADA:
+            escolha = escolha_do_dia(user, dia)
+        sessao = sessao_do_dia(get_active_routine(user), dia, user=user, escolha=escolha)
     descanso = 90
     if sessao:
         # O descanso médio é o da OPÇÃO do dia (a escolhida, senão a 1):

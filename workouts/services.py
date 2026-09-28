@@ -502,6 +502,11 @@ def letra_do_dia(plan, dia, sessoes=None, user=None, seq=None, escolha=_NAO_INFO
     RECOMENDADA pela sequência feita (`_letra_resolvida`) — a doutrina de
     24/09/2026 que substituiu a POSIÇÃO no ciclo. Plano customizado à mão:
     a letra presa ao dia da semana, como a pessoa arranjou.
+
+    ATENÇÃO (28/09/2026, R4): no dia de DESCANSO com letra escolhida
+    ("treinar mesmo assim") esta função devolve `None` e `sessao_do_dia`
+    devolve a letra escolhida. Para "qual é o treino de hoje", use
+    `sessao_do_dia(...).label` — é o que o painel, a ficha e a execução leem.
     """
     if plan is None:
         return None
@@ -543,7 +548,20 @@ def sessao_do_dia(plan, dia, sessoes=None, user=None, seq=None, escolha=_NAO_INF
     sessoes = list(sessoes if sessoes is not None else plan.sessions.all())
     molde = next((s for s in sessoes if s.weekday == dia.weekday()), None)
     if molde is None:
-        return None
+        # "TREINAR MESMO ASSIM" (28/09/2026, R4): dia sem treino na ficha, mas
+        # a pessoa ESCOLHEU uma letra hoje (`registrar_escolha_de_letra`). A
+        # escolha vence o descanso como vence a recomendação; sem ela, nada
+        # muda. A sequência não é tocada: a regra continua a seguinte à última
+        # FEITA, e o domingo com série conta como feito, como qualquer dia.
+        if escolha is _NAO_INFORMADO:
+            escolha = escolha_do_dia(user, dia) if user is not None else None
+        da_escolha = next((s for s in sessoes if escolha is not None and s.pk == escolha.session_id), None)
+        if da_escolha is None:
+            return None
+        vestida = copy.copy(da_escolha)
+        vestida.weekday = dia.weekday()
+        vestida.data = dia
+        return vestida
     if not usa_presenca(plan):
         molde.data = dia
         return molde
@@ -602,7 +620,11 @@ def sessoes_da_semana(
     # não importar de `plans`.
     entrou = timezone.localtime(user.date_joined).date() if user is not None else None
     semana = []
-    proxima = None
+    # "TREINAR MESMO ASSIM" NO DESCANSO (R4, 28/09/2026): hoje não é dia da
+    # tira, mas a letra escolhida hoje vem antes do próximo dia — o futuro
+    # segue dela, como no dia de treino. Sem isto a tira projetava a MESMA
+    # letra (a recomendada, que foi a oferecida) para o próximo dia.
+    proxima = _prox(escolha_hoje) if escolha_hoje and not hoje_na_semana else None
     for molde in ordenadas:
         dia = segunda + timedelta(days=molde.weekday)
         if dia < hoje:
@@ -4359,7 +4381,7 @@ def prescricao_de_hoje(user, exercise_id, dia=None):
     sessao = (
         escolha.session
         if escolha is not None
-        else sessao_do_dia(get_active_routine(user), dia, user=user)
+        else sessao_do_dia(get_active_routine(user), dia, user=user, escolha=None)
     )
     if sessao is None:
         return None
@@ -4411,11 +4433,12 @@ def series_de_hoje(user, exercise, dia=None) -> tuple:
     )
     # A sessão de hoje é a da LETRA de hoje: a escolha gravada já a traz;
     # sem escolha, `sessao_do_dia` a acha (plano + linhas, duas consultas
-    # a mais só na primeira série do dia).
+    # a mais só na primeira série do dia). `escolha=None`: já se sabe que
+    # não há, e a guarda do descanso (R4) não a consulta de novo.
     sessao = (
         escolha.session
         if escolha is not None
-        else sessao_do_dia(get_active_routine(user), dia, user=user)
+        else sessao_do_dia(get_active_routine(user), dia, user=user, escolha=None)
     )
     if sessao is None:
         return ExerciseLog.objects.filter(user=user, exercise=exercise, date=dia).count(), 0
@@ -4503,6 +4526,19 @@ class ExercicioForaDaSessao(LookupError):
 
     Quem a converte em 404 é `ModoTreinoView`. O serviço não sabe de HTTP.
     """
+
+
+def progresso_em_series(pares) -> tuple:
+    """`(feitas, previstas, pct)` do treino de hoje, em SÉRIES — a régua
+    ÚNICA do herói do Treino, da ficha e da execução (28/09/2026, M3: o herói
+    dizia "14 %" contando EXERCÍCIOS e a execução "2/25 séries" no mesmo
+    instante). `pares` é `(item, séries previstas)`: a dose da ficha, ou a da
+    versão rápida quando ela vale. `min` para uma série a mais que a ficha
+    prescreve não virar 110 %."""
+    pares = list(pares)
+    previstas = sum(series for _, series in pares)
+    feitas = sum(min(item.feitas, series) for item, series in pares)
+    return feitas, previstas, round(feitas * 100 / previstas) if previstas else 0
 
 
 def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) -> EstadoDoTreino:
@@ -4679,15 +4715,8 @@ def estado_do_treino(user, dia=None, escolhido=None, opcao=None, versao=None) ->
     estado.total_exercicios = len(itens)
     estado.posicao_atual = itens.index(atual) + 1 if atual is not None else 0
     estado.exercicios_concluidos = sum(1 for item in itens if item.concluido)
-    estado.total_series = sum(item.sets for item in itens)
-    # `min` para o percentual não passar de 100 quando alguém anota uma série a
-    # mais do que a ficha prescreve — o que o modelo permite e a barra não deve
-    # transformar em 110%.
-    estado.series_feitas = sum(min(item.feitas, item.sets) for item in itens)
-    estado.pct = (
-        round(estado.series_feitas * 100 / estado.total_series)
-        if estado.total_series
-        else 0
+    estado.series_feitas, estado.total_series, estado.pct = progresso_em_series(
+        (item, item.sets) for item in itens
     )
     # `concluido` continua olhando a FICHA, não o item em foco: escolher um
     # exercício já feito não pode fazer a tela dizer que o treino acabou, nem o

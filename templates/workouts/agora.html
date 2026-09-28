@@ -33,9 +33,24 @@
         Hoje não tem treino na sua rotina. Descanso também é parte do plano —
         é nele que o músculo cresce.
       </p>
-      <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
-        Ver minha semana
-      </a>
+      {% comment %}
+        TREINAR MESMO ASSIM (R4, 28/09/2026): a mesma escolha de letra do
+        painel, na letra do próximo treino (a recomendada). A escolha volta
+        ao painel, que abre com "Começar treino". `acoes-empilhadas` é o
+        respiro que o Perfil já usa entre duas ações de bloco.
+      {% endcomment %}
+      <div class="acoes-empilhadas">
+        <a class="btn btn--primary btn--block" href="{% url 'workouts:routine' %}">
+          Ver minha semana
+        </a>
+        {% if treinar_mesmo_assim %}
+          <form method="post" action="{% url 'workouts:escolher_letra' %}">
+            {% csrf_token %}
+            <input type="hidden" name="letra" value="{{ treinar_mesmo_assim }}">
+            <button type="submit" class="btn btn--ghost btn--block">Treinar mesmo assim · Treino {{ treinar_mesmo_assim }}</button>
+          </form>
+        {% endif %}
+      </div>
     </section>
 
   {% elif estado.concluido %}

@@ -79,18 +79,26 @@ def exercicio_legivel(user, plano, exercise_id):
     )
 
 
-def semana_do_plano(user, plano) -> list:
+def semana_do_plano(user, plano, escolha=services._NAO_INFORMADO) -> list:
     """As sessões da semana de HOJE, vestidas com as trocas da pessoa, na
     ordem dos dias; `[]` sem plano.
 
     `exercises` sem `__exercise`: a leitura só precisa dos ids das linhas;
-    `aplicar_trocas` busca o exercício só das linhas trocadas."""
+    `aplicar_trocas` busca o exercício só das linhas trocadas.
+
+    A projeção é a DA PESSOA (`user=`, BA4, 28/09/2026) — a mesma da tira do
+    Treino. Sem ela era a de quem nunca treinou: hoje seria sempre a primeira
+    letra, e "Quando" dizia outro dia que a tira. `escolha` é a do dia, que a
+    view já leu — sem ela a projeção a consultaria de novo."""
     if plano is None:
         return []
     linhas = list(plano.sessions.prefetch_related("exercises"))
     services.aplicar_trocas(user, linhas)
+    letra = escolha
+    if escolha is not services._NAO_INFORMADO:
+        letra = escolha.session.label if escolha is not None and escolha.session.plan_id == plano.pk else None
     return sorted(
-        services.sessoes_da_semana(plano, timezone.localdate(), linhas),
+        services.sessoes_da_semana(plano, timezone.localdate(), linhas, user=user, escolha_hoje=letra),
         key=lambda s: s.weekday,
     )
 
@@ -196,7 +204,8 @@ def garantir_escolha(user, dia, sessao_id, opcao, versao) -> None:
             pk=sessao_id, plan__user=user, plan__is_active=True
         ).prefetch_related("exercises").first()
     if sessao is None:
-        sessao = services.sessao_do_dia(services.get_active_routine(user), dia, user=user)
+        # `escolha=None`: a primeira linha desta função já viu que não há.
+        sessao = services.sessao_do_dia(services.get_active_routine(user), dia, user=user, escolha=None)
     if sessao is None:
         return
     services.registrar_escolha(user, sessao, opcao, versao=versao, dia=dia)

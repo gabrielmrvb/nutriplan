@@ -24,7 +24,6 @@ Junto, três achados vizinhos:
 - BA4: o mapa dia↔letra depois da primeira volta do ciclo.
 """
 from datetime import date, datetime, timedelta, timezone as dt_timezone
-from unittest import expectedFailure
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -287,13 +286,14 @@ class OMapaDiaLetraSegueAProjecaoTests(_Base):
     na mesma tela e entre telas. A na segunda, B na terça, quarta sem
     treino: hoje (quinta) é C, e a tira mostra C só na quinta.
 
-    REPRODUZ com a sequência por presença (28/09/2026), e o conserto NÃO
-    mora em `services`: os três leitores tratam a entrada `pulado` de
+    Reproduzia com a sequência por presença (28/09/2026), e o conserto NÃO
+    mora em `services`: os três leitores tratavam a entrada `pulado` de
     `sessoes_da_semana` (a LINHA do dia, com a letra e os exercícios dela)
-    como se fosse a letra caindo naquele dia, e a página do exercício ainda
-    pede a semana SEM a pessoa. Os `expectedFailure` abaixo são nomeados, com
-    o lugar do conserto; quem consertar remove o decorador (o "sucesso
-    inesperado" reprova a suíte)."""
+    como se fosse a letra caindo naquele dia, e a página do exercício pedia
+    a semana SEM a pessoa. Nasceram como `expectedFailure` nomeados (Task
+    C) e viraram testes comuns quando o conserto entrou (Task B, 28/09/2026:
+    `dias_da_tira`, `FichaDaSessaoView.dias_texto`, `telas.semana_do_plano`
+    com `user=` e o laço de `ExercicioView`)."""
 
     def setUp(self):
         super().setUp()
@@ -312,32 +312,29 @@ class OMapaDiaLetraSegueAProjecaoTests(_Base):
         self.assertEqual([d for d, (letra, _) in tira.items() if letra == "A"], ["Seg", "Sex"])
         self.assertEqual(tira["Qua"], ("·", "pulado"))
 
-    @expectedFailure
     def test_a_ficha_da_letra_de_hoje_diz_os_dias_da_tira(self):
-        """Hoje diz "Quarta-feira · Quinta-feira": a quarta PULADA entra
-        porque a linha de quarta é a de C. Conserto: `FichaDaSessaoView`
-        (`workouts/views.py`, `dias_texto` e `nomear_ocorrencias(irmas)`)
-        ignora `projecao == "pulado"`."""
+        """Dizia "Quarta-feira · Quinta-feira": a quarta PULADA entrava
+        porque a linha de quarta é a de C. Conserto (28/09/2026):
+        `FichaDaSessaoView.dias_texto` (`workouts/views.py`) ignora
+        `projecao == "pulado"`."""
         ficha = self.client.get(reverse("workouts:ficha", args=[self.linha_c.pk]))
         self.assertEqual(ficha.context["sessao"].dias_texto, "Quinta-feira")
 
-    @expectedFailure
     def test_o_cartao_da_letra_diz_os_dias_da_tira(self):
-        """"Seu programa" diz "A · Segunda-feira · Quinta-feira": os dias das
-        LINHAS (a estrutura de antes da rotação), não os da projeção.
-        Conserto: `_cartao_da_letra` (`workouts/views.py`) lê os dias da
-        tira, sem os pulados."""
+        """"Seu programa" dizia "A · Segunda-feira · Quinta-feira": os dias
+        das LINHAS (a estrutura de antes da rotação), não os da projeção.
+        Conserto (28/09/2026): `dias_da_tira` (`workouts/views.py`) troca os
+        dias do cartão pelos da tira, sem os pulados."""
         resposta = self.client.get(reverse("workouts:routine"))
         cartao_a = next(c for c in resposta.context["letras"] if c["label"] == "A")
         self.assertEqual(cartao_a["dias"], ["Segunda-feira", "Sexta-feira"])
 
-    @expectedFailure
     def test_o_quando_do_exercicio_diz_os_dias_da_tira(self):
-        """Hoje diz "Quarta-feira (C)": a semana vem de
-        `telas.semana_do_plano`, que chama `sessoes_da_semana` SEM `user` —
-        a projeção de quem nunca treinou (hoje seria A) — e lista a linha
-        pulada. Conserto: `user=user` em `workouts/telas.py` e o laço de
-        `ExercicioView` ignorando `pulado`."""
+        """Dizia "Quarta-feira (C)": a semana vinha de
+        `telas.semana_do_plano`, que chamava `sessoes_da_semana` SEM `user`
+        — a projeção de quem nunca treinou (hoje seria A) — e listava a linha
+        pulada. Conserto (28/09/2026): `user=user` em `workouts/telas.py` e
+        os dias de `ExercicioView` sem o `pulado`."""
         de_outras = {
             i.exercise_id for s in self.linhas if s.label != "C" for i in s.exercises.all()
         }
