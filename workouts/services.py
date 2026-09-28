@@ -381,24 +381,34 @@ _NAO_INFORMADO = object()
 
 @dataclass
 class SequenciaDoTreino:
-    """A sequência de treinos JÁ FEITOS de um plano, e o que ela recomenda.
+    """A sequência de treinos JÁ FEITOS pela PESSOA, e o que ela recomenda
+    para as letras (`letras`) do plano de hoje.
 
     SEQUÊNCIA POR PRESENÇA (24/09/2026). "Feito" é ter série registrada
     (`ExerciseLog`) num dia com escolha daquela letra — encerrar com zero
     série NÃO conta, pular um dia não avança nada. `feitas` é a lista
-    (data, letra) em ordem de data, ANTES do dia de referência; dela saem a
-    última letra feita (que decide o recomendado), a contagem por letra (que
-    decide a opção) e a projeção da semana.
+    (data, letra) em ordem de data, ANTES do dia de referência, de QUALQUER
+    ficha da pessoa (28/09/2026); dela saem a última letra feita (que decide
+    o recomendado) e a projeção da semana. `do_plano` são só as letras feitas
+    NESTE plano — dela sai a contagem por letra (que decide a opção da ficha
+    legada). `sessao_feita` é a linha feita em cada data — `(pk, grupos)`,
+    da ficha em que foi feita — para a tira e o aviso de repetição não
+    confundirem a letra antiga com a linha de mesmo nome da ficha nova.
     """
 
     letras: list
-    feitas: list  # [(date, label)]
+    feitas: list  # [(date, label)] — de TODA ficha da pessoa (28/09/2026)
+    do_plano: list = field(default_factory=list)  # [label] feitas NESTE plano
+    sessao_feita: dict = field(default_factory=dict)  # {date: (session_id, main_groups)}
 
     def ultima_letra(self):
         return self.feitas[-1][1] if self.feitas else None
 
     def contagem(self, letra) -> int:
-        return sum(1 for _, lbl in self.feitas if lbl == letra)
+        """Quantas vezes a letra foi feita NESTE plano — decide a opção da
+        ficha legada de duas opções (`variacao_do_dia`). Continua por plano:
+        contar as fichas anteriores trocaria a opção de hoje no deploy."""
+        return self.do_plano.count(letra)
 
     def recomendada(self):
         """A letra SEGUINTE à última feita — ou a primeira do ciclo se nada
@@ -413,14 +423,22 @@ class SequenciaDoTreino:
 
 
 def sequencia_do_treino(user, plan, ate=None, sessoes=None) -> SequenciaDoTreino:
-    """Lê a sequência realizada do plano numa consulta só.
+    """Lê a sequência realizada da PESSOA, para as letras do plano, numa
+    consulta só.
 
     `ate` é o dia de referência (padrão hoje): conta o que foi feito ANTES
     dele — o de hoje é a escolha do dia, não a sequência que recomenda hoje.
-    Escopo do PLANO atual (`session__plan=plan`): feito sob plano antigo
-    (remontado) não conta, como `inicio_do_ciclo` reiniciava. É a leitura
-    única de que a letra recomendada, a opção da letra, a tira-projeção e o
-    aviso de repetição derivam — computada uma vez por tela e passada adiante.
+    É a leitura única de que a letra recomendada, a opção da letra, a
+    tira-projeção e o aviso de repetição derivam — computada uma vez por
+    tela e passada adiante.
+
+    A PRESENÇA É DA PESSOA, NÃO DA FICHA (28/09/2026, B4 do caça-bugs de
+    27/09). Até aqui só contava o feito sob o plano ATUAL: remontar a ficha
+    ("regenerar", trocar o equipamento, mudar os dias) fazia o app esquecer
+    o que a pessoa tinha treinado — A de novo no dia seguinte a A, C só no
+    10º dia, e a tira marcando `pulado` os dias treinados. Agora a letra
+    segue do último treino FEITO em qualquer ficha; a regra (a seguinte à
+    última feita) é a mesma. Só a `contagem` da opção continua por plano.
     """
     if plan is None:
         return SequenciaDoTreino(letras=[], feitas=[])
@@ -429,13 +447,18 @@ def sequencia_do_treino(user, plan, ate=None, sessoes=None) -> SequenciaDoTreino
     letras = letras_do_ciclo(sessoes)
     tem_serie = ExerciseLog.objects.filter(user=user, date=OuterRef("date"))
     feitas = list(
-        EscolhaDeTreino.objects.filter(user=user, date__lt=ate, session__plan=plan)
+        EscolhaDeTreino.objects.filter(user=user, date__lt=ate)
         .annotate(tem=Exists(tem_serie))
         .filter(tem=True)
         .order_by("date")
-        .values_list("date", "session__label")
+        .values_list("date", "session__label", "session__plan_id", "session_id", "session__main_groups")
     )
-    return SequenciaDoTreino(letras=letras, feitas=[(d, lbl) for d, lbl in feitas])
+    return SequenciaDoTreino(
+        letras=letras,
+        feitas=[(d, lbl) for d, lbl, *_ in feitas],
+        do_plano=[lbl for _, lbl, p, *_ in feitas if p == plan.pk],
+        sessao_feita={d: (pk, grupos) for d, _, _, pk, grupos in feitas},
+    )
 
 
 def usa_presenca(plan) -> bool:
@@ -537,7 +560,8 @@ def sessoes_da_semana(
     presença projeta. Cada sessão ganha `.projecao`:
 
     - `feito`  — dia passado com série registrada, na letra que foi feita;
-    - `pulado` — dia passado de treino sem série; sem letra comprometida;
+    - `pulado` — dia passado de treino sem série; sem letra comprometida
+      (dia de antes da conta não é falta: fica fora da lista);
     - `hoje`   — o recomendado, ou o escolhido do dia;
     - `futuro` — o ciclo seguindo a partir de hoje.
 
@@ -571,6 +595,12 @@ def sessoes_da_semana(
             return letras[0] if letras else None
         return letras[(letras.index(letra) + 1) % len(letras)]
 
+    # ANTES DA CONTA NÃO HÁ FALTA (28/09/2026, item 8 da auditoria): o dia
+    # de treino de antes do cadastro não é `pulado` — a pessoa não usava o
+    # app. Fica fora da tira, como um dia sem treino. A régua é a da ofensiva
+    # (`plans.streaks.primeiro_dia_da_conta`), escrita aqui para `workouts`
+    # não importar de `plans`.
+    entrou = timezone.localtime(user.date_joined).date() if user is not None else None
     semana = []
     proxima = None
     for molde in ordenadas:
@@ -578,6 +608,18 @@ def sessoes_da_semana(
         if dia < hoje:
             if dia in feitas_por_data:
                 letra, estado = feitas_por_data[dia], "feito"
+                if letra not in letras:
+                    # Feita sob uma ficha anterior que tinha esta letra e a
+                    # de hoje não tem (ABC → AB em dois dias): o chip diz o
+                    # que FOI feito, não a letra da linha — e leva o `pk` da
+                    # sessão FEITA (a cópia carrega o pk da sua letra, como em
+                    # `_no_dia`). Com o pk da linha do dia, a ficha de hoje
+                    # achava esta cópia entre as irmãs e se chamava "Treino C".
+                    molde = copy.copy(molde)
+                    molde.label = letra
+                    molde.pk = seq.sessao_feita[dia][0]
+            elif entrou is not None and dia < entrou:
+                continue
             else:
                 pulado = _no_dia(molde, molde, dia)
                 pulado.projecao = "pulado"
@@ -3317,7 +3359,9 @@ def pedir_para_regenerar(user, day=None) -> tuple:
 def aviso_de_regenerar(user, plan=None) -> bool:
     """A Home deve oferecer "regenerar?" a esta pessoa agora?"""
     plan = get_active_routine(user) if plan is None else plan
-    if plan is None or plan.aviso_dispensado_em is not None:
+    # Pedido aceito e adiado para amanhã (`regenerar_pedido_em`) também é
+    # resposta: a Home não pergunta de novo (28/09/2026, M1 do caça-bugs).
+    if plan is None or plan.aviso_dispensado_em is not None or plan.regenerar_pedido_em is not None:
         return False
     return rotina_desatualizada(plan, user)
 
@@ -4017,10 +4061,13 @@ def aviso_de_treino_repetido(
     if escolhida is None:
         return None
     grupos_escolhidos = set(escolhida.main_groups or [])
-    recentes = [(d, lbl) for d, lbl in seq.feitas if 0 <= (dia - d).days <= 1]
-    for d, lbl in reversed(recentes):
-        linha = next((s for s in sessoes if s.label == lbl), None)
-        comuns = grupos_escolhidos & set(linha.main_groups or []) if linha else set()
+    recentes = [d for d, _ in seq.feitas if 0 <= (dia - d).days <= 1]
+    for d in reversed(recentes):
+        # Os grupos da sessão FEITA, da ficha em que foi feita (28/09/2026):
+        # depois de uma remontagem a mesma letra pode ser outro treino (o B
+        # de "costas e bíceps" vira o B de "inferior" no AB), e a letra que
+        # a ficha nova não tem sumiria do aviso.
+        comuns = grupos_escolhidos & set(seq.sessao_feita[d][1] or [])
         if comuns:
             quando = "ontem" if (dia - d).days == 1 else "hoje"
             grupo = MuscleGroup(next(iter(comuns))).label
