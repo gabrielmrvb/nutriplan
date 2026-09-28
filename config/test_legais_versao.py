@@ -23,6 +23,7 @@ from django.urls import reverse
 
 from accounts import consentimento
 from config.legal import data_dos_legais_por_extenso
+from config.test_linguagem import texto_visivel
 
 
 def _sem_quebra_de_linha(html):
@@ -120,6 +121,36 @@ class ARevogacaoDeSaudeEAExclusaoTests(TestCase):
         dd = self.html.split("<dt>Revogar o consentimento</dt>", 1)[1]
         dd = dd.split("<dd>", 1)[1].split("</dd>", 1)[0].strip()
         self.assertEqual(dd, self.FRASE)
+
+
+class AOptOutDeAnaliseBloqueiaTudoTests(TestCase):
+    """Lote 1 mudou o comportamento: desligar "rastrear uso" no Perfil deixa
+    de só tirar a atribuição — passa a bloquear o registro inteiro, nem
+    anonimamente, e as linhas anônimas antigas do aparelho não são ligadas
+    à conta no login. A Política dizia só "o uso continua contando só no
+    agregado anônimo", que não é mais verdade."""
+
+    def setUp(self):
+        html = self.client.get(reverse("privacidade")).content.decode()
+        self.texto = _sem_quebra_de_linha(texto_visivel(html))
+
+    def test_diz_que_desligar_bloqueia_o_registro_inteiro(self):
+        self.assertIn(
+            'Já desligar "rastrear uso" no Perfil é mais forte: a partir '
+            "dali nada do seu uso é registrado, nem anonimamente, e o que "
+            "este aparelho gerou antes de você entrar não é ligado à sua "
+            "conta no login.",
+            self.texto,
+        )
+
+    def test_o_dnt_continua_so_anonimizando(self):
+        """A frase do DNT não pode virar a mesma coisa que o opt-out: DNT só
+        tira a atribuição, o opt-out bloqueia o registro."""
+        self.assertIn(
+            "Se o seu navegador envia Do-Not-Track , o evento não é "
+            "atribuído a você, mas continua contando no agregado anônimo.",
+            self.texto,
+        )
 
 
 class OsTermosCitamACrefTests(TestCase):

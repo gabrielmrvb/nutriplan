@@ -204,12 +204,15 @@
       bruto vive <strong>90 dias</strong>; depois fica só a contagem agregada,
       que não guarda ninguém.
     </p>
+    {# [REVISAR] rascunho do dono, 28/09/2026: o opt-out do Perfil passou a bloquear o registro inteiro, não só a atribuição — atualiza o que a Política dizia sobre "agregado anônimo". #}
     <p>
       Você controla. Se o seu navegador envia <strong>Do-Not-Track</strong>, o
-      evento não é atribuído a você. E no
-      <a href="{% url 'accounts:profile' %}">Perfil</a> dá para desligar a
-      atribuição: o uso continua contando só no agregado anônimo. Excluir a conta
-      apaga o rastro identificado.
+      evento não é atribuído a você, mas continua contando no agregado
+      anônimo. Já desligar <strong>"rastrear uso"</strong> no
+      <a href="{% url 'accounts:profile' %}">Perfil</a> é mais forte: a partir
+      dali nada do seu uso é registrado, nem anonimamente, e o que este
+      aparelho gerou antes de você entrar não é ligado à sua conta no login.
+      Excluir a conta apaga o rastro identificado.
     </p>
   </section>
 
