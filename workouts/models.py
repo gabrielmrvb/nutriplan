@@ -328,6 +328,19 @@ class Exercise(models.Model):
     #: ela consegue fazer.
     progressao = models.JSONField("progressão do movimento", default=dict, blank=True)
 
+    #: SUSTENTAÇÃO MEDE TEMPO (M13, 28/09/2026). A unidade da série era só do
+    #: item do modelo (`splits.json`), e as sustentações que nunca são item de
+    #: modelo — cadeira na parede, suspensão na barra, prancha lateral — entravam
+    #: por substituição com a dose em repetições do item trocado. É o exercício
+    #: que sabe se "segure" é o movimento; `services.vestir_unidade` lê daqui.
+    measure = models.CharField(max_length=8, choices=Measure.choices, default=Measure.REPS)
+
+    #: A CARGA ANOTADA É AJUDA, NÃO RESISTÊNCIA (M20, 28/09/2026). Na barra fixa
+    #: assistida, 45 kg é mais ajuda que 25 — e virava "recorde". Aqui o recorde
+    #: de carga é a MENOR, e o produto reps×carga ("melhor série") não mede
+    #: esforço nenhum.
+    assistido = models.BooleanField("carga é assistência", default=False)
+
     class Meta:
         verbose_name = "exercício"
         verbose_name_plural = "exercícios"

@@ -115,8 +115,9 @@
       </p>
       <ul class="fim__numeros" data-escalonado>
         <li>
-          <span class="fim__valor num">{{ estado.series_feitas }}</span>
-          <span class="fim__rotulo">{% if estado.series_feitas == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
+          {# "O que eu fiz" conta TODA série gravada, como os kg ao lado (M15, 28/09/2026). #}
+          <span class="fim__valor num">{{ estado.placar.series }}</span>
+          <span class="fim__rotulo">{% if estado.placar.series == 1 %}série registrada{% else %}séries registradas{% endif %}</span>
         </li>
         {% comment %}
           A DURAÇÃO DO TREINO, e não o intervalo entre anotações
@@ -163,7 +164,8 @@
       {% if estado.placar.recordes %}
         <p class="recompensa__recorde">
           <span class="pill pill--brand">recorde</span>
-          {% if estado.placar.recordes == 1 %}carga mais alta de sempre em 1 exercício{% else %}carga mais alta de sempre em {{ estado.placar.recordes }} exercícios{% endif %}
+          {# "Melhor", e não "mais alta": na assistida o recorde é a MENOR carga (M20, 28/09/2026). #}
+          {% if estado.placar.recordes == 1 %}melhor carga de sempre em 1 exercício{% else %}melhor carga de sempre em {{ estado.placar.recordes }} exercícios{% endif %}
         </p>
       {% endif %}
       {% comment %}
@@ -195,7 +197,7 @@
       {% endcomment %}
       <button type="button" class="btn btn--ghost btn--block" data-compartilhar-placar
               data-compartilhar-sessao="Treino {{ estado.sessao.label }} · {{ estado.sessao.name }}"
-              data-compartilhar-series="{{ estado.series_feitas }}"
+              data-compartilhar-series="{{ estado.placar.series }}"
               data-compartilhar-kg="{{ estado.placar.carga_total|floatformat:'0g' }}"
               data-compartilhar-heroi="{{ estado.placar.heroi.0|floatformat:'0g' }}"
               data-compartilhar-heroi-rotulo="{{ estado.placar.heroi.1|upper }}"
@@ -596,6 +598,12 @@
           qualquer outro, e item antigo sem ele cai no redirect de sempre.
         {% endcomment %}
         <input type="hidden" name="exercicio" value="{{ atual.exercise.pk }}">
+        {% comment %}
+          A SÉRIE A MAIS É PEDIDA (M14, 28/09/2026). Sem este campo o
+          servidor recusa a série que passaria da ficha — a aba velha que
+          ainda diz "Série 3 de 3" depois de a outra aba fechar a terceira.
+        {% endcomment %}
+        {% if extra %}<input type="hidden" name="extra" value="1">{% endif %}
 
         {% comment %}
           A ÚLTIMA VEZ, ACIMA DO CAMPO (22/09/2026). O fato existia — mas
@@ -606,13 +614,14 @@
           escrito no campo. Zero consulta: `item.ultima_vez` sai do balde
           que `load_history` já trouxe.
         {% endcomment %}
-        {% if atual.ultima_vez %}
+        {# Sem carga e sem reps não há número a dizer ("None reps"), e a sustentação conta segundos (28/09/2026). #}
+        {% if atual.ultima_vez.peso or atual.ultima_vez.reps %}
           <p class="registro__ultima">
             <span class="vis-oculto">Na última vez você fez </span>última:
             {% if atual.ultima_vez.peso %}
               <b class="num">{{ atual.ultima_vez.peso|carga }}&nbsp;kg</b>{% if atual.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span>&nbsp;<b class="num">{{ atual.ultima_vez.reps }}</b>{% endif %}
             {% else %}
-              <b class="num">{{ atual.ultima_vez.reps }}</b>&nbsp;reps
+              <b class="num">{{ atual.ultima_vez.reps }}</b>&nbsp;{% if atual.measure == 'seconds' %}s{% else %}reps{% endif %}
             {% endif %}
             <span class="registro__ultima-data">{{ atual.ultima_vez.data|date:"d/m" }}</span>
           </p>
@@ -810,12 +819,22 @@
         e abdominal não recebem anilha; sugerir "manter 0 kg" ali seria
         recomendar um número que não existe naquele movimento.
       {% endcomment %}
-      {% if movimento_anterior %}
+      {% comment %}
+        PESO DO CORPO NÃO VIRA "0 kg" (M12, 28/09/2026). A flexão grava
+        `weight_kg=0,00`, e a referência do supino dizia "0 kg × 11" — um
+        número que ninguém levantou. Sem carga, as repetições; nem uma nem
+        outra, o bloco não aparece. A mesma guarda do "última:" lá em cima.
+      {% endcomment %}
+      {% if movimento_anterior.peso or movimento_anterior.reps %}
         <p class="agora__anterior">
           <span class="agora__anterior-fato">
             Primeira vez neste. Na última {{ movimento_anterior.padrao }}
             ({{ movimento_anterior.exercicio.name|lower }}, {{ movimento_anterior.data|date:"d/m" }}):
-            <b class="num">{{ movimento_anterior.peso|carga }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
+            {% if movimento_anterior.peso %}
+              <b class="num">{{ movimento_anterior.peso|carga }} kg{% if movimento_anterior.reps %} × {{ movimento_anterior.reps }}{% endif %}</b>
+            {% else %}
+              <b class="num">{{ movimento_anterior.reps }}</b>&nbsp;{% if movimento_anterior.exercicio.measure == 'seconds' %}s{% else %}reps{% endif %}
+            {% endif %}
           </span>
         </p>
       {% endif %}
@@ -873,10 +892,11 @@
           {% if atual.load.melhor_hoje %}
             <span class="agora__comparacao">
               Hoje:
+              {# A seta e o número são o fato; a COR diz se melhorou — na assistida, descer (M20, 28/09/2026). #}
               {% if atual.load.delta > 0 %}
-                <b class="agora__delta agora__delta--up">▲ +{{ atual.load.delta|carga }} kg</b>
+                <b class="agora__delta {% if atual.load.progrediu %}agora__delta--up{% else %}agora__delta--down{% endif %}">▲ +{{ atual.load.delta|carga }} kg</b>
               {% elif atual.load.delta < 0 %}
-                <b class="agora__delta agora__delta--down">▼ {{ atual.load.delta|carga }} kg</b>
+                <b class="agora__delta {% if atual.load.progrediu %}agora__delta--up{% else %}agora__delta--down{% endif %}">▼ {{ atual.load.delta|carga }} kg</b>
               {% else %}
                 <b class="agora__delta">= mesma carga</b>
               {% endif %}

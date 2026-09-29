@@ -326,7 +326,8 @@
       "biceps",
       "forearms"
     ],
-    "video_titulo": "Barra fixa aberta graviton"
+    "video_titulo": "Barra fixa aberta graviton",
+    "assistido": true
   },
   {
     "name": "Desenvolvimento com halteres",
@@ -504,7 +505,8 @@
     "progressao": {
       "movimento": "prancha",
       "nivel": 2
-    }
+    },
+    "measure": "seconds"
   },
   {
     "name": "Abdominal supra no solo",
@@ -1719,7 +1721,8 @@
     "progressao": {
       "movimento": "cadeira_na_parede",
       "nivel": 2
-    }
+    },
+    "measure": "seconds"
   },
   {
     "name": "Stiff unilateral com peso do corpo",
@@ -1967,7 +1970,8 @@
     "progressao": {
       "movimento": "suspensao",
       "nivel": 2
-    }
+    },
+    "measure": "seconds"
   },
   {
     "name": "Prancha lateral",
@@ -1985,7 +1989,8 @@
     "progressao": {
       "movimento": "prancha",
       "nivel": 3
-    }
+    },
+    "measure": "seconds"
   },
   {
     "name": "Elevação de joelhos na barra",

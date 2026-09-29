@@ -128,6 +128,10 @@ class Command(BaseCommand):
                     # A escada de dificuldade do movimento, quando existe
                     # (peso do corpo). Vazio para quem não pertence a uma.
                     "progressao": row.get("progressao", {}),
+                    # Sustentação mede tempo (M13) e a carga da assistida é
+                    # ajuda (M20), 28/09/2026. Sem a chave, o padrão do campo.
+                    "measure": row.get("measure", Measure.REPS),
+                    "assistido": row.get("assistido", False),
                 },
             )
             exercises[row["name"]] = exercise

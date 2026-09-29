@@ -455,7 +455,16 @@
        * ainda esta logada continua vendo o app offline, que e o produto. */
       if (r.type === "opaqueredirect" || r.status === 401 || r.status === 403) {
         location.reload();
+        return;
       }
+      /* A EXECUCAO NAO VOLTA CONGELADA (BA11, 28/09/2026). O descanso e a
+       * contagem "N/M series" sao do instante em que a pagina foi guardada:
+       * medido, voltar 17 s depois mostrava 0:38 com 0:24 de verdade, e
+       * "3/25" com a quarta ja gravada noutra aba. Na execucao -- a tela de
+       * uma coisa so, cujo estado muda de pe entre uma serie e outra -- a
+       * resposta que acabou de chegar prova que ha rede, e a tela recarrega.
+       * `modo-foco` e a classe que o servidor escreve no <html> dela. */
+      if (r.ok && document.documentElement.classList.contains("modo-foco")) location.reload();
     }).catch(function () { /* offline: deixa a tela como esta */ });
   });
 
@@ -675,6 +684,12 @@
   function serieEnfileirada(form, dados) {
     var secao = form.closest(".agora");
     if (!secao) return;
+    /* DESFAZER E A MESMA ROTA, NAO UMA SERIE NOVA (revisao N3, 28/09/2026):
+     * nada de pastilha, contador ou `extra=1` -- so o aviso honesto. */
+    if (valorDoPar(dados, "acao") === "desfazer") {
+      mostrarNota(secao, "Desfazer guardado — aguardando rede.");
+      return;
+    }
     var pastilha = secao.querySelector(".series__item--atual");
     if (pastilha) {
       pastilha.classList.remove("series__item--atual");
@@ -707,6 +722,19 @@
           numero.textContent = String(m);
           if (titulo.firstChild && titulo.firstChild.nodeType === 3) {
             titulo.firstChild.textContent = "Concluído — ";
+          }
+          /* O PROXIMO TOQUE E A SERIE A MAIS, PEDIDA (M14, 28/09/2026). A
+           * tela ja escreveu "Concluido" e continua oferecendo "Concluir
+           * serie N+1": quem toca de novo sabe que passou da ficha. Sem o
+           * pedido, o servidor recusaria esse toque na drenagem como o da
+           * aba velha -- e a fila apagaria calada uma serie que a tela disse
+           * "guardada". Um campo so, no corpo que a fila ja copia. */
+          if (!form.querySelector('input[name="extra"]')) {
+            var pedido = document.createElement("input");
+            pedido.type = "hidden";
+            pedido.name = "extra";
+            pedido.value = "1";
+            form.appendChild(pedido);
           }
         } else {
           numero.textContent = String(n + 1);

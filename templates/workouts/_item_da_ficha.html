@@ -90,16 +90,17 @@
           último treino deste exercício (a ordem de anotar varia), e "×"
           leva `aria-hidden` porque o leitor de tela lê a frase inteira.
         {% endcomment %}
-        {% if item.ultima_vez %}
+        {# Sem carga e sem reps não há número ("None reps"); sustentação conta segundos (revisão N4, 28/09/2026). #}
+        {% if item.ultima_vez.peso or item.ultima_vez.reps %}
           <span class="ficha-item__ultima">
             <span class="vis-oculto">Última vez: </span>
             {% if item.ultima_vez.peso %}
               <span class="num">{{ item.ultima_vez.peso|carga }}</span>&nbsp;kg{% if item.ultima_vez.reps %}&nbsp;<span aria-hidden="true">×</span><span class="vis-oculto">por</span>&nbsp;<span class="num">{{ item.ultima_vez.reps }}</span>{% endif %}
             {% else %}
-              <span class="num">{{ item.ultima_vez.reps }}</span>&nbsp;reps
+              <span class="num">{{ item.ultima_vez.reps }}</span>&nbsp;{% if item.measure == 'seconds' %}s{% else %}reps{% endif %}
             {% endif %}
           </span>
-        {% else %}
+        {% elif not item.ultima_vez %}
           <span class="ficha-item__ultima ficha-item__ultima--nova">primeira vez</span>
         {% endif %}
       </span>

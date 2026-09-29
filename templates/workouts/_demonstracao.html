@@ -50,7 +50,8 @@
   {% else %}
     <p class="agora__sem-media">
       Sem demonstração cadastrada.
-      <a href="{{ exercicio.video_search_url }}" target="_blank" rel="noopener">
+      {# Alvo de 44 px (item 7, 28/09/2026): o link cru media 21 de altura. #}
+      <a class="btn btn--ghost" href="{{ exercicio.video_search_url }}" target="_blank" rel="noopener">
         Buscar no YouTube
       </a>
     </p>

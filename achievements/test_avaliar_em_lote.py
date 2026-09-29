@@ -33,7 +33,9 @@ class AvaliarEmLoteTests(BaseDeConquistas):
         vez — cada um é um "novo recorde" e uma "melhor série" para o
         detector, ou seja, 2 × `quantos` detecções além das fixas."""
         user = self.pessoa(email=email)
-        exercicios = list(Exercise.objects.filter(is_active=True)[:quantos])
+        # `assistido=False` (28/09/2026, M20): na barra fixa assistida, a
+        # primeira do catálogo, 40 → 60 kg é mais AJUDA, e não recorde.
+        exercicios = list(Exercise.objects.filter(is_active=True, assistido=False)[:quantos])
         self.assertEqual(len(exercicios), quantos, "o catálogo semeado tem exercícios de sobra")
         for i, exercicio in enumerate(exercicios):
             # uma série ontem, mais leve, para o de hoje ser recorde de verdade

@@ -149,13 +149,14 @@ def descanso_de(user, exercise) -> int:
 
 
 def concluir_serie(
-    user, exercise, peso, dia, reps=None, op_id="", nota="", falhou=False, evento=None,
+    user, exercise, peso, dia, reps=None, op_id="", nota="", falhou=False, evento=None, teto=None,
 ) -> tuple:
     """Grava UMA série no dia do toque: `(criada, primeira_do_dia)`.
 
     `criada=False` é reenvio reconhecido pelo `op_id` (a fila offline), e aí
     não é dia novo — uma consulta só decide a primeira quando a linha NASCE.
-    `ValueError` (vinte séries no dia) sobe para a tela dizer o limite.
+    `ValueError` (vinte séries no dia) sobe para a tela dizer o limite, e
+    `SerieAlemDaPrescrita` (a série que passaria de `teto`, M14) também.
 
     `evento(nome, props)` (a view passa `analytics.evento` com o request)
     emite `treino.serie_concluida` UMA vez, e só quando a linha NASCE: o
@@ -166,7 +167,7 @@ def concluir_serie(
     duas vezes; `props` é a união dos dois payloads, e nada nele é PII.
     """
     log, criada = services.append_set(
-        user, exercise, peso, reps=reps, op_id=op_id, day=dia, nota=nota, falhou=falhou,
+        user, exercise, peso, reps=reps, op_id=op_id, day=dia, nota=nota, falhou=falhou, teto=teto,
     )
     if criada and evento is not None:
         evento("treino.serie_concluida", {

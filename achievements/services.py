@@ -35,6 +35,7 @@ from plans import services as plan_services
 from plans import streaks
 from plans.models import MealLog, MealStatus
 from workouts.models import Corrida, ExerciseLog, TrainingPlan
+from workouts.services import supera_carga
 
 from .models import UserAchievement
 from .regras import CATALOGO, Dados
@@ -143,11 +144,15 @@ def reunir(user, hoje=None) -> Dados:
         F("weight_kg") * F("reps"),
         output_field=DecimalField(max_digits=10, decimal_places=2),
     )
+    # A ASSISTIDA (M20, 28/09/2026): a carga anotada é ajuda — o recorde é a
+    # MENOR, e reps×ajuda não é melhor série. `Min` ao lado de `Max`, na
+    # mesma consulta; a regra é a da execução (`supera_carga`).
     de_hoje = list(
         ExerciseLog.objects.filter(user=user, date=hoje, weight_kg__isnull=False)
-        .values("exercise_id", "exercise__name")
+        .values("exercise_id", "exercise__name", "exercise__assistido")
         .annotate(
             maior=Max("weight_kg"),
+            menor=Min("weight_kg"),
             melhor_serie=Max(produto_serie, filter=Q(reps__isnull=False)),
         )
     )
@@ -162,11 +167,12 @@ def reunir(user, hoje=None) -> Dados:
             .values("exercise_id")
             .annotate(
                 maior=Max("weight_kg"),
+                menor=Min("weight_kg"),
                 melhor_serie=Max(produto_serie, filter=Q(reps__isnull=False)),
             )
         )
         cargas_anteriores = {
-            linha["exercise_id"]: linha["maior"] for linha in anteriores_agregados
+            linha["exercise_id"]: linha for linha in anteriores_agregados
         }
         series_anteriores = {
             linha["exercise_id"]: linha["melhor_serie"]
@@ -174,18 +180,25 @@ def reunir(user, hoje=None) -> Dados:
         }
         # `anteriores.get(...)` sem valor significa estreia, e estreia não é
         # recorde — ver o contrato em `regras._recorde` e `regras._melhor_serie`.
+        def _bateu_a_carga(linha):
+            campo = "menor" if linha["exercise__assistido"] else "maior"
+            antes = cargas_anteriores.get(linha["exercise_id"])
+            return antes is not None and supera_carga(
+                linha["exercise__assistido"], linha[campo], antes[campo]
+            )
+
         dados = replace(
             dados,
             recordes_hoje=tuple(
                 (linha["exercise_id"], linha["exercise__name"])
                 for linha in de_hoje
-                if linha["exercise_id"] in cargas_anteriores
-                and linha["maior"] > cargas_anteriores[linha["exercise_id"]]
+                if _bateu_a_carga(linha)
             ),
             melhores_series_hoje=tuple(
                 (linha["exercise_id"], linha["exercise__name"])
                 for linha in de_hoje
-                if linha["melhor_serie"] is not None
+                if not linha["exercise__assistido"]
+                and linha["melhor_serie"] is not None
                 and series_anteriores.get(linha["exercise_id"]) is not None
                 and linha["melhor_serie"] > series_anteriores[linha["exercise_id"]]
             ),
