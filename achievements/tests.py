@@ -236,7 +236,10 @@ class RecordeTests(BaseDeConquistas):
 
     def test_superar_a_carga_anterior_e_recorde(self):
         user = self.pessoa()
-        exercicio = Exercise.objects.filter(is_active=True).first()
+        # `assistido=False` (28/09/2026, M20): a primeira do catálogo passou a ser
+        # a barra fixa ASSISTIDA, onde mais carga é mais ajuda e não recorde —
+        # este teste mede o recorde de carga de verdade, não a assistida.
+        exercicio = Exercise.objects.filter(is_active=True, assistido=False).first()
         self.treinar(user, SEGUNDA, exercicio, carga="60")
         services.avaliar(user, hoje=SEGUNDA)
         self.treinar(user, SEGUNDA + timedelta(days=1), exercicio, carga="65")
@@ -267,7 +270,10 @@ class RecordeTests(BaseDeConquistas):
         privacidade promete é sobre `contexto`, o campo que vira imagem.
         """
         user = self.pessoa()
-        exercicio = Exercise.objects.filter(is_active=True).first()
+        # `assistido=False` (28/09/2026, M20): a primeira do catálogo passou a ser
+        # a barra fixa ASSISTIDA, onde mais carga é mais ajuda e não recorde —
+        # este teste mede o recorde de carga de verdade, não a assistida.
+        exercicio = Exercise.objects.filter(is_active=True, assistido=False).first()
         self.treinar(user, SEGUNDA, exercicio, carga="60")
         self.treinar(user, SEGUNDA + timedelta(days=1), exercicio, carga="97.5")
 
@@ -293,7 +299,10 @@ class RecordeTests(BaseDeConquistas):
         melhor-série ficar vermelha.
         """
         user = self.pessoa()
-        exercicio = Exercise.objects.filter(is_active=True).first()
+        # `assistido=False` (28/09/2026, M20): a primeira do catálogo passou a ser
+        # a barra fixa ASSISTIDA, onde mais carga é mais ajuda e não recorde —
+        # este teste mede o recorde de carga de verdade, não a assistida.
+        exercicio = Exercise.objects.filter(is_active=True, assistido=False).first()
         dia = SEGUNDA + timedelta(days=1)
         self.treinar(user, SEGUNDA, exercicio, carga="60")   # 60 kg × 10 = 600
         self.treinar(user, dia, exercicio, carga="65")       # 65 kg × 10 = 650: carga E melhor série
@@ -600,7 +609,10 @@ class PrivacidadeDoCardTests(BaseDeConquistas):
 
     def test_o_card_de_recorde_nao_carrega_a_carga(self):
         user = self.pessoa()
-        exercicio = Exercise.objects.filter(is_active=True).first()
+        # `assistido=False` (28/09/2026, M20): a primeira do catálogo passou a ser
+        # a barra fixa ASSISTIDA, onde mais carga é mais ajuda e não recorde —
+        # este teste mede o recorde de carga de verdade, não a assistida.
+        exercicio = Exercise.objects.filter(is_active=True, assistido=False).first()
         self.treinar(user, SEGUNDA, exercicio, carga="60")
         self.treinar(user, SEGUNDA + timedelta(days=1), exercicio, carga="97.5")
         services.avaliar(user, hoje=SEGUNDA + timedelta(days=1))

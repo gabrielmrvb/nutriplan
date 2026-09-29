@@ -91,7 +91,11 @@ class ExercicioConcluidoNaExecucaoTests(BaseDoFluxo):
         self.assertNotIn("Continuar de onde parou", html)
 
     def test_controle_a_serie_extra_continua_sendo_gravada(self):
-        """O servidor não mudou: `append_set` aceita a quinta, idempotente por `op_id`."""
+        """A série a mais PEDIDA continua gravada: `append_set` aceita a quinta, idempotente por `op_id`.
+
+        28/09/2026 (M14): o POST leva `extra=1`, que é o que o formulário de
+        "Registrar uma série a mais" manda. Sem o pedido, a série além da ficha
+        é a da aba velha, e o servidor a recusa (`test_execucao_parte2`)."""
         resposta = self.client.post(
             reverse("workouts:record_set"),
             {
@@ -100,6 +104,7 @@ class ExercicioConcluidoNaExecucaoTests(BaseDoFluxo):
                 "reps": "8",
                 "op_id": "extra-0001",
                 "exercicio": self.item.exercise_id,
+                "extra": "1",
             },
         )
         self.assertEqual(resposta.status_code, 302)

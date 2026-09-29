@@ -31,6 +31,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     Max,
+    Min,
     OuterRef,
     Prefetch,
     Q,
@@ -51,6 +52,7 @@ from .models import (
     Equipment,
     Exercise,
     ExerciseLog,
+    Measure,
     MuscleGroup,
     familia_de_opcoes,
     SessionExercise,
@@ -1424,7 +1426,8 @@ def aplicar_trocas(user, sessoes, trocas=None) -> dict:
     """Veste as linhas com as trocas da pessoa, EM MEMÓRIA (17/09/2026):
     o item cujo exercício foi trocado passa a apontar para o substituto —
     `item.exercise` (e `exercise_id`) — e guarda o de origem em
-    `item.original`; séries, faixa, descanso e ordem não mudam. Nada é
+    `item.original`; séries, descanso e ordem não mudam, e a faixa só muda
+    quando o substituto é sustentação (`vestir_unidade`, M13). Nada é
     gravado: a ficha continua retrato, e a conferência do catálogo
     (`_prescricao_bate`) lê as linhas cruas. Chamada UMA vez por tela,
     logo depois de carregar as linhas do plano — o painel, a ficha, a
@@ -1442,6 +1445,9 @@ def aplicar_trocas(user, sessoes, trocas=None) -> dict:
                 if substituto is not None and getattr(item, "original", None) is None:
                     item.original = item.exercise
                     item.exercise = substituto
+                    # A unidade também, e também só em memória (M13): a
+                    # cadeira na parede no lugar da extensora mede segundos.
+                    vestir_unidade(item, substituto)
     return trocas
 
 
@@ -1567,6 +1573,28 @@ def catalogo_permitido(permitidos):
     return list(Exercise.objects.filter(is_active=True, equipment__in=list(permitidos)).order_by("name", "id"))
 
 
+#: A DOSE DA SUSTENTAÇÃO que entra no lugar de um item em repetições (M13,
+#: 28/09/2026, decisão do controlador): a da Prancha abdominal em
+#: `splits.json`, 30 a 45 segundos — o único precedente curado, e não um número
+#: novo. Séries e descanso continuam os do item trocado.
+#: `test_execucao_parte2` confere que esta faixa é a da prancha.
+DOSE_DA_SUSTENTACAO = (30, 45)
+
+
+def vestir_unidade(item, exercicio) -> None:
+    """O substituto que é sustentação passa a medir em SEGUNDOS, com a dose da
+    prancha. É o que os três pontos de cópia da dose — `substituir_por_
+    equipamento`, `ajustar_degrau_do_iniciante` e `aplicar_trocas` — fazem
+    depois de trocar o exercício: sem isto a suspensão na barra herdava
+    "12–15 repetições" da rosca de punho (M13)."""
+    # ponytail: só sustentação no lugar de repetição. O inverso não existe no
+    # catálogo (as duas `anti_extensao` do core são sustentações); quando
+    # existir, pede uma dose em repetições decidida pelo dono.
+    if exercicio.measure == Measure.SECONDS and item.measure != Measure.SECONDS:
+        item.measure = Measure.SECONDS
+        item.rep_min, item.rep_max = DOSE_DA_SUSTENTACAO
+
+
 def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
     """Os itens de um modelo com o que está FORA do perfil de equipamento
     trocado por exercício ativo do MESMO `padrao` e do mesmo grupo, dentro do
@@ -1629,6 +1657,7 @@ def substituir_por_equipamento(itens, permitidos, catalogo=None) -> list:
         copia = copy.copy(item)
         copia.pk = None
         copia.exercise = substituto
+        vestir_unidade(copia, substituto)
         resultado.append(copia)
     return resultado
 
@@ -1701,6 +1730,7 @@ def ajustar_degrau_do_iniciante(itens, nivel, permitidos, catalogo=None) -> list
         copia = copy.copy(item)
         copia.pk = None
         copia.exercise = mais_facil
+        vestir_unidade(copia, mais_facil)
         resultado.append(copia)
     return resultado
 
@@ -3308,7 +3338,14 @@ def ultima_serie_anterior(carga) -> dict | None:
             return None
         melhor = max(com_reps, key=lambda log: log.reps)
         return {"peso": None, "reps": melhor.reps, "data": melhor.date}
-    melhor = max(com_carga, key=lambda log: log.weight_kg)
+    # Na mesma carga, a de mais repetições (M12, 28/09/2026): o empate — o
+    # peso do corpo anota 0,00 em toda série — devolvia a primeira do dia.
+    # E a carga é a MELHOR, que `load_history` já devolve na direção do
+    # exercício (M20, revisão N1): na assistida, a MENOR ajuda — "última: 30
+    # kg" ao lado de "Última carga: 25 kg" era a mesma tela dizendo as duas.
+    # No exercício comum, `melhor_anterior` é a maior: o resultado não muda.
+    alvo = (carga or {}).get("melhor_anterior")
+    melhor = max(com_carga, key=lambda log: (log.weight_kg == alvo, log.weight_kg, log.reps or 0))
     return {"peso": melhor.weight_kg, "reps": melhor.reps, "data": melhor.date}
 
 
@@ -3474,7 +3511,14 @@ def record_load(user, exercise, weight_kg, set_number=1, reps=None, day=None):
     return log
 
 
-def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None, nota="", falhou=False):
+class SerieAlemDaPrescrita(ValueError):
+    """A série passaria da prescrição de hoje sem a pessoa ter pedido uma a
+    mais (M14, 28/09/2026): a aba velha que ainda dizia "Série 3 de 3" depois
+    de a outra aba fechar a terceira. `ValueError` para quem já trata o teto
+    de vinte continuar tratando esta."""
+
+
+def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None, nota="", falhou=False, teto=None):
     """Acrescenta UMA série ao dia. O número dela é do SERVIDOR.
 
     É a peça que faltava para a carga voltar à fila offline, e a diferença com
@@ -3507,6 +3551,13 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None, nota=""
 
     Devolve `(log, criada)`. `criada=False` significa reenvio reconhecido, e
     não erro.
+
+    `teto` (M14, 28/09/2026) é quantas séries a ficha prescreve hoje: com ele,
+    a série que passaria disso levanta `SerieAlemDaPrescrita`. Conferido DEPOIS
+    de `ja_aplicada` — o reenvio do MESMO `op_id` continua sendo a mesma
+    série, aceita, e a fila offline depende disso — e dentro do laço, sobre as
+    ocupadas RELIDAS: duas abas que tocam juntas não passam as duas. `None` é
+    o teto de sempre (vinte): a série a mais pedida e o exercício fora da ficha.
     """
     from accounts.models import SyncedOperation
 
@@ -3540,11 +3591,15 @@ def append_set(user, exercise, weight_kg, reps=None, op_id="", day=None, nota=""
                 # O teto aqui e 20 (o do modelo) e nao o numero de series
                 # PRESCRITAS: serie extra e coisa que acontece, e recusa-la
                 # seria perder o registro de um treino que a pessoa fez.
+                # DESDE 28/09/2026 (M14) a extra e PEDIDA: sem o pedido, quem
+                # chama passa `teto`, e a serie alem dele e recusada.
                 ocupadas = set(
                     ExerciseLog.objects.filter(
                         user=user, exercise=exercise, date=day
                     ).values_list("set_number", flat=True)
                 )
+                if teto is not None and len(ocupadas) >= teto:
+                    raise SerieAlemDaPrescrita(len(ocupadas))
                 proxima = next(
                     (n for n in range(1, 21) if n not in ocupadas), 21
                 )
@@ -3590,7 +3645,9 @@ def ultima_vez_do_movimento(user, exercicio):
         ExerciseLog.objects.filter(user=user, exercise__padrao=exercicio.padrao)
         .exclude(exercise=exercicio)
         .select_related("exercise")
-        .order_by("-date", "-weight_kg", "-set_number")
+        # Na mesma carga, a de MAIS repetições (M12, 28/09/2026): o peso do
+        # corpo grava 0,00, e o empate caía na última série anotada — a pior.
+        .order_by("-date", "-weight_kg", F("reps").desc(nulls_last=True), "-set_number")
         .first()
     )
     if log is None:
@@ -3612,13 +3669,16 @@ def load_history(user, exercises, day=None) -> dict:
         {
           "hoje":     {série: log},            # o que preencher no formulário
           "anterior": {série: log},            # o mesmo dia de treino passado
-          "melhor_hoje": Decimal|None,         # série mais pesada de hoje
+          "melhor_hoje": Decimal|None,         # série mais pesada de hoje (a mais
+                                               # leve na assistida, M20)
           "melhor_anterior": Decimal|None,
           "recorde_anterior": Decimal|None,    # a maior carga em QUALQUER data anterior
+                                               # (a MENOR na assistida, M20)
           "melhor_serie_anterior": Decimal|None,  # maior reps×carga de UMA série anterior
           "melhor_serie_peso": Decimal|None,      # a carga dessa série
           "melhor_serie_reps": int|None,          # as reps dessa série
           "delta": Decimal|None,               # subiu ou não subiu
+          "progrediu": bool|None,              # melhorou? (na assistida, descer)
           "data_anterior": date|None,
           "sessoes": [(date, {série: log})],   # as últimas datas ANTERIORES, da mais
                                                # recente para trás (≤ SESSOES_LIDAS)
@@ -3650,6 +3710,8 @@ def load_history(user, exercises, day=None) -> dict:
     ids = [exercise.pk for exercise in exercises]
     if not ids:
         return {}
+    # Assistida (M20): o recorde é a MENOR carga, e não há "melhor série".
+    assistidos = {exercise.pk for exercise in exercises if getattr(exercise, "assistido", False)}
 
     por_exercicio = {}
     logs = ExerciseLog.objects.filter(user=user, exercise_id__in=ids).order_by(
@@ -3667,14 +3729,18 @@ def load_history(user, exercises, day=None) -> dict:
             log.set_number: log for log in anteriores if log.date == data_anterior
         }
 
-        melhor_hoje = max((l.weight_kg for l in hoje.values()), default=None)
-        melhor_anterior = max((l.weight_kg for l in anterior.values()), default=None)
-        recorde_anterior = max(
+        assistido = exercise_id in assistidos
+        # Na assistida a MELHOR carga é a menor (M20): o "melhor de hoje", o
+        # da última vez e o recorde andam na mesma direção.
+        melhor = min if assistido else max
+        melhor_hoje = melhor((l.weight_kg for l in hoje.values()), default=None)
+        melhor_anterior = melhor((l.weight_kg for l in anterior.values()), default=None)
+        recorde_anterior = melhor(
             (l.weight_kg for l in anteriores if l.weight_kg is not None), default=None
         )
         # A série (não só o produto) porque a tela mostra "60 kg × 12", e
         # guardar só o número perderia a carga e as reps que o compõem.
-        melhor_registro = max(
+        melhor_registro = None if assistido else max(
             (l for l in anteriores if l.weight_kg is not None and l.reps is not None),
             key=lambda l: l.weight_kg * l.reps,
             default=None,
@@ -3703,6 +3769,11 @@ def load_history(user, exercises, day=None) -> dict:
             "melhor_serie_reps": melhor_registro.reps if melhor_registro else None,
             "data_anterior": data_anterior,
             "delta": (melhor_hoje - melhor_anterior)
+            if (melhor_hoje is not None and melhor_anterior is not None)
+            else None,
+            # A COR do delta (M20): "▲ +15 kg" de ajuda não é progresso. O
+            # número continua o fato; quem diz se melhorou é `supera_carga`.
+            "progrediu": supera_carga(assistido, melhor_hoje, melhor_anterior)
             if (melhor_hoje is not None and melhor_anterior is not None)
             else None,
             "sessoes": sessoes,
@@ -3769,7 +3840,12 @@ def _tonelagem(logs):
 
 def placar_do_treino(itens) -> Placar:
     """Placar a partir dos itens da sessão com `load` (o dicionário de
-    `load_history`) já preenchido — o mesmo objeto que a execução usa."""
+    `load_history`) já preenchido — o mesmo objeto que a execução usa.
+
+    "O QUE EU FIZ" CONTA TODA SÉRIE GRAVADA (M15, 28/09/2026): séries, reps
+    e volume, como "Treino de hoje" em `/treino/` e o histórico. A série a
+    mais PEDIDA é trabalho real. "Quanto do plano?" é outra pergunta, e a
+    régua dela é `progresso_em_series` (recortada na ficha)."""
     placar = Placar()
     anterior = Decimal("0")
     tem_anterior = False
@@ -3783,9 +3859,12 @@ def placar_do_treino(itens) -> Placar:
         if de_antes:
             tem_anterior = True
             anterior += _tonelagem(de_antes)
+        # `melhor_hoje` e `recorde_anterior` já vêm na direção do exercício
+        # (`load_history`): na assistida, a MENOR carga (M20).
         melhor_hoje = load.get("melhor_hoje")
         recorde = load.get("recorde_anterior")
-        if melhor_hoje is not None and recorde is not None and melhor_hoje > recorde:
+        assistido = getattr(getattr(item, "exercise", None), "assistido", False)
+        if melhor_hoje is not None and recorde is not None and supera_carga(assistido, melhor_hoje, recorde):
             placar.recordes += 1
     placar.carga_anterior = anterior if tem_anterior else None
     return placar
@@ -4175,6 +4254,7 @@ def linhas_de_serie(item, load) -> list:
     anterior = (load or {}).get("anterior") or {}
     recorde = (load or {}).get("recorde_anterior")
     melhor = (load or {}).get("melhor_serie_anterior")
+    assistido = getattr(getattr(item, "exercise", None), "assistido", False)
     linhas = []
     for numero in range(1, item.sets + 1):
         registro = hoje.get(numero)
@@ -4191,7 +4271,8 @@ def linhas_de_serie(item, load) -> list:
                 # de estreia (`achievements.regras._recorde`).
                 "recorde": bool(
                     registro is not None and recorde is not None
-                    and registro.weight_kg is not None and registro.weight_kg > recorde
+                    and registro.weight_kg is not None
+                    and supera_carga(assistido, registro.weight_kg, recorde)
                 ),
                 # Segunda espécie, ao lado de "recorde": o maior reps×carga
                 # de UMA série (achievements.regras._melhor_serie) — não é
@@ -4276,6 +4357,13 @@ def proxima_carga(item):
     `_sugestao_de_reps` volta ao piso da faixa, e a próxima subida exige
     fechar a faixa de novo.
     """
+    # ASSISTIDA NÃO RECEBE SUGESTÃO (M20, 28/09/2026). A dupla progressão só
+    # sabe SUBIR carga, e aqui subir é pedir mais ajuda: "Sugestão: subir
+    # 32,5 kg" na barra fixa assistida mandava regredir. O passo certo —
+    # menos ajuda — não foi decidido; silêncio vence conselho errado, e o
+    # campo cai em `_sugestao_de_carga` (a mesma série da última vez).
+    if getattr(getattr(item, "exercise", None), "assistido", False):
+        return None
     load = item.load or {}
     sessoes = load.get("sessoes")
     if sessoes is None:
@@ -4478,7 +4566,8 @@ def supera_recorde(user, exercise, weight_kg, reps=None, dia=None) -> set:
     "carga" é a maior carga já registrada; "melhor_serie" é o maior produto
     reps×carga de UMA série — 60 kg × 12 supera 60 kg × 10 sem mexer na carga,
     que é o segundo eixo da dupla progressão e o que Hevy e Strong celebram
-    (BENCHMARK-2026-09, padrão a).
+    (BENCHMARK-2026-09, padrão a). Na ASSISTIDA (M20, 28/09/2026) a carga é
+    ajuda: o recorde é a MENOR, e reps×ajuda não é "melhor série" de nada.
 
     É a pergunta barata que decide se vale rodar `achievements.avaliar` na
     hora: o catálogo inteiro custa 43 consultas (medido em 13/09/2026), e as
@@ -4495,6 +4584,7 @@ def supera_recorde(user, exercise, weight_kg, reps=None, dia=None) -> set:
     )
     agregado = anteriores.aggregate(
         maior=Max("weight_kg"),
+        menor=Min("weight_kg"),
         melhor=Max(
             ExpressionWrapper(
                 F("weight_kg") * F("reps"),
@@ -4504,15 +4594,26 @@ def supera_recorde(user, exercise, weight_kg, reps=None, dia=None) -> set:
         ),
     )
     especies = set()
-    if agregado["maior"] is not None and weight_kg > agregado["maior"]:
+    assistido = getattr(exercise, "assistido", False)
+    recorde = agregado["menor"] if assistido else agregado["maior"]
+    if recorde is not None and supera_carga(assistido, weight_kg, recorde):
         especies.add("carga")
     if (
-        reps is not None
+        not assistido
+        and reps is not None
         and agregado["melhor"] is not None
         and weight_kg * reps > agregado["melhor"]
     ):
         especies.add("melhor_serie")
     return especies
+
+
+def supera_carga(assistido, carga, recorde) -> bool:
+    """Só SUPERAR conta — e na assistida superar é DESCER (M20, 28/09/2026):
+    a carga anotada é ajuda, e 45 kg depois de 25 é regressão, não recorde.
+    A regra única da execução (pastilha, placar e `supera_recorde`) e da
+    conquista (`achievements.services`)."""
+    return carga < recorde if assistido else carga > recorde
 
 
 class ExercicioForaDaSessao(LookupError):

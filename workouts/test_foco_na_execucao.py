@@ -100,6 +100,11 @@ class OFocoTests(TestCase):
         Nenhum dos dois pode virar 404 no POST — a série foi gravada."""
         for foco in (None, "abc", "-1", "999999"):
             with self.subTest(foco=foco):
+                # 28/09/2026 (M14): cada caso começa sem série. Os quatro POSTs
+                # no mesmo exercício passavam da ficha, e o que passa agora é
+                # recusado como o da aba velha — o que este teste mede é o
+                # destino do redirect de uma série GRAVADA.
+                ExerciseLog.objects.filter(user=self.pessoa).delete()
                 extra = {} if foco is None else {"exercicio": foco}
                 resposta = self._post(op_id="op-%s" % foco, **extra)
                 self.assertEqual(resposta.status_code, 302)

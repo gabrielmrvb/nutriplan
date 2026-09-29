@@ -171,6 +171,9 @@ def _recorde(dados):
 
       recorde = MAIOR CARGA JÁ REGISTRADA naquele exercício.
 
+    Menos na ASSISTIDA (M20, 28/09/2026), onde a carga anotada é ajuda: lá o
+    recorde é a MENOR, e a frase diz "melhor carga", que vale para as duas.
+
     Não é 1RM estimado, não é volume, não é carga por repetição. 100 kg × 1
     conta mais que 90 kg × 10 nesta definição, e isso é uma escolha — a
     alternativa seria uma fórmula escondida que ninguém consegue conferir
@@ -265,7 +268,7 @@ CATALOGO += [
     Regra(
         slug="novo-recorde",
         titulo="Novo recorde",
-        frase="Você bateu sua maior carga num exercício.",
+        frase="Você bateu sua melhor carga num exercício.",
         emoji="\U0001f3cb",
         familia=Familia.RECORDE,
         detectar=_recorde,

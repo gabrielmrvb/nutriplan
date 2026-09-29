@@ -1712,11 +1712,30 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
         # que registra a série não pode ser perdido por causa do texto.
         nota = (request.POST.get("nota") or "").strip()[:120]
         falhou = request.POST.get("falhou") == "1"
+        # A SÉRIE ALÉM DA FICHA SÓ QUANDO PEDIDA (M14, 28/09/2026). Duas abas
+        # no mesmo exercício diziam "Série 3 de 3"; a segunda fechava a
+        # terceira e a VELHA gravava uma quarta por cima, muda. A contagem
+        # vem ANTES da escrita (é a mesma consulta que vinha depois, para
+        # "concluído · 4/4" — o orçamento do POST não muda) e vira o teto que
+        # `append_set` confere dentro da transação, depois do `op_id`: o
+        # reenvio da MESMA série continua aceito. "Registrar uma série a
+        # mais" manda `extra=1` e não tem teto além dos vinte de sempre.
+        feitas, prescritas = services.series_de_hoje(request.user, exercise, dia=dia)
+        extra = request.POST.get("extra") == "1"
         try:
-            _criada, primeira_do_dia = telas.concluir_serie(
+            criada, primeira_do_dia = telas.concluir_serie(
                 request.user, exercise, peso, dia, reps=reps, op_id=op_id,
                 nota=nota, falhou=falhou, evento=partial(analytics.evento, request),
+                teto=None if extra else (prescritas or None),
             )
+        except services.SerieAlemDaPrescrita:
+            messages.error(
+                request,
+                "As %d séries de %s já estavam registradas — esta não foi gravada. "
+                "Se fez uma a mais, toque em Registrar uma série a mais."
+                % (prescritas, exercise.name),
+            )
+            return redirect("%s?exercicio=%d" % (reverse("workouts:now"), exercise.pk))
         except ValueError:
             # Vinte séries no mesmo exercício num dia. Não é treino, é dedo
             # preso no botão ou fila reproduzindo algo corrompido — e recusar
@@ -1757,9 +1776,8 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
             # Fechou a última série: a tela seguinte já é outro exercício, e
             # sem esta frase a pessoa não sabia que o anterior tinha fechado
             # (UX TR-02). Só no fechamento — uma frase por série seria ruído.
-            fechadas, prescritas = services.series_de_hoje(
-                request.user, exercise, dia=dia
-            )
+            # A contagem é a de antes da escrita mais esta, se ela nasceu.
+            fechadas = feitas + (1 if criada else 0)
             if prescritas and fechadas == prescritas:
                 messages.success(
                     request,
