@@ -8076,14 +8076,36 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   flex-wrap: wrap;
 }
 
-/* Os links dentro da caixa de aceite dos Termos (22/09/2026): texto
-   corrido, mas alvo de 44 px — o preenchimento vertical vai para dentro da
-   margem negativa, então a linha não cresce. Medido na varredura: 150 × 16. */
-.consentimento__links { display: block; margin-top: var(--e1); }
+/* Os links do aceite dos Termos moram ABAIXO do cartão, e não dentro dele
+   (04/10/2026). Dentro do `<label>`, o preenchimento de 12 px que dava 44 px
+   ao link cobria o cartão: medido a 390 px, 28% da área era link e a 290 px o
+   CENTRO do cartão abria `/termos/` em vez de marcar a caixa (o lote noturno
+   de 28/09 reprovou nisso). O cartão inteiro é o alvo da caixa; cada link é
+   um alvo próprio de 44 × 44 que não sai da própria faixa — por isso a faixa
+   tem altura mínima e nada de margem negativa, que era o que o fazia invadir.
+   Alinhada ao texto do cartão (mesmo recuo do `.choice-card`).
+
+   `height: auto` no cartão: o `.choice-card` tem `height: 100%` (cartões de
+   uma mesma linha com a mesma altura), e com a faixa de links DEPOIS dele no
+   `<li>` a conta fecha em círculo — a trilha da grade soma cartão + faixa, o
+   cartão pede 100% dessa soma e a faixa cai 160 px para baixo, fora do `<li>`
+   (medido no navegador). Aqui a lista é de uma coluna só: não há linha para
+   igualar. */
+.consentimento .choice-card { height: auto; }
+.consentimento__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--e2);
+  min-width: 0;
+  padding: 0 var(--e3);
+}
 .consentimento__links a {
-  display: inline-block;
-  padding: var(--e3) 0;
-  margin: calc(-1 * var(--e3)) 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
   color: var(--brand);
 }
 
