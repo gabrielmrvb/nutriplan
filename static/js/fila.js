@@ -338,9 +338,18 @@
     );
   }
 
+  /* QUANTOS ITENS DO DONO ESPERAM, num valor que o `submit` lê SÍNCRONO
+   * (N2, 04/10/2026). O `preventDefault` não espera IndexedDB, então a
+   * decisão "este toque online entra atrás da fila?" lê o número da última
+   * recontagem. Velho para CIMA (durante a drenagem), o toque entra na fila:
+   * o lado seguro. Velho para BAIXO só entre abrir a página e a primeira
+   * recontagem, ou com item guardado por OUTRA aba — o furo que sobra. */
+  var pendentes = 0;
+
   function recontar() {
     return meus().then(function (itens) {
-      avisar((itens || []).length);
+      pendentes = (itens || []).length;
+      avisar(pendentes);
       return itens || [];
     });
   }
@@ -454,6 +463,20 @@
     return "espera";
   }
 
+  /* A RECUSA DE IDENTIDADE DESLIGA A CAPTURA ONLINE (I1, revisão de
+   * 04/10/2026).
+   *
+   * A barreira de replay (`accounts/replay.py`) responde 503 JSON quando a
+   * sessão desta página morreu (senha trocada noutro aparelho, saída noutra
+   * aba) ou é de outra conta. O item fica, porque é dado de alguém, e a
+   * drenagem para nele. Sem esta marca, todo toque online da página entraria
+   * atrás dele (N2) e ficaria ali, com a tela dizendo "enviando…". Com ela, o
+   * toque segue o POST nativo e cai na tela de entrar SEM gravar nada, então
+   * nada passa na frente do item. Depois de entrar, a página nova drena em
+   * ordem. Qualquer `aplicou` ou `recusou` desliga a marca. */
+  var semSessao = false;
+  var SEM_IDENTIDADE = ["replay_offline_sem_sessao", "replay_offline_de_outra_sessao"];
+
   /* Drena em serie e PARA no primeiro item que ficou na fila.
    *
    * O laco anterior era um `reduce` que seguia para o proximo item mesmo com o
@@ -499,7 +522,16 @@
 
     return enviar(item)
       .then(function (r) {
+        /* 503 é sempre "espera" (`veredito`); o da barreira diz POR QUÊ, e a
+         * recusa de identidade levanta `semSessao` (I1). A drenagem para aqui
+         * do mesmo jeito. */
+        if (r.status === 503) {
+          return r.json().then(function (j) {
+            if (SEM_IDENTIDADE.indexOf(j.code) >= 0) semSessao = true;
+          }, function () { /* 503 sem JSON (HTML do Render): nao e a barreira */ });
+        }
         if (veredito(r) === "espera") return;
+        semSessao = false;
         return remover(item.op_id).then(function () {
           return emSerieAtePreservar(itens, i + 1);
         });
@@ -527,9 +559,32 @@
     var form = evento.target;
     if (!form || form.tagName !== "FORM") return;
     if (form.method.toLowerCase() !== "post" || !permitida(form.action)) return;
-    /* Online e com fetch: o caminho normal segue. A fila é para a falta de
-     * rede, não um substituto do POST. */
-    if (navigator.onLine) return;
+    /* Um toque, um dono (MINOR 3, revisão de 04/10/2026). Se outro ouvinte já
+     * levou o toque (o envio sem recarga do agora faz `fetch` com o `op_id` da
+     * página), capturar de novo gravaria a mesma série duas vezes. Com as
+     * versões coerentes os dois leem o mesmo `pendentes` e isto não muda nada;
+     * com uma página velha servida pelo worker, é o que impede a duplicata. */
+    if (evento.defaultPrevented) return;
+    /* O REENVIO DO `catch` DO ENVIO SEM RECARGA (`agora.html`) É O MESMO
+     * TOQUE (F6, 04/10/2026). O `fetch` pode ter gravado e só a resposta se
+     * perdido; sortear um `op_id` aqui gravava uma CÓPIA da série, e o teto
+     * do M14 recusava a última de verdade. O `catch` marca antes do
+     * `requestSubmit` e desmarca depois: a marca vale só para este evento,
+     * qualquer que seja a ordem dos ouvintes. */
+    var reenvio = form.hasAttribute("data-recarga-de-sempre");
+    /* Online e SEM nada do dono na fila: o caminho normal segue. A fila é
+     * para a falta de rede, não um substituto do POST.
+     *
+     * COM item pendente o toque online passaria NA FRENTE dele (N2,
+     * 04/10/2026): Wi-Fi oscilando, a drenagem para no item 3, a rede volta
+     * sem evento `online`, o toque seguinte grava como 3ª, o item 3 vira 4ª e
+     * o item 4 bate no teto e sai da fila calado. A ordem dos toques é a ordem
+     * da gravação: o toque entra na fila, e ela drena na hora.
+     *
+     * Menos quando a fila parou numa recusa de IDENTIDADE (`semSessao`, I1):
+     * aí o POST nativo leva à tela de entrar sem gravar, e nada passa na
+     * frente. */
+    if (navigator.onLine && (!pendentes || semSessao)) return;
 
     evento.preventDefault();
 
@@ -576,6 +631,9 @@
     var dados = {};
     pares.forEach(function (par) { dados[par[0]] = par[1]; });
     dados.op_id = identificador();
+    /* A exceção: o reenvio leva o do formulário (ver `reenvio`, acima). */
+    var daPagina = reenvio && form.elements.op_id;
+    if (daPagina && daPagina.value) dados.op_id = daPagina.value;
     pares.push(["op_id", dados.op_id]);
 
     guardar({
@@ -586,13 +644,24 @@
       em: Date.now(),
       dono: dono(),
     })
-      .then(recontar)
+      /* O item JÁ está guardado: se só a recontagem falhar, a cadeia não pode
+       * cair no `.catch` de "não guardei" — ele devolve o botão e o segundo
+       * toque gravaria a mesma série duas vezes (revisão, INFO 7, 04/10/2026). */
+      .then(function () { return recontar().catch(function () {}); })
       .then(function () {
         /* A tela precisa reagir: sem retorno, marcar offline parece não ter
          * funcionado e a pessoa toca de novo, enfileirando duas vezes. */
         form.dispatchEvent(
           new CustomEvent("nutriplan:enfileirado", { bubbles: true, detail: dados })
         );
+        /* O `op_id` da página foi para a fila: está gasto. O próximo toque
+         * online sem fila iria por `fetch` com ele, e o servidor o descartaria
+         * como repetição. Trocado só aqui, guardado: se guardar falhar, o
+         * toque de novo ainda é o mesmo. */
+        if (daPagina) daPagina.value = identificador();
+        /* Com rede, drena AGORA (N2): a troca sem recarga não dispara `online`
+         * nem `DOMContentLoaded`. Sem rede, `drenar` sai na primeira linha. */
+        drenar().catch(function () { /* fica para a proxima drenagem */ });
       })
       /* Se guardar falhou, a tela NAO pode dizer que guardou.
        *
@@ -613,7 +682,9 @@
        * a conexao voltar. */
       .catch(function (erro) {
         console.error("NutriPlan: nao consegui guardar a operacao offline", erro);
-        document.dispatchEvent(new CustomEvent("nutriplan:fila-falhou", { detail: erro }));
+        /* No FORMULÁRIO, e borbulhando até o `document`: quem devolve o
+         * botão (`pwa.js`) precisa saber qual (MINOR 1, 04/10/2026). */
+        form.dispatchEvent(new CustomEvent("nutriplan:fila-falhou", { bubbles: true, detail: erro }));
       });
   });
 
@@ -638,10 +709,14 @@
     faixa.hidden = quantos === 0;
     if (quantos) {
       var texto = faixa.querySelector("[data-fila-texto]");
+      /* Com rede a fila está drenando (N2): "esperando conexão" seria
+       * mentira (MINOR 2, 04/10/2026). Parada numa recusa de identidade, ela
+       * não está enviando nada, e o texto antigo fica. */
+      var estado = navigator.onLine && !semSessao ? "enviando…" : "esperando conexão";
       texto.textContent =
         quantos === 1
-          ? "1 marcação esperando conexão"
-          : quantos + " marcações esperando conexão";
+          ? "1 marcação " + estado
+          : quantos + " marcações " + estado;
     }
   });
 
@@ -656,7 +731,11 @@
     faixa.classList.add("fila--erro");
     faixa.hidden = false;
     var texto = faixa.querySelector("[data-fila-texto]");
-    if (texto) texto.textContent = "Não conseguimos guardar a marcação. Com conexão, toque de novo.";
+    /* Com rede, "com conexão" não ajuda: o que conserta o IndexedDB que
+     * parou (WebKit depois de suspenso) é recarregar (MINOR 1, 04/10/2026). */
+    if (texto) texto.textContent = navigator.onLine
+      ? "Não conseguimos guardar a marcação. Recarregue a página e toque de novo."
+      : "Não conseguimos guardar a marcação. Com conexão, toque de novo.";
   });
   document.addEventListener("nutriplan:fila", function () {
     var faixa = document.querySelector("[data-fila]");
@@ -679,6 +758,9 @@
   window.NutriPlanFila = {
     drenar: drenar,
     recontar: recontar,
+    /* Lido pelo envio sem recarga do `agora.html`, que roda antes deste
+     * arquivo (inline × `defer`) e precisa sair da frente da fila. */
+    pendentes: function () { return pendentes; },
     permitida: permitida,
     dono: dono,
     meus: meus,
