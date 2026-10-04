@@ -1083,8 +1083,9 @@
      já renderiza; só o <main> (e o título, a URL, o aviso de conquista) é
      trocado — o vídeo aberto continua aberto quando o exercício é o mesmo,
      e o descanso recomeça do número que o servidor mandou. Sem rede nada
-     muda: `fila.js` continua sendo o dono (ele só age offline, e este
-     ouvinte só age online). Qualquer erro cai na recarga de sempre.
+     muda: `fila.js` continua sendo o dono (ele age offline ou com toque
+     guardado na fila, e este ouvinte só online com a fila vazia). Qualquer
+     erro cai na recarga de sempre.
      Medido em L08: o POST→302→GET custava 180–330 ms de `load` no Wi-Fi e
      ~550 ms no 3G, e matava o iframe do vídeo a cada série. */
   (function () {
@@ -1133,10 +1134,13 @@
       if (!form.hasAttribute("data-sem-recarga")) return;
       /* Marcado pelo `catch` abaixo: é o reenvio "de sempre" — este ouvinte
          sai da frente e o navegador (ou a fila offline, em `fila.js`) segue.
-         A marca vale para ESTE envio: se a fila capturar o reenvio e a
-         página ficar, o toque seguinte volta a passar por aqui. */
-      if (form.hasAttribute("data-recarga-de-sempre")) { form.removeAttribute("data-recarga-de-sempre"); return; }
+         Só LÊ a marca: `fila.js` também precisa vê-la (F6, 04/10/2026), e
+         este ouvinte roda antes dele. Quem desmarca é o `catch`. */
+      if (form.hasAttribute("data-recarga-de-sempre")) return;
       if (!navigator.onLine || evento.defaultPrevented) return;
+      /* Com toque guardado na fila, este passaria NA FRENTE dele (N2,
+         04/10/2026): sai da frente, e `fila.js` guarda e drena em ordem. */
+      if (window.NutriPlanFila && NutriPlanFila.pendentes()) return;
       evento.preventDefault();
       var botao = evento.submitter;
       var dados = new FormData(form);
@@ -1239,10 +1243,18 @@
            `requestSubmit`, e não `submit()`: ele DISPARA o evento `submit`,
            então a fila offline de `fila.js` continua vendo o formulário se a
            rede tiver caído no meio — `submit()` navegaria calado para uma
-           página de erro. A marca faz este ouvinte sair da frente. */
+           página de erro. A marca faz este ouvinte sair da frente e diz à
+           fila que é o MESMO toque (mesmo op_id). `requestSubmit` dispara o
+           `submit` síncrono: desmarcar logo depois vale para todo ouvinte. */
         if (botao) { botao.removeAttribute("aria-busy"); botao.disabled = false; }
         form.setAttribute("data-recarga-de-sempre", "1");
-        if (form.requestSubmit) form.requestSubmit(botao || undefined); else form.submit();
+        /* `finally`: se `requestSubmit` lançar, a marca não vaza para o
+           toque seguinte (INFO 1 da revisão, 04/10/2026). */
+        try {
+          if (form.requestSubmit) form.requestSubmit(botao || undefined); else form.submit();
+        } finally {
+          form.removeAttribute("data-recarga-de-sempre");
+        }
       });
     });
   })();

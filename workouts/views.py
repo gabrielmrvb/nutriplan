@@ -1644,9 +1644,11 @@ class ConcluirSerieView(AcaoDeTela, OnboardingRequiredMixin, View):
     - **online** ele vem do HTML, um por renderização. Toque duplo, botão
       voltar e reenvio do formulário repetem o mesmo identificador e a segunda
       escrita é recusada — a mesma proteção que o `update_or_create` dava;
-    - **offline** `fila.js` o SUBSTITUI por um novo a cada captura, porque ali
-      a identidade é do TOQUE e não da página. Sem isso, os três toques
-      voltariam a colapsar num só.
+    - **offline** `fila.js` o SUBSTITUI por um novo a cada captura de toque
+      NOVO, porque ali a identidade é do TOQUE e não da página. Sem isso, os
+      três toques voltariam a colapsar num só. A exceção é o reenvio do envio
+      sem recarga (`agora.html`, o `catch`): é o MESMO toque, que o servidor
+      talvez já tenha gravado, e leva o `op_id` da página (F6, 04/10/2026).
     """
 
     #: A serie e concluida DENTRO do modo treino, com a pessoa de pe entre

@@ -76,6 +76,7 @@ class NenhumTemplateFormataDistanciaSozinhoTests(SimpleTestCase):
     PROIBIDO = [
         (re.compile(r"\|km\b"), "o |km da corrida imprime '5,20'; use |distancia"),
         (re.compile(r"_km\|floatformat"), "km com floatformat; use |distancia"),
+        (re.compile(r"floatformat:\s*['\"]-2['\"]"), "floatformat:'-2' imprime '42,50'; use |carga"),
     ]
 
     def test_varredura(self):
@@ -92,7 +93,7 @@ class NenhumTemplateFormataDistanciaSozinhoTests(SimpleTestCase):
 
     def test_a_varredura_enxerga_o_defeito(self):
         """Controle positivo: as regras casam com as formas que existiam."""
-        fontes = ["{{ c.distancia_m|km }}", "{{ corrida_km|floatformat:1 }}"]
+        fontes = ["{{ c.distancia_m|km }}", "{{ corrida_km|floatformat:1 }}", "{{ x|floatformat:'-2' }}", '{{ x|floatformat:"-2" }}']
         for fonte in fontes:
             with self.subTest(fonte=fonte):
                 self.assertTrue(any(r.search(fonte) for r, _ in self.PROIBIDO))

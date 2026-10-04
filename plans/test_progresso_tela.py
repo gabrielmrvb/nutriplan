@@ -77,6 +77,16 @@ class ATelaNuncaDesenhaSemanaAnteriorAoCadastroTests(TestCase):
     def test_a_conta_nova_nao_tem_barra_de_semana_nenhuma(self):
         """Uma semana só não compara com nada: a barra desenharia 100% de si
         mesma. Quem responde nesse recorte é o mapa do dia."""
+        # A CONTA NASCE NA SEGUNDA DESTA SEMANA (04/10/2026). O `setUp` dá
+        # três dias de conta, e três dias só são UMA semana de quarta a
+        # domingo: na segunda e na terça eles atravessam a virada (sábado e
+        # domingo + segunda), a tela desenha duas barras parciais — a regra
+        # é por semana de CALENDÁRIO (`semanas_da_janela`) — e este teste
+        # caía na noturna. `plans/test_evolucao.py` já fixava a segunda pelo
+        # mesmo motivo ("três dias são UMA semana").
+        hoje = timezone.localdate()
+        self.user.date_joined = timezone.now() - timedelta(days=hoje.weekday())
+        self.user.save(update_fields=["date_joined"])
         html = _main(self._html("mes"))
         self.assertNotIn("colunas__barra", html)
         self.assertIn("mapa-dias__dia", html)
