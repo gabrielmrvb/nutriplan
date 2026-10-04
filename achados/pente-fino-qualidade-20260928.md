@@ -85,3 +85,42 @@ A função de nota é a da auditoria: Ti, Es e Cc medidos nas capturas finais, e
 - "Comi outra coisa" conta para as conquistas de refeição. Por quê: pela doutrina da ofensiva, registrar honesto não pode custar. Como reverter: tirar `OFF_PLAN` do filtro em `achievements/services.reunir`.
 - A corrida entra na Home de quem não faz musculação mesmo sem ter sido declarada. Por quê: sem ficha, é o movimento que o app tem a oferecer. Como reverter: filtrar `CARTOES_SEM_MUSCULACAO` por `declarados`.
 - A onda 2 foi só CSS, para não tocar `templates/workouts/`. Como reverter: `git revert` do commit da dica.
+
+
+## Retomada de 04/10/2026 — o treino, com `workouts/` livre
+
+A Parte 2 fechou em 28/09 (#206), então o que tinha ficado bloqueado nas ondas 5 e 2 voltou. O #162 segue aberto, e as ondas 1 e 3 continuam esperando por ele.
+
+1. **`/treino/` de quem não faz musculação** (#138): o rótulo "MUSCULAÇÃO", uma frase e **"Começar a musculação" como botão principal**. Antes eram um parágrafo e um link de rodapé. "Exercícios que já fiz", vazia, leva ao mesmo convite em vez de "Ver a semana".
+2. **O treino no cânone do sistema visual:** os 14 `h2` crus de `templates/workouts/` viraram rótulo de seção, e a régua do `h2` passou a valer também para `workouts/`. Ficam três papéis nomeados: o nome da sessão de hoje, a folha de troca e a pergunta de encerrar.
+3. **Escala de tamanhos:** cartão de sessão e resumo do programa (12,2 → 12,8 px), etiquetas do bloco de hoje (11,5 → 11,2) e nome da sessão (22,7 → 22,4). O `btn--hoje` deixou de encolher o primário para 16 px em display, e o "%" do anel saiu da display.
+4. **Limpeza:** o teto de `font-size` cru caiu de 23 para 18. `.btn-link--rodape` ficou sem uso e saiu do CSS.
+5. **Provas:** 3 testes novos, vermelhos antes. Sabotagem 4/4 vermelha. `config` (965) e `workouts`, `plans`, `achievements` e `i18n` verdes, depois de três âncoras de teste corrigidas: uma delas (`<h2>Treino de hoje</h2>`) passaria pelo motivo errado.
+6. **Notas:** Ti do Treino subiu de 1 para 3 nas duas personas com ficha; 0 pioras nas cenas remedidas. Observado reavaliado na corredora: Treino com Co 1→2, Hi 1→3 e Ev 2→3; "Exercícios que já fiz" com Ev 2→3.
+
+| tela | auditoria (27/09) | sistema visual (28/09) | pente-fino (28/09) | cenas |
+|---|---|---|---|---|
+| Landing | 1.95 | 2.52 | **2.52** | 3 |
+| Cadastro | 2.57 | 2.86 | **2.86** | 3 |
+| Entrar | 2.57 | 2.86 | **2.86** | 3 |
+| Onboarding 1 | 2.00 | 2.52 | **2.52** | 9 |
+| Onboarding 2 | 1.27 | 2.08 | **2.08** | 9 |
+| Onboarding 3 | 1.43 | 2.14 | **2.14** | 9 |
+| Home | 1.83 | 2.17 | **2.22** | 9 |
+| Treino · dia de treino | 1.42 | 2.05 | **2.33** | 3 |
+| Treino · descanso | 2.12 | 2.38 | **2.62** | 3 |
+| Treino · sem musculação | 2.04 | 2.25 | **2.75** | 3 |
+| Ficha | 2.26 | 2.29 | **2.29** | 6 |
+| Alimentação · fechada | 1.93 | 2.39 | **2.39** | 9 |
+| Alimentação · refeição aberta | 1.83 | 2.29 | **2.29** | 3 |
+| Alimentação · comi outra coisa | 1.72 | 2.12 | **2.12** | 3 |
+| Corrida | 2.13 | 2.25 | **2.25** | 9 |
+| Progresso | 1.87 | 2.09 | **2.17** | 9 |
+| Conquistas | 1.83 | 2.30 | **2.48** | 9 |
+| Histórico (exercícios que já fiz) | 2.36 | 2.57 | **2.52** | 9 |
+| Conta · Mais | 3.00 | 3.00 | **3.00** | 9 |
+| Conta · Perfil | 1.71 | 2.00 | **2.00** | 9 |
+| Ajuda | 1.60 | 2.33 | **2.33** | 6 |
+| /demo/ | 1.67 | 2.29 | **2.29** | 3 |
+
+**Ainda abaixo de 2,5:** onboarding 2 e 3 e Home (onda 1, esperando o #162), a Alimentação (onda 7, esperando a direção) e Ficha, Perfil e Progresso. Nessas três últimas, o que pesa são os critérios observados da auditoria (composição, hierarquia, voz), e não tamanho ou espaço. Elas pedem redesenho, não ajuste de régua.

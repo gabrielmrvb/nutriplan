@@ -544,6 +544,13 @@ class TouchTargetTests(TestCase):
         # nasce com a altura que o navegador quiser, e no Safari do iPhone isso
         # é 33px — abaixo da régua no dia em que foi escrito, não meses depois.
         (".agua-livre__campo {", "min-height: 2.75rem"),
+        # Os links do aceite dos Termos, ABAIXO do cartão (04/10/2026). Dentro
+        # do `<label>` o preenchimento que dava 44px ao link cobria o cartão e
+        # o toque no meio abria `/termos/` em vez de marcar a caixa. Agora cada
+        # link é alvo próprio, medido nas DUAS dimensões — a régua deste
+        # repositório mede altura E largura desde o alvo de 26px de largura.
+        (".consentimento__links a {", "min-height: 2.75rem"),
+        (".consentimento__links a {", "min-width: 2.75rem"),
     ]
 
     def test_every_interactive_element_reaches_44px(self):
