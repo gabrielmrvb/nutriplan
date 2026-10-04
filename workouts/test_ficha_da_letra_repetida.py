@@ -11,12 +11,19 @@ balde "hoje" — a série registrada sumia do "1/4" do item, enquanto o
 cabeçalho dizia "com série registrada hoje". Na quarta as linhas
 coincidiam com os dias e ninguém viu.
 
-O teste não depende do calendário: `inicio_do_ciclo` é movido até a linha
-de hoje ter `weekday` diferente de hoje — num plano de sete dias com três
-letras isso sempre existe.
-"""
-from datetime import timedelta
+O teste não depende do calendário: hoje é ESCOLHIDA uma letra cuja linha
+nasceu noutro dia da semana — num plano de sete dias com três letras isso
+sempre existe.
 
+ATÉ 04/10/2026 o fixture movia `inicio_do_ciclo` até a linha mudar. Desde a
+sequência por presença (24/09/2026) a letra de hoje não sai mais da posição
+no ciclo, e sim da última FEITA: sem histórico é sempre A, cuja linha é a de
+segunda. De terça a domingo o laço parava na primeira volta por acaso; na
+segunda nenhuma volta servia e o `setUp` reprovava os dois testes — a
+noturna, que roda na data real, via isso toda segunda. A escolha do dia
+("Fazer outro treino") chega à ficha pelo mesmo `sessao_do_dia` que a
+recomendação.
+"""
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -36,16 +43,17 @@ class AFichaDaLetraRepetidaTests(TestCase):
         self.pessoa = create_user(email="letra@exemplo.com", weekdays=dias_incluindo_hoje(7))
         self.plano = services.create_routine(self.pessoa)
         self.hoje = timezone.localdate()
-        for atras in range(7):
-            self.plano.inicio_do_ciclo = self.hoje - timedelta(days=atras)
-            self.plano.save(update_fields=["inicio_do_ciclo"])
-            self.sessao = services.sessao_do_dia(self.plano, self.hoje)
-            linha = self.plano.sessions.get(pk=self.sessao.pk)
-            if linha.weekday != self.hoje.weekday():
-                break
-        else:
-            self.fail("nenhuma posição do ciclo põe hoje numa linha de outro dia")
-        self.linha = linha
+        # A linha de cada letra é a primeira dela na ordem.
+        canonica = {}
+        for linha in sorted(self.plano.sessions.all(), key=lambda s: s.order):
+            canonica.setdefault(linha.label, linha)
+        letra = next(
+            rotulo for rotulo, linha in canonica.items()
+            if linha.weekday != self.hoje.weekday()
+        )
+        services.registrar_escolha_de_letra(self.pessoa, self.plano, letra)
+        self.sessao = services.sessao_do_dia(self.plano, self.hoje, user=self.pessoa)
+        self.linha = self.plano.sessions.get(pk=self.sessao.pk)
         self.client.force_login(self.pessoa)
         self.item = next(
             i for i in self.sessao.da_opcao(1)
