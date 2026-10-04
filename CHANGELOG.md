@@ -4,6 +4,10 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-10-04
+
+- **Tocar no cartão dos Termos marca a caixa.** No cadastro e na confirmação dos termos, os links "Termos de Uso" e "Política de Privacidade" ficavam dentro do cartão, e um toque fora de lugar abria a página em vez de marcar. Agora os links ficam logo abaixo do cartão, cada um com o seu espaço para o dedo, e tocar no cartão marca a caixa.
+
 ## 2026-09-28
 
 - **A Política e os Termos dizem quem responde pelos seus dados, e o que a exportação traz de verdade.** A Política ganhou o encarregado pelo tratamento (art. 41 da LGPD), a exportação passou a listar tudo o que o arquivo JSON contém, e os Termos passaram a citar também a Lei do profissional de Educação Física (CREF), ao lado da do nutricionista. Textos marcados como rascunho do dono, ainda para revisão.
