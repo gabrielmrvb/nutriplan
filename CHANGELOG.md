@@ -6,6 +6,7 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-10-04
 
+- **Sem internet, nenhuma série se perde nem se repete.** Quando a conexão some no meio do envio, a série reenviada é a mesma, e não uma cópia que tomava o lugar da próxima. Com séries ainda esperando na fila, o toque seguinte entra atrás delas, na ordem, em vez de passar na frente; e se a sessão do aparelho tiver caído, o app leva você a entrar de novo em vez de dizer "enviando…" sem enviar.
 - **A melhor carga do Progresso sem zero sobrando.** "62,50 kg" virou "62,5 kg", como no resto do app.
 - **Para quem não faz musculação, a aba Treino convida a começar.** "Começar a musculação" virou o botão principal da tela, e "Exercícios que já fiz", quando vazia, leva ao mesmo convite em vez de mandar ver uma semana que não existe.
 - **O Treino fala a língua do resto do app.** Os títulos de seção do treino passaram a ser o rótulo pequeno em caixa alta das outras telas, os textos de apoio dos cartões entraram na escala de tamanhos, e o botão "Começar treino" voltou ao tamanho dos outros botões principais.

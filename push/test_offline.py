@@ -166,8 +166,14 @@ class QueueScopeTests(TestCase):
     def test_it_does_not_hijack_the_normal_post_when_there_is_network(self):
         """A fila é para a falta de rede, não um substituto do POST — e um
         interceptador que sempre pega quebraria o formulário para todo mundo
-        no dia em que o IndexedDB falhar."""
-        self.assertIn("if (navigator.onLine) return;", self.fila)
+        no dia em que o IndexedDB falhar.
+
+        04/10/2026 (N2): a guarda passou a exigir também a fila VAZIA. Com
+        toque guardado, o online entra atrás dele — o motivo e a régua estão em
+        `push/test_fila_reenvio_e_ordem.py`. Sem fila, o POST normal segue.
+        Na rodada 1 da revisão (I1, mesmo dia), ele segue também quando a fila
+        parou numa recusa de identidade (`semSessao`)."""
+        self.assertIn("if (navigator.onLine && (!pendentes || semSessao)) return;", self.fila)
 
     def test_the_page_shows_what_is_waiting(self):
         """Marcar sem rede e não ver retorno é indistinguível de não ter

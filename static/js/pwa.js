@@ -579,6 +579,21 @@
       b.removeAttribute("aria-busy");
     });
   });
+  /* E quando GUARDAR falhou (MINOR 1, 04/10/2026): a faixa manda tocar de
+   * novo, e um botão travado não deixaria. Num `setTimeout`, porque a falha
+   * pode chegar ANTES do `setTimeout(0)` que trava o botão no `submit`, lá em
+   * cima. Medido no navegador: com o IndexedDB lançando na hora, a rejeição
+   * corre em microtarefa, o botão era devolvido e travado logo depois. */
+  document.addEventListener("nutriplan:fila-falhou", function (evento) {
+    var form = evento.target;
+    if (!form || !form.querySelectorAll) return;
+    setTimeout(function () {
+      form.querySelectorAll("[type=submit]").forEach(function (b) {
+        b.disabled = false;
+        b.removeAttribute("aria-busy");
+      });
+    }, 0);
+  });
 
   /* O LINK-BOTÃO TAMBÉM AVISA QUE ESTÁ INDO.
    *
@@ -647,10 +662,13 @@
   function valorDoPar(dados, nome) {
     return dados && dados[nome] != null ? String(dados[nome]) : "";
   }
+  /* O FIM DA NOTA DEPENDE DA REDE (N2 e MINOR 2, 04/10/2026). Com rede o
+   * toque entrou atrás da fila e ela já está drenando (`fila.js`):
+   * "aguardando rede" seria mentira — em toda tela da fila, não só na série. */
   function mostrarNota(raiz, texto) {
     var nota = raiz.querySelector("[data-aguardando-rede]");
     if (!nota) return;
-    nota.textContent = texto;
+    nota.textContent = texto + (navigator.onLine ? "enviando…" : "aguardando rede.");
     nota.hidden = false;
   }
   function aguaEnfileirada(form, dados) {
@@ -673,13 +691,13 @@
         anel.style.setProperty("--pct", String(Math.min(100, Math.round(novo * 100 / meta))));
       }
     }
-    mostrarNota(cartao, "Registrado — aguardando rede.");
+    mostrarNota(cartao, "Registrado — ");
   }
   function refeicaoEnfileirada(form) {
     var artigo = form.closest(".meal");
     if (!artigo) return;
     artigo.classList.add("meal--pendente-rede");
-    mostrarNota(artigo, "Registrada — aguardando rede.");
+    mostrarNota(artigo, "Registrada — ");
   }
   function serieEnfileirada(form, dados) {
     var secao = form.closest(".agora");
@@ -687,7 +705,7 @@
     /* DESFAZER E A MESMA ROTA, NAO UMA SERIE NOVA (revisao N3, 28/09/2026):
      * nada de pastilha, contador ou `extra=1` -- so o aviso honesto. */
     if (valorDoPar(dados, "acao") === "desfazer") {
-      mostrarNota(secao, "Desfazer guardado — aguardando rede.");
+      mostrarNota(secao, "Desfazer guardado — ");
       return;
     }
     var pastilha = secao.querySelector(".series__item--atual");
@@ -742,7 +760,7 @@
         if (botao) botao.textContent = "Concluir série " + (n + 1);
       }
     }
-    mostrarNota(secao, "Série guardada — aguardando rede.");
+    mostrarNota(secao, "Série guardada — ");
   }
   document.addEventListener("nutriplan:enfileirado", function (evento) {
     var form = evento.target;
@@ -752,6 +770,13 @@
     if (/^\/agua\/$/.test(acao)) aguaEnfileirada(form, dados);
     else if (/^\/refeicao\/\d+\/marcar\/$/.test(acao)) refeicaoEnfileirada(form);
     else if (/^\/treino\/agora\/serie\/$/.test(acao)) serieEnfileirada(form, dados);
+  });
+  /* Fila vazia: o que a nota prometia ("enviando…", "aguardando rede") já
+   * aconteceu, e ela sai (MINOR 2, 04/10/2026). `fila.js` avisa a contagem
+   * em `nutriplan:fila`. */
+  document.addEventListener("nutriplan:fila", function (evento) {
+    if (!evento.detail || evento.detail.pendentes !== 0) return;
+    document.querySelectorAll("[data-aguardando-rede]").forEach(function (nota) { nota.hidden = true; });
   });
 
   /* ONBOARDING — a divisão de treino aparece quando os dias pedem.
