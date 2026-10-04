@@ -182,7 +182,12 @@ class OPainelMostraORecomendadoTests(TestCase):
         self.assertIn("hoje__recomendado", html)
         self.assertIn("Fazer outro treino", html)
         self.assertIn(reverse("workouts:escolher_letra"), html)
-        outras = self.client.get(reverse("workouts:routine")).context["hoje"].outras_letras
+        # NA MESMA SEGUNDA (04/10/2026). Este segundo pedido ficava fora da
+        # janela e lia o dia da suíte: no sábado e no domingo (a pessoa treina
+        # seg–sex) não há "hoje" e `context["hoje"]` era `None` na noturna.
+        with _janela(SEGUNDA):
+            resposta = self.client.get(reverse("workouts:routine"))
+        outras = resposta.context["hoje"].outras_letras
         self.assertEqual({o["letra"] for o in outras}, {"B", "C"})
 
     def test_o_selo_recomendado_some_quando_a_pessoa_escolhe(self):

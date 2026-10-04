@@ -14,6 +14,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from config import relogio
 from plans import services, tracking
 from plans.models import MealLog, MealStatus
 from plans.tests import CatalogFixture, create_complete_user
@@ -25,6 +26,14 @@ class AderenciaDosPrimeirosDiasTests(TestCase):
         CatalogFixture.setUpTestData()
 
     def setUp(self):
+        # O MEIO-DIA DE HOJE, SEMPRE (04/10/2026). Esta classe mede "as
+        # refeições que já passaram", então mede a HORA: no relógio congelado
+        # é 12:00, mas a noturna roda de madrugada no relógio real (cron 01:20,
+        # e já atrasou até 07:38 em 04/10), e ali nenhuma
+        # refeição cabe entre o cadastro das 10h e "agora" — o teste do
+        # cadastro caía toda madrugada. O dia continua o da suíte.
+        relogio_do_teste = relogio.Relogio(timezone.localdate()).ligar()
+        self.addCleanup(relogio_do_teste.desligar)
         self.user = create_complete_user(email="aderencia@exemplo.com")
         self.plan = services.create_plan(self.user)
         self.slots = list(self.plan.slots.order_by("time"))

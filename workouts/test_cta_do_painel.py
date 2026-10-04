@@ -36,7 +36,7 @@ from django.utils import timezone
 
 from workouts import services
 from workouts.models import ExerciseLog
-from workouts.tests import create_user
+from workouts.tests import create_user, dias_incluindo_hoje
 
 
 class FilhosDePrimeiroNivel(HTMLParser):
@@ -91,7 +91,11 @@ class OCTADoPainelTemUmFilhoTests(TestCase):
         call_command("seed_workouts", verbosity=0)
 
     def setUp(self):
-        self.user = create_user()
+        # HOJE É DIA DE TREINO (04/10/2026). O padrão de `create_user` é
+        # seg/qua/sex: de terça, quinta, sábado e domingo não há sessão de
+        # hoje, o painel mostra o descanso (sem CTA) e os dois testes caíam
+        # na noturna. Três dias continuam três: a divisão é a mesma.
+        self.user = create_user(weekdays=dias_incluindo_hoje(3))
         self.client.force_login(self.user)
         self.url = reverse("workouts:routine")
 
