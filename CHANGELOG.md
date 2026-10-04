@@ -7,6 +7,10 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 ## 2026-10-04
 
 - **Sem internet, nenhuma série se perde nem se repete.** Quando a conexão some no meio do envio, a série reenviada é a mesma, e não uma cópia que tomava o lugar da próxima. Com séries ainda esperando na fila, o toque seguinte entra atrás delas, na ordem, em vez de passar na frente; e se a sessão do aparelho tiver caído, o app leva você a entrar de novo em vez de dizer "enviando…" sem enviar.
+- **A melhor carga do Progresso sem zero sobrando.** "62,50 kg" virou "62,5 kg", como no resto do app.
+- **Para quem não faz musculação, a aba Treino convida a começar.** "Começar a musculação" virou o botão principal da tela, e "Exercícios que já fiz", quando vazia, leva ao mesmo convite em vez de mandar ver uma semana que não existe.
+- **O Treino fala a língua do resto do app.** Os títulos de seção do treino passaram a ser o rótulo pequeno em caixa alta das outras telas, os textos de apoio dos cartões entraram na escala de tamanhos, e o botão "Começar treino" voltou ao tamanho dos outros botões principais.
+- **Tocar no cartão dos Termos marca a caixa.** No cadastro e na confirmação dos termos, os links "Termos de Uso" e "Política de Privacidade" ficavam dentro do cartão, e um toque fora de lugar abria a página em vez de marcar. Agora os links ficam logo abaixo do cartão, cada um com o seu espaço para o dedo, e tocar no cartão marca a caixa.
 
 ## 2026-09-28
 
@@ -24,6 +28,15 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 - **Os blocos têm um desenho só.** O cartão "Agora" da Home e o topo da Alimentação ganharam o mesmo destaque: fundo verde-escuro, contorno da marca e a linha diagonal no canto. Quando o "Agora" é só um convite (água, peso, nada pendente), ele aparece como os outros blocos. As telas de cadastro, erro e boas-vindas e o bloco de metas do Perfil passaram a usar o mesmo respiro de todos os cartões.
 - **Um botão principal só.** O "Salvar" do peso, no Progresso e na Home, ganhou o mesmo desenho dos outros botões principais. O aviso de conquista, que aparece embaixo de "Concluir série", passou a mostrar "Compartilhar" com contorno, para não disputar com o botão da série, e o aviso de regenerar o treino, na Home, deixou de competir com o cartão "Agora". O selo "Agora" da Alimentação não aparece mais cortado como "Ag…", e o "Buscar no YouTube" do exercício sem vídeo ficou do tamanho de um dedo.
 - **Espaços e textos na mesma régua.** Fora do treino, o espaço entre os blocos, o tamanho dos textos e a altura das linhas passaram a seguir uma escala só. Algumas telas ficaram um pouco mais compactas, e nenhuma mudou de lugar.
+- **A carga aparece do mesmo jeito em todas as telas do treino.** A mesma série aparecia como "42,50", "42,5" e "42,50 kg". Agora a carga só leva vírgula quando tem: 60, 42,5, 62,25.
+- **Trocar a ficha não zera o seu treino.** Depois de montar a ficha nova, o treino de hoje continua da última letra que você fez, e a semana mostra como feitos os dias em que você treinou. Dia de antes da sua conta não aparece mais como pulado, e o aviso para montar a ficha nova some depois que você aceita.
+- **No dia de descanso, dá para treinar mesmo assim.** O Treino oferece "Treinar mesmo assim" com o treino que vem a seguir, sem mudar a ordem dos seus treinos. "Fazer outro treino" ficou do tamanho de um dedo.
+- **O treino de hoje conta as séries do mesmo jeito em toda tela.** O topo do Treino, a ficha e a execução mostram o mesmo progresso. Treino encerrado mostra "Ver o resumo do treino" em vez de "Continuar treino", e a ficha de um programa anterior mostra o treino que você fez de fato.
+- **A execução não grava série a mais por engano.** A série além da ficha, vinda de uma aba antiga, é recusada com aviso; a série a mais que você pede continua valendo, inclusive sem internet. Exercício só com o peso do corpo não mostra mais "0 kg", e voltar ou avançar no navegador não mostra cronômetro velho.
+- **Exercícios de sustentar contam segundos.** Prancha lateral, cadeira na parede e suspensão na barra passam a pedir e registrar tempo, como a prancha, nas fichas montadas a partir de agora.
+- **Na barra assistida, menos ajuda é progresso.** Recorde, melhor carga, conquista e a seta de hoje passam a contar a menor ajuda como avanço.
+- **A corrida guardada no aparelho não se perde.** Se o app pedir para você confirmar os termos ao salvar uma corrida, ela fica guardada no aparelho e sobe depois da confirmação. A tela de Corridas diz que dá para registrar com GPS ou à mão.
+- **A ficha de treino também lembra que o app não substitui profissional.** O mesmo aviso do cadastro e da Alimentação, sobre nutricionista (CRN) e profissional de Educação Física (CREF), aparece no fim da ficha.
 
 ## 2026-09-27
 

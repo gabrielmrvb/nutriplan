@@ -12,7 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from workouts.models import Corrida
-from workouts.templatetags.corrida import km, pace, relogio
+from workouts.templatetags.corrida import pace, relogio
 from workouts.tests import create_user
 
 
@@ -31,12 +31,6 @@ class OsFiltrosDaCorridaTests(SimpleTestCase):
         self.assertEqual(relogio(None), "—")
         self.assertEqual(relogio("qualquer coisa"), "—")
         self.assertEqual(relogio(-5), "—")
-
-    def test_a_distancia_sai_em_km_com_virgula(self):
-        """O app é pt-BR: "5,23", não "5.23"."""
-        self.assertEqual(km(5230), "5,23")
-        self.assertEqual(km(1000), "1,00")
-        self.assertEqual(km(400), "0,40")
 
 
 class OPaceApareceNoHistoricoTests(TestCase):

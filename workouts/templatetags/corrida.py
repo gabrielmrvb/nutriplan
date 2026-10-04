@@ -38,21 +38,6 @@ def relogio(segundos):
 
 
 @register.filter
-def km(metros):
-    """Metros para quilômetros com VÍRGULA decimal, que é o que o app usa.
-
-    `floatformat:2` sozinho respeita a localização, mas o valor continua em
-    metros: o histórico dizia "5230 m", e ninguém conta a própria corrida em
-    metros.
-    """
-    try:
-        valor = int(metros)
-    except (TypeError, ValueError):
-        return "—"
-    return ("%.2f" % (valor / 1000)).replace(".", ",")
-
-
-@register.filter
 def pace(corrida):
     """`min/km` a partir de `Corrida.pace_s_km`, ou travessão quando não há.
 

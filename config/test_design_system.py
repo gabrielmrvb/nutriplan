@@ -103,8 +103,11 @@ CSS = Path(__file__).resolve().parent.parent / "static" / "css" / "app.css"
 #: quatro andaram mais de 0,8 px). Sobram as regras de treino (Fase A), o
 #: `h2` de 20,8 px (lote 4) e a barra de cima (lote 6). 23 no lote 6: a marca
 #: (1.05rem) e os links do desktop (.875rem) viraram degrau; o `h2` base é
-#: legado do treino.
-TETO_FONT_SIZE_CRU = 23
+#: legado do treino. 18 em 04/10/2026 (pente-fino de qualidade): o treino
+#: entrou na escala nas linhas que a tela de hoje mostra (cartão de sessão,
+#: resumo do programa, etiquetas do bloco de hoje, o nome da sessão e o
+#: primário `btn--hoje`, que encolhia).
+TETO_FONT_SIZE_CRU = 18
 #: 287 na V3: a reconstrução da linha de metadados do hero trocou dois
 #: espaçamentos crus por degraus da escala. Desce junto, pelo mesmo motivo.
 #: 276 no REDESIGN V1: o separador do resumo do dia deixou de ser um "·" com
@@ -1468,14 +1471,16 @@ H2_COM_PAPEL = {
     "aviso-regenerar__titulo": "uma pergunta inteira, que em caixa alta não se lê: --texto-lg",
     "landing__cta-titulo": "a frase que chama para a demonstração, na landing: --texto-lg (revisão do lote 4)",
     "vis-oculto": "só para leitor de tela",
+    # O treino entrou no cânone em 04/10/2026 (pente-fino de qualidade):
+    "hoje__nome": "o nome da sessão de hoje no painel do treino: herói em display",
+    "folha-troca__titulo": "o título da folha de trocar exercício: --texto-lg",
+    "agora__confirmar-titulo": "uma pergunta inteira na execução, que em caixa alta não se lê: --texto-lg",
 }
 
 
 def h2_fora_do_canone():
     achados = []
     for p in TEMPLATES.rglob("*.html"):
-        if "workouts" in p.parts:
-            continue
         rel = p.relative_to(TEMPLATES).as_posix()
         if rel in PROSA:
             continue
@@ -1493,7 +1498,7 @@ class UmH2SoTests(SimpleTestCase):
         self.css = sem_comentarios(CSS.read_text(encoding="utf-8"))
         self.bruto = CSS.read_text(encoding="utf-8")
 
-    def test_todo_h2_fora_do_treino_e_rotulo_prosa_ou_papel_nomeado(self):
+    def test_todo_h2_e_rotulo_prosa_ou_papel_nomeado(self):
         self.assertEqual(h2_fora_do_canone(), [],
                          "`<h2>` fora do cânone: use `class=\"sobretitulo\"` (ou nomeie o papel em H2_COM_PAPEL)")
 

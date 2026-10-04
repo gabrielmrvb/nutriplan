@@ -1771,7 +1771,7 @@ class ShareCardTests(TestCase):
                 self.assertNotIn('class="card resumo"', html)
                 # E o título do CARD, com a marcação dele, que é o que distingue
                 # do texto igual da etiqueta do Treino V2.
-                self.assertNotIn("<h2>Treino de hoje</h2>", html)
+                self.assertNotIn(">Treino de hoje</h2>", html)
 
     def test_a_etiqueta_do_treino_v2_nao_e_o_card_de_resumo(self):
         """Os dois dizem "Treino de hoje", e são coisas diferentes.

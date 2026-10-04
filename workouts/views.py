@@ -1451,8 +1451,12 @@ class ExerciciosFeitosView(OnboardingRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        perfil = self.perfil_do_dispatch or getattr(self.request.user, "profile", None)
         context.update({
             "nav": "workout",
+            # #138: quem não faz musculação não é mandado "ver a semana" de
+            # uma ficha que não tem — o vazio dela é a porta de começar.
+            "nao_faz_musculacao": bool(perfil) and perfil.musculacao == Musculacao.NAO,
             "feitos": list(
                 Exercise.objects.filter(logs__user=self.request.user)
                 .annotate(series=Count("logs"), ultima=Max("logs__date"))
