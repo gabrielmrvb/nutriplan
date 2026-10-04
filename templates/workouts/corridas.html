@@ -109,7 +109,7 @@
   {% if plano and semana %}
     <section class="card corrida-plano">
       <div class="card__head">
-        <h2>Semana {{ semana }} de {{ plano.SEMANAS }} · Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }}</h2>
+        <h2 class="sobretitulo secao-rotulo">Semana {{ semana }} de {{ plano.SEMANAS }} · Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }}</h2>
       </div>
       <ol class="corrida-plano__sessoes">
         {% for sessao in sessoes %}
@@ -126,7 +126,7 @@
   {% elif plano %}
     <section class="card corrida-plano">
       <div class="card__head">
-        <h2>Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }} concluído</h2>
+        <h2 class="sobretitulo secao-rotulo">Plano {{ plano.get_plano_display }} {{ plano.get_nivel_display }} concluído</h2>
       </div>
       <p class="corrida-plano__vazio">Você terminou as {{ plano.SEMANAS }} semanas. Quer começar outro?</p>
       <a class="btn-link" href="{% url 'workouts:corrida_plano' %}">trocar ou encerrar</a>
@@ -139,7 +139,7 @@
   {% endif %}
 
   <section class="card">
-    <div class="card__head"><h2>Suas corridas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo secao-rotulo">Suas corridas</h2></div>
     {% if corridas %}
       <dl class="data-list">
         {% for corrida in corridas %}

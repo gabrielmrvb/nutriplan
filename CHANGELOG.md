@@ -4,6 +4,11 @@ Uma seção por dia, um item por mudança que dá para ver ou sentir no app.
 Escrito para quem usa; a engenharia de cada decisão mora no `BACKLOG.md` e
 no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
+## 2026-10-04
+
+- **Para quem não faz musculação, a aba Treino convida a começar.** "Começar a musculação" virou o botão principal da tela, e "Exercícios que já fiz", quando vazia, leva ao mesmo convite em vez de mandar ver uma semana que não existe.
+- **O Treino fala a língua do resto do app.** Os títulos de seção do treino passaram a ser o rótulo pequeno em caixa alta das outras telas, os textos de apoio dos cartões entraram na escala de tamanhos, e o botão "Começar treino" voltou ao tamanho dos outros botões principais.
+
 ## 2026-09-28
 
 - **A Política e os Termos dizem quem responde pelos seus dados, e o que a exportação traz de verdade.** A Política ganhou o encarregado pelo tratamento (art. 41 da LGPD), a exportação passou a listar tudo o que o arquivo JSON contém, e os Termos passaram a citar também a Lei do profissional de Educação Física (CREF), ao lado da do nutricionista. Textos marcados como rascunho do dono, ainda para revisão.

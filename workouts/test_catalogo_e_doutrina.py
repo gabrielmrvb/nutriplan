@@ -112,7 +112,7 @@ class ACorridaAMaoApareceOndeOGpsApareceTests(TestCase):
 
     def _cartao_da_corrida(self):
         html = self.client.get("/treino/").content.decode()
-        cartao = html.split("<h2>Corrida</h2>", 1)[1].split("</section>", 1)[0]
+        cartao = html.split(">Corrida</h2>", 1)[1].split("</section>", 1)[0]
         return texto_visivel(cartao)
 
     def test_a_porta_do_treino_diz_que_da_para_registrar_a_mao(self):

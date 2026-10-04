@@ -481,8 +481,9 @@ corrida e alimentação (`regras.FAMILIAS_DE_MUSCULACAO` sai: treino,
 ofensiva — que exige um dia treinado e nunca fecharia —, semana e
 recorde); conquista já GANHA continua na tela, porque registra o que
 aconteceu. E o **Progresso** troca a área e o tile de treino pela corrida,
-com o estado vazio levando a registrar a primeira. `/treino/` já é a porta
-para ativar a musculação ("Mudei de ideia"). Em branco ("não perguntado")
+com o estado vazio levando a registrar a primeira. `/treino/` é a porta
+para ativar a musculação: "Começar a musculação" é o botão principal da
+tela (04/10/2026), e "Exercícios que já fiz" vazia leva ao mesmo convite. Em branco ("não perguntado")
 continua sendo quem treina. As conquistas de corrida (`Corrida`) e de
 refeição registrada (`MealLog` feita ou "comi outra coisa", por DIA
 distinto) valem para todo mundo — a de corrida só para quem corre ou
