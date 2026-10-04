@@ -1550,7 +1550,7 @@ h3 {
    rouba largura do miolo, e o número é quem tem de ser lido. */
 /* O "%" num degrau da escala, e sem margem própria: `.05rem` era um valor
    inventado para separar dois glifos que a fonte já separa. */
-.ring__pc { font-size: var(--texto-md); font-weight: 700; }
+.ring__pc { font-family: var(--font); font-size: var(--texto-md); font-weight: 700; }
 
 /* O topo do hero: anel à esquerda, identidade à direita. É a mesma gramática
    do painel do dia em Hoje — e ser a mesma é o objetivo. */
@@ -3164,7 +3164,7 @@ ul.data-list { padding: 0; list-style: none; }
   align-items: baseline;
   gap: .15rem .8rem;
   color: var(--text-mute);
-  font-size: .76rem;
+  font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -6260,7 +6260,7 @@ body.montando { overflow: hidden; }
 .hoje__etiqueta {
   margin: 0;
   color: var(--brand-strong);
-  font-size: .72rem;
+  font-size: var(--texto-xs);
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -6306,7 +6306,7 @@ body.montando { overflow: hidden; }
   margin: 0;
   min-width: 0;
   font-family: var(--font-display);
-  font-size: 1.42rem;
+  font-size: var(--texto-xl);
   font-weight: 800;
   line-height: 1.14;
   letter-spacing: .01em;
@@ -6427,7 +6427,6 @@ body.montando { overflow: hidden; }
    necessária para o eco — mas ela não volta: nada aqui precisa empilhar. */
 .btn--hoje {
   min-height: 3.4rem;
-  font-size: var(--texto-base);
 }
 
 /* Todos os exercícios têm série anotada. A frase descreve isso e para: dizer
@@ -6455,7 +6454,7 @@ body.montando { overflow: hidden; }
 }
 .hoje__proximo-rotulo {
   color: var(--text-mute);
-  font-size: .72rem;
+  font-size: var(--texto-xs);
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -6523,7 +6522,7 @@ body.montando { overflow: hidden; }
   gap: .15rem .85rem;
   margin: 0 0 var(--espaco-5);
   color: var(--text-mute);
-  font-size: .76rem;
+  font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
 }
 .programa__resumo > span { white-space: nowrap; }
@@ -8533,16 +8532,6 @@ body.tem-conquista .container { padding-bottom: var(--conquista-reserva); }
   outline-offset: 2px;
 }
 
-/* O link para a tela de hidratação, no rodapé do cartão do dia. Alinhado à
-   esquerda como o resto do cartão, e não centralizado: centralizar o faria
-   parecer um botão principal, que é exatamente o que ele não é.
-
-   O nome é `--rodape` e não `agua__mais` porque ele É um modificador de
-   `.btn-link`: nunca aparece sozinho no HTML, e quem afunda ao toque é o bloco.
-   `TouchFeedbackTests` reprovou a primeira versão — com nome próprio, a classe
-   virava um clicável sem retorno ao dedo, e a régua estava certa. Como
-   modificador, o teste resolve o bloco e o retorno vem de onde sempre veio. */
-.btn-link--rodape { display: inline-flex; margin-top: var(--espaco-2); }
 
 /* A linha "sem horário": mesma família, tom mais baixo. Ela é a água que o app
    tem no total e não sabe quando entrou — informação de rodapé, não de topo. */

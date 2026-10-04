@@ -6,6 +6,8 @@ no `CLAUDE.md`. A tela **Ajuda › O que mudou** lê este arquivo.
 
 ## 2026-10-04
 
+- **Para quem não faz musculação, a aba Treino convida a começar.** "Começar a musculação" virou o botão principal da tela, e "Exercícios que já fiz", quando vazia, leva ao mesmo convite em vez de mandar ver uma semana que não existe.
+- **O Treino fala a língua do resto do app.** Os títulos de seção do treino passaram a ser o rótulo pequeno em caixa alta das outras telas, os textos de apoio dos cartões entraram na escala de tamanhos, e o botão "Começar treino" voltou ao tamanho dos outros botões principais.
 - **Tocar no cartão dos Termos marca a caixa.** No cadastro e na confirmação dos termos, os links "Termos de Uso" e "Política de Privacidade" ficavam dentro do cartão, e um toque fora de lugar abria a página em vez de marcar. Agora os links ficam logo abaixo do cartão, cada um com o seu espaço para o dedo, e tocar no cartão marca a caixa.
 
 ## 2026-09-28
