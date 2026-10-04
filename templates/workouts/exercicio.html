@@ -93,7 +93,7 @@
       e "voltar ao original" é um POST idempotente (`desfazer=1`).
     {% endcomment %}
     <section class="card troca">
-      <div class="card__head"><h2>No lugar de {{ original.name }}</h2></div>
+      <div class="card__head"><h2 class="sobretitulo secao-rotulo">No lugar de {{ original.name }}</h2></div>
       <p class="hint">Você trocou {{ original.name }} por este. Séries e descanso continuam os mesmos; o que você registrou em {{ original.name }} fica guardado.</p>
       {% if historico_do_original %}
         <dl class="data-list historico">
@@ -136,7 +136,7 @@
       armadilha de acessibilidade deste app).
     {% endcomment %}
     <section class="card escada">
-      <div class="card__head"><h2>Progressão do movimento</h2></div>
+      <div class="card__head"><h2 class="sobretitulo secao-rotulo">Progressão do movimento</h2></div>
       <p class="hint">Do mais fácil ao mais difícil. Faça a versão que sai com boa técnica e suba quando ela ficar fácil.</p>
       <dl class="data-list">
         {% for degrau in escada %}
@@ -149,7 +149,7 @@
     </section>
   {% endif %}
   <section class="card formas" id="outras-formas">
-    <div class="card__head"><h2>Outras formas</h2></div>
+    <div class="card__head"><h2 class="sobretitulo secao-rotulo">Outras formas</h2></div>
     {% if alternativas %}
       <ul class="formas__lista">
         {% for alt in alternativas %}
@@ -186,7 +186,7 @@
   </section>
   <section class="card">
     <div class="card__head">
-      <h2>Como fui</h2>
+      <h2 class="sobretitulo secao-rotulo">Como fui</h2>
       <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
     </div>
     {% comment %}

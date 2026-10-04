@@ -55,16 +55,20 @@
       dia 2. A tela repete a resposta, aponta a corrida — que é o que ela
       tem aqui — e deixa a porta para mudar de ideia.
     {% endcomment %}
+    {% comment %}
+      A PORTA PARA COMEÇAR (#138, decisão do dono, 28/09/2026): para quem
+      disse que não faz musculação esta aba é o convite de ativar depois — e
+      o convite é o botão principal da tela, não um link de rodapé.
+    {% endcomment %}
     <section class="card">
-      <p class="empty-state">
+      <h2 class="sobretitulo secao-rotulo">Musculação</h2>
+      <p>
         {# BA18 (28/09/2026): abaixo vem a porta da corrida, não uma lista de corridas. #}
-        Você disse que não faz musculação, então não há ficha aqui. A
+        Você disse no cadastro que não faz musculação, então não há ficha
+        aqui. Quando quiser começar, marque os dias e o app monta a ficha. A
         corrida fica logo abaixo.
       </p>
-      <a class="btn-link btn-link--rodape"
-         href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">
-        Mudei de ideia — quero montar uma ficha
-      </a>
+      <a class="btn btn--primary btn--block" href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">Começar a musculação</a>
     </section>
     {% include "workouts/_corrida.html" %}
   {% elif not plan %}
@@ -509,7 +513,7 @@
             ficha tirou de lá não aparece em tela nenhuma sem ela.
           {% endcomment %}
           <div class="card__head">
-            <h2>Seu programa</h2>
+            <h2 class="sobretitulo secao-rotulo">Seu programa</h2>
             <a href="{% url 'workouts:exercicios_feitos' %}">Exercícios que já fiz</a>
           </div>
           <p class="programa__resumo">
@@ -773,7 +777,7 @@
           {% endcomment %}
           <details class="card explicacao" id="detalhes-do-programa">
             <summary class="explicacao__head">
-              <h2>Detalhes do programa</h2>
+              <h2 class="sobretitulo secao-rotulo">Detalhes do programa</h2>
               <span class="explicacao__dica" aria-hidden="true">abrir</span>
             </summary>
 
@@ -867,7 +871,7 @@
                {% endcomment %}
                {% if hoje and not hoje.proximo %}data-concluido="1"{% endif %}
                {% if minutos_observados %}data-minutos-observados="{{ minutos_observados }}"{% endif %}>
-        <div class="card__head"><h2>Treino de hoje</h2></div>
+        <div class="card__head"><h2 class="sobretitulo secao-rotulo">Treino de hoje</h2></div>
 
         <div class="tiles">
           <div class="tile">

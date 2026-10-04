@@ -8,7 +8,7 @@
 
   {% if ativo %}
     <section class="card">
-      <div class="card__head"><h2>Seu plano agora</h2></div>
+      <div class="card__head"><h2 class="sobretitulo secao-rotulo">Seu plano agora</h2></div>
       <p>
         {{ ativo.get_plano_display }} {{ ativo.get_nivel_display }}, começou em
         {{ ativo.comecou_em|date:"d/m/Y" }}.
@@ -22,7 +22,7 @@
   {% endif %}
 
   <section class="card">
-    <div class="card__head"><h2>Escolher um plano</h2></div>
+    <div class="card__head"><h2 class="sobretitulo secao-rotulo">Escolher um plano</h2></div>
     {% comment %}
       Cada combinação de plano e nível vira um cartão com um `<form>` só
       dela — plano e nível vão escondidos, e o botão já é o envio. Sem rádio

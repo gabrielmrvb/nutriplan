@@ -66,7 +66,11 @@
     {% else %}
       <div class="empty-state">
         <p>{% translate "Nenhuma série registrada ainda. A primeira aparece aqui assim que você concluir uma na execução." %}</p>
-        <a class="btn btn--ghost" href="{% url 'workouts:routine' %}">{% translate "Ver a semana" %}</a>
+        {% if nao_faz_musculacao %}
+          <a class="btn btn--ghost" href="{% url 'accounts:onboarding_step' step=2 %}?origem=treino">{% translate "Começar a musculação" %}</a>
+        {% else %}
+          <a class="btn btn--ghost" href="{% url 'workouts:routine' %}">{% translate "Ver a semana" %}</a>
+        {% endif %}
       </div>
     {% endif %}
   </section>
