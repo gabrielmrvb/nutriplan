@@ -28,7 +28,7 @@ from accounts.models import DuracaoTreino, Profile, SplitPreference, TrainingDay
 from . import services
 
 from .models import ExerciseLog, TrainingSession
-from .tests import create_user
+from .tests import create_user, dias_incluindo_hoje
 
 
 def pessoa(email, weekdays=(0, 1, 2, 3, 4, 5, 6)):
@@ -102,7 +102,10 @@ class TornarHojeNaoFabricaTreinoTests(BaseDoFluxo):
     recordes e a sequência)."""
 
     def test_nenhum_registro_de_execucao_novo_e_a_letra_do_dia_e_a_esperada(self):
-        user = create_user(email="tornar@exemplo.com")
+        # HOJE É DIA DE TREINO (04/10/2026): `tornar_hoje` exige isso, e o
+        # padrão seg/qua/sex de `create_user` reprovava de terça, quinta,
+        # sábado e domingo na noturna. Três dias continuam três (há C).
+        user = create_user(email="tornar@exemplo.com", weekdays=dias_incluindo_hoje(3))
         services.create_routine(user)
         antes = ExerciseLog.objects.filter(user=user).count()
         sessao = tornar_hoje(user, "C")

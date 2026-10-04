@@ -20,6 +20,8 @@ from accounts.models import (
     Profile,
     WeightEntry,
 )
+from config import relogio
+from demo.management.commands.seed_demo import DIAS_DE_TREINO as DIAS_DE_TREINO_DO_DEMO
 from demo.middleware import DEMO_EMAIL, DEMO_ONBOARDING_EMAIL
 from plans.models import HydrationLog, MealLog, MealStatus
 from workouts.health_export import resumo_da_sessao
@@ -36,6 +38,23 @@ def _semear():
     call_command("seed_catalog", verbosity=0)
     call_command("seed_workouts", verbosity=0)
     call_command("seed_demo", verbosity=0)
+
+
+def _ultimo_dia_de_treino_do_demo():
+    """Hoje, se o Carlos treina hoje; senão o último dia em que ele treinou.
+
+    DESDE 22/09/2026 cada sessão do demo cai no DIA DELA (`_dia_da_sessao`),
+    e no descanso não há carga de hoje — de propósito: a tela de Treino
+    somava a ficha inteira num domingo. Teste que pergunta pela carga de
+    hoje precisa de um dia em que o demo treina; foi a falta disso que
+    reprovou a noturna nas terças, quintas, sábados e domingos (04/10/2026).
+    """
+    hoje = timezone.localdate()
+    dias = {dia for dia, _ in DIAS_DE_TREINO_DO_DEMO}
+    return next(
+        hoje - timedelta(days=n) for n in range(7)
+        if (hoje - timedelta(days=n)).weekday() in dias
+    )
 
 
 class DemoNavegacaoTests(TestCase):
@@ -602,6 +621,14 @@ class DemoCargasDeHojeTests(TestCase):
     """
 
     @classmethod
+    def setUpClass(cls):
+        # A CLASSE INTEIRA NUM DIA DE TREINO DO DEMO (04/10/2026), o seed
+        # junto: ver `_ultimo_dia_de_treino_do_demo`.
+        relogio_da_classe = relogio.Relogio(_ultimo_dia_de_treino_do_demo()).ligar()
+        cls.addClassCleanup(relogio_da_classe.desligar)
+        super().setUpClass()
+
+    @classmethod
     def setUpTestData(cls):
         _semear()
 
@@ -988,6 +1015,11 @@ class SeedDemoIdempotenteTests(TestCase):
         from workouts.models import Split, TrainingPlan
         from workouts.services import split_for, _preferencia_de
 
+        # NUM DIA DE TREINO DO DEMO (04/10/2026): a condição 2 abaixo é carga
+        # de HOJE, e no descanso o demo não escreve nenhuma (ver
+        # `_ultimo_dia_de_treino_do_demo`).
+        relogio_do_teste = relogio.Relogio(_ultimo_dia_de_treino_do_demo()).ligar()
+        self.addCleanup(relogio_do_teste.desligar)
         call_command("seed_demo", verbosity=0)
         demo = User.objects.get(email=DEMO_EMAIL)
         esperada = split_for(demo.training_days.count(), _preferencia_de(demo))

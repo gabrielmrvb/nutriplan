@@ -36,6 +36,7 @@ from accounts.models import DuracaoTreino, TrainingDay
 from plans.tests import create_complete_user
 from workouts import services
 from workouts.models import ExerciseLog, TrainingPlan
+from workouts.tests import dias_incluindo_hoje
 
 
 def _pessoa(email="andamento@exemplo.com"):
@@ -44,7 +45,11 @@ def _pessoa(email="andamento@exemplo.com"):
         split_preference_confirmada=True, duracao_treino=DuracaoTreino.PADRAO,
     )
     TrainingDay.objects.filter(user=user).delete()
-    for d in (0, 1, 2, 3, 4):
+    # CINCO DIAS QUE INCLUEM HOJE (04/10/2026). Eram seg–sex fixos: no sábado
+    # e no domingo `sessao_do_dia` é `None` e os nove testes que anotam série
+    # de hoje morriam no `setUp` — a noturna, na data real, via isso todo fim
+    # de semana. Cinco dias continuam cinco: a divisão é a mesma.
+    for d in dias_incluindo_hoje(5):
         TrainingDay.objects.create(user=user, weekday=d, duration_min=60)
     return user
 

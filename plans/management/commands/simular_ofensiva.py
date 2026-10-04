@@ -15,13 +15,14 @@ futura na régua: rode antes e depois.
 
     manage.py simular_ofensiva
 """
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import ActivityLevel, Goal, ONBOARDING_DONE, Profile, Sex, TrainingDay, WeightEntry
 from plans import services, streaks
@@ -39,6 +40,8 @@ SEMANA = [
     (4, 1500, False),
     (4, 1500, False),
 ]
+#: A segunda da semana auditada; a simulação vai dela ao domingo.
+SEGUNDA = date(2026, 9, 21)
 META_AGUA = 3000
 DIAS_DE_TREINO = (0, 2, 4)
 DIAS = ("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
@@ -50,7 +53,13 @@ def regra_antiga(dia):
 
 
 def _pessoa():
-    user = get_user_model().objects.create_user(email="simulacao-ofensiva@exemplo.invalid", password=None)
+    # NASCE NO PRIMEIRO DIA SIMULADO (04/10/2026). Com `date_joined = agora`
+    # a semana fixa ficava antes do cadastro em qualquer dia depois de 21/09,
+    # e a ofensiva (que não olha antes de `primeiro_dia_da_conta`) dava zero.
+    user = get_user_model().objects.create_user(
+        email="simulacao-ofensiva@exemplo.invalid", password=None,
+        date_joined=timezone.make_aware(datetime.combine(SEGUNDA, time(0, 0))),
+    )
     Profile.objects.create(
         user=user, sex=Sex.MALE, birth_date=date(1995, 4, 12), height_cm=178,
         activity_level=ActivityLevel.LIGHT, goal=Goal.BULK, wake_time=time(7, 0),
@@ -68,7 +77,6 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         if not Exercise.objects.filter(is_active=True).exists():
             call_command("seed_workouts", verbosity=0)
-        segunda = date(2026, 9, 21)
         with transaction.atomic():
             user = _pessoa()
             plano = services.create_plan(user)
@@ -76,7 +84,7 @@ class Command(BaseCommand):
             slots = list(plano.slots.order_by("time")[:5])
             exercicio = Exercise.objects.filter(is_active=True).first()
             for i, (feitas, ml, treinou) in enumerate(SEMANA):
-                dia = segunda + timedelta(days=i)
+                dia = SEGUNDA + timedelta(days=i)
                 for j, slot in enumerate(slots):
                     MealLog.objects.create(user=user, slot=slot, date=dia,
                                            status=MealStatus.DONE if j < feitas else MealStatus.SKIPPED)
@@ -91,7 +99,7 @@ class Command(BaseCommand):
             antiga, nova = [], []
             seq_antiga = 0
             for i in range(7):
-                hoje = segunda + timedelta(days=i)
+                hoje = SEGUNDA + timedelta(days=i)
                 ofensiva = streaks.calcular(user, hoje=hoje, meta_agua_ml=META_AGUA)
                 nova.append(ofensiva.dias)
                 # A regra antiga, dia a dia, sobre os mesmos `Dia`s que a nova lê.

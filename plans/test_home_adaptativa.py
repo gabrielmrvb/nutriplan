@@ -34,6 +34,7 @@ from accounts.models import (
 )
 from plans.models import HydrationLog
 from accounts.tests import ETAPA2, ETAPA3, STEP1, step_url
+from workouts.tests import dias_incluindo_hoje
 
 #: Os marcadores de cada bloco da Home, ancorados na CLASSE e não no texto.
 #: Texto visível muda com a cópia; classe é contrato de estrutura. E ancorar no
@@ -76,11 +77,13 @@ class BaseDaHome(TestCase):
     def setUpTestData(cls):
         call_command("seed_workouts", verbosity=0)
 
-    def pessoa(self, email="home@exemplo.com", interesses=(), principal=""):
-        """Nasce do wizard: a Home exige plano, e plano nasce do onboarding."""
+    def pessoa(self, email="home@exemplo.com", interesses=(), principal="", weekdays=None):
+        """Nasce do wizard: a Home exige plano, e plano nasce do onboarding.
+        `weekdays` troca os dias de treino do wizard (seg/qua/sex)."""
         user = User.objects.create_user(email=email, password="senha-bem-forte-123")
         self.client.force_login(user)
-        for etapa, dados in ((1, STEP1), (2, ETAPA2)):
+        etapa2 = dict(ETAPA2, weekdays=[str(d) for d in weekdays]) if weekdays else ETAPA2
+        for etapa, dados in ((1, STEP1), (2, etapa2)):
             self.client.post(step_url(etapa), dados)
         self.client.post(
             step_url(3),
@@ -462,11 +465,15 @@ class OCartaoDaAreaTemAAcaoDoDiaTests(BaseDaHome):
         self.fail("cartão %s não está no painel" % rotulo)
 
     def test_treino_mostra_a_sessao_de_hoje_e_quantas_series_faltam(self):
-        self.pessoa("acao-treino@exemplo.com", ("treino",), "treino")
+        # HOJE É DIA DE TREINO (04/10/2026). O wizard treina seg/qua/sex, e
+        # o teste contava com a suíte numa quarta: de terça, quinta, sábado e
+        # domingo o cartão dizia "Descanso" e a noturna caía. Três dias que
+        # incluem hoje continuam três.
+        self.pessoa("acao-treino@exemplo.com", ("treino",), "treino",
+                    weekdays=dias_incluindo_hoje(3))
 
         cartao = self._cartao(self.home(), "Treino")
 
-        # a fixture treina seg/qua/sex e a suíte vive numa quarta: hoje tem treino
         self.assertRegex(cartao, r"<p class=\"painel__valor num\">\d+")
         self.assertIn("séries", cartao)
         self.assertRegex(cartao, r"\d+ exercícios?")
