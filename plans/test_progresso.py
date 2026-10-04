@@ -284,7 +284,10 @@ class TelaDeProgressoTests(TestCase):
         # 63 não é.
         linha = html.split("Supino reto com barra", 1)[1].split("</li>", 1)[0]
         linha = " ".join(linha.split())
-        self.assertIn("62,50 kg", linha)
+        # Desde 04/10/2026 a carga do Progresso passa pelo filtro único
+        # `carga` (config/numeros.py), sem o zero que sobrava: "62,5 kg".
+        self.assertIn("62,5 kg", linha)
+        self.assertNotIn("62,50", linha)
         self.assertNotIn("63", linha)
 
     def test_o_treino_aparece_na_tela(self):

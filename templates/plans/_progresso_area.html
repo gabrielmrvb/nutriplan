@@ -141,7 +141,7 @@
         {% for recorde in area.extra.recordes %}
           <li class="data-list__item">
             <span class="data-list__nome">{{ recorde.exercise__name }}{% if recorde.e_recorde %} <span class="pill pill--brand">{% translate "recorde" %}</span>{% endif %}</span>
-            <span class="data-list__valor num">{{ recorde.weight_kg|floatformat:"-2" }} kg<span class="data-list__meta"> × {{ recorde.reps }} · {{ recorde.date|date:"d/m" }}</span></span>
+            <span class="data-list__valor num">{{ recorde.weight_kg|carga }} kg<span class="data-list__meta"> × {{ recorde.reps }} · {{ recorde.date|date:"d/m" }}</span></span>
           </li>
         {% empty %}
           <li class="data-list__item hint">{% translate "A sua maior carga em cada exercício aparece aqui assim que você registrar peso." %}</li>
