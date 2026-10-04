@@ -9,7 +9,9 @@
   "cláusula destacada das demais" (art. 8º, § 1º); o aceite dos Termos é a
   terceira, e leva os links — a pessoa consegue ler o que está aceitando
   sem sair da tela (abrem em outra aba de propósito: voltar ao formulário
-  não pode custar o que já foi digitado).
+  não pode custar o que já foi digitado). Os links moram ABAIXO do cartão,
+  fora do `<label>` (04/10/2026): dentro dele cobriam parte do cartão e o
+  toque no meio abria `/termos/` em vez de marcar a caixa.
 
   Cada texto termina em "Sem isso o app não funciona": o tratamento é
   condição do serviço, e a lei manda dizer isso "com destaque" (art. 9º, § 3º).
@@ -33,13 +35,6 @@
             <span class="choice-card__frame" aria-hidden="true"></span>
             <span class="choice-card__text">
               {{ campo.label }}
-              {% if campo.name == "termos" %}
-                <span class="consentimento__links">
-                  <a href="{% url 'termos' %}" target="_blank" rel="noopener">Termos de Uso</a>
-                  ·
-                  <a href="{% url 'privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>
-                </span>
-              {% endif %}
             </span>
             <span class="choice-card__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
           </label>
@@ -47,6 +42,13 @@
             <ul class="field__errors" id="{{ campo.auto_id }}_error">
               {% for erro in campo.errors %}<li>{{ erro }}</li>{% endfor %}
             </ul>
+          {% endif %}
+          {% if campo.name == "termos" %}
+            <span class="consentimento__links">
+              <a href="{% url 'termos' %}" target="_blank" rel="noopener">Termos de Uso</a>
+              ·
+              <a href="{% url 'privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>
+            </span>
           {% endif %}
         </li>
       {% endfor %}

@@ -21,6 +21,7 @@ Este runner verifica antes de criar o banco, e a mensagem diz o que fazer.
 Verificar, e não matar: derrubar a conexão de uma suíte legítima em andamento
 trocaria um erro claro por um resultado errado.
 """
+import multiprocessing
 import os
 import re
 import sys
@@ -28,7 +29,7 @@ import threading
 
 from django.conf import settings
 from django.db import connections
-from django.test.runner import DiscoverRunner
+from django.test.runner import DiscoverRunner, ParallelTestSuite
 
 from config import branch, relogio
 
@@ -146,6 +147,26 @@ def descrever(linhas, nome_de_teste):
     )
 
 
+def _init_worker_com_relogio(*args, **kwargs):
+    """O `init_worker` do Django, mais o relógio da suíte no worker.
+
+    No `spawn` (Windows, macOS) o worker nasce vazio e não passa por
+    `RunnerUnico.setup_test_environment`: sem isto ele roda na data REAL, e a
+    corrida paralela mede o dia de hoje em vez do dia da suíte. O ambiente
+    (`NUTRIPLAN_DATA_REAL`, `NUTRIPLAN_DATA_DA_SUITE`) o worker herda do
+    processo principal. Só no `fork` o relógio já veio na cópia da memória
+    (`forkserver`, o padrão do Linux a partir do Python 3.14, também nasce vazio).
+    """
+    ParallelTestSuite.init_worker(*args, **kwargs)
+    if multiprocessing.get_start_method() != "fork":
+        relogio.ligar_para_a_suite()
+
+
+class SuiteParalelaComRelogio(ParallelTestSuite):
+    # Sem `staticmethod`: o Django lê `self.init_worker.__func__`.
+    init_worker = _init_worker_com_relogio
+
+
 class RunnerUnico(DiscoverRunner):
     """O `DiscoverRunner` de sempre, com a verificação antes de criar o banco.
 
@@ -156,6 +177,7 @@ class RunnerUnico(DiscoverRunner):
     que a suíte mede.
     """
 
+    parallel_test_suite = SuiteParalelaComRelogio
     _relogio = None
     _vigia = None
     _intruso = False
